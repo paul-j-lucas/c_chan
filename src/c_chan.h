@@ -21,6 +21,9 @@
 #ifndef C_CHAN_H
 #define C_CHAN_H
 
+// local
+#include "config.h"                     /* must go first */
+
 // standard
 #include <pthread.h>
 #include <stdbool.h>
@@ -45,8 +48,8 @@ struct channel {
 
   union {
     struct {
-      void           *buf;
-      unsigned        len;              ///< If buffered, length of buffer.
+      void           *ring_buf;
+      unsigned        len;              ///< Number of elements in buffer.
       unsigned        idx[2];           ///< 0 = read; 1 = write.
     } buf;
     struct {
