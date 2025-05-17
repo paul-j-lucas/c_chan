@@ -26,6 +26,7 @@
 
 // standard
 #include <pthread.h>
+#include <sysexits.h>
 #include <unistd.h>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -74,6 +75,9 @@
 
 #define PTHREAD_COND_INIT(COND,ATTR) \
   PERROR_EXIT_IF( pthread_cond_init( (COND), (ATTR) ) != 0, EX_IOERR )
+
+#define PTHREAD_COND_SIGNAL(COND) \
+  PERROR_EXIT_IF( pthread_cond_signal( (COND) ) != 0, EX_IOERR )
 
 #define PTHREAD_COND_WAIT(COND,MTX) \
   PERROR_EXIT_IF( pthread_cond_wait( (COND), (MTX) ) != 0, EX_IOERR )
