@@ -58,10 +58,13 @@ static bool chan_buf_recv( struct channel *chan, void *data,
   while ( chan_is_empty( chan ) ) {
     if ( (is_closed = chan->is_closed) )
       goto done;
-    if ( timeout == NULL )
+    if ( timeout == NULL ) {
       PTHREAD_COND_WAIT( &chan->not_empty, &chan->mtx );
-    else if ( (timed_out = !cond_reltimedwait( &chan->not_empty, &chan->mtx, timeout )) )
+    }
+    else if ( (timed_out = !cond_reltimedwait( &chan->not_empty, &chan->mtx,
+                                               timeout )) ) {
       goto done;
+    }
   }
 
   memcpy( data, chan->buf.ring_buf + chan->buf.idx[0] * chan->msg_size,
@@ -91,10 +94,13 @@ static bool chan_buf_send( struct channel *chan, void *data,
       goto done;
     if ( !chan_is_full( chan ) )
       break;
-    if ( timeout == NULL )
+    if ( timeout == NULL ) {
       PTHREAD_COND_WAIT( &chan->not_full, &chan->mtx );
-    else if ( (timed_out = !cond_reltimedwait( &chan->not_full, &chan->mtx, timeout )) )
+    }
+    else if ( (timed_out = !cond_reltimedwait( &chan->not_full, &chan->mtx,
+                                               timeout )) ) {
       goto done;
+    }
   }
 
   memcpy( chan->buf.ring_buf + chan->buf.idx[1] * chan->msg_size, data,
@@ -121,16 +127,20 @@ static bool chan_unbuf_recv( struct channel *chan, void *data,
   bool timed_out = false;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
   bool const is_closed = chan->is_closed;
-  if ( !is_closed ) {
-    PTHREAD_MUTEX_LOCK( &chan->unbuf.mtx[0] );
-    chan->unbuf.recv_buf = data;
-    PTHREAD_COND_SIGNAL( &chan->not_full );
-    if ( timeout == NULL )
-      PTHREAD_COND_WAIT( &chan->not_empty, &chan->mtx );
-    else
-      timed_out = !cond_reltimedwait( &chan->not_empty, &chan->mtx, timeout );
-    PTHREAD_MUTEX_UNLOCK( &chan->unbuf.mtx[0] );
-  }
+  if ( is_closed )
+    goto done;
+
+  PTHREAD_MUTEX_LOCK( &chan->unbuf.mtx[0] );
+  chan->unbuf.recv_buf = data;
+  PTHREAD_COND_SIGNAL( &chan->not_full );
+  if ( timeout == NULL )
+    PTHREAD_COND_WAIT( &chan->not_empty, &chan->mtx );
+  else
+    timed_out = !cond_reltimedwait( &chan->not_empty, &chan->mtx, timeout );
+  chan->unbuf.recv_buf = NULL;
+  PTHREAD_MUTEX_UNLOCK( &chan->unbuf.mtx[0] );
+
+done:
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   if ( is_closed ) {
     errno = EPIPE;
@@ -144,21 +154,26 @@ static bool chan_unbuf_send( struct channel *chan, void *data,
   bool timed_out = false;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
   bool is_closed = chan->is_closed;
-  if ( !is_closed ) {
-    PTHREAD_MUTEX_LOCK( &chan->unbuf.mtx[1] );
+  if ( is_closed )
+    goto done;
+
+  PTHREAD_MUTEX_LOCK( &chan->unbuf.mtx[1] );
+  if ( chan->unbuf.recv_buf == NULL ) { // there is no reader: wait
     if ( timeout == NULL ) {
       PTHREAD_COND_WAIT( &chan->not_full, &chan->mtx );
     }
     else if ( (timed_out = !cond_reltimedwait( &chan->not_full, &chan->mtx,
-                                               timeout )) ) {
+                                              timeout )) ) {
       goto done;
     }
-    if ( !(is_closed = chan->is_closed) )
-      memcpy( chan->unbuf.recv_buf, data, chan->msg_size );
-    PTHREAD_COND_SIGNAL( &chan->not_full );
-done:
     PTHREAD_MUTEX_UNLOCK( &chan->unbuf.mtx[1] );
+    if ( (is_closed = chan->is_closed) )
+      goto done;
   }
+  memcpy( chan->unbuf.recv_buf, data, chan->msg_size );
+  PTHREAD_COND_SIGNAL( &chan->not_empty );
+
+done:
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   if ( is_closed ) {
     errno = EPIPE;
@@ -167,6 +182,15 @@ done:
   return !timed_out;
 }
 
+/**
+ * Like `pthread_cond_timedwait()` except \a timeout specifies a relative time.
+ *
+ * @param cond The condition to wait for.
+ * @param mtx The mutex to unlock.
+ * @param timeout The relative time to wait.
+ * @return Returns `true` only if the wait succeeded; `false` if the timeout
+ * expired.
+ */
 static bool cond_reltimedwait( pthread_cond_t *cond, pthread_mutex_t *mtx,
                                struct timespec const *timeout ) {
   assert( cond != NULL );
@@ -181,9 +205,7 @@ static bool cond_reltimedwait( pthread_cond_t *cond, pthread_mutex_t *mtx,
     .tv_nsec = timeout->tv_nsec + now.tv_usec * 1000
   };
 
-  errno = 0;
-  PTHREAD_COND_TIMEDWAIT( cond, mtx, &abs_time );
-  switch ( errno ) {
+  switch ( pthread_cond_timedwait( cond, mtx, &abs_time ) ) {
     case 0:
       return true;
     case ETIMEDOUT:
