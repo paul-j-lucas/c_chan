@@ -146,7 +146,7 @@ done:
     errno = EPIPE;
     return false;
   }
-  return !timed_out;;
+  return !timed_out;
 }
 
 static bool chan_unbuf_send( struct channel *chan, void *data,
@@ -159,15 +159,12 @@ static bool chan_unbuf_send( struct channel *chan, void *data,
 
   PTHREAD_MUTEX_LOCK( &chan->unbuf.mtx[1] );
   if ( chan->unbuf.recv_buf == NULL ) { // there is no reader: wait
-    if ( timeout == NULL ) {
+    if ( timeout == NULL )
       PTHREAD_COND_WAIT( &chan->not_full, &chan->mtx );
-    }
-    else if ( (timed_out = !cond_reltimedwait( &chan->not_full, &chan->mtx,
-                                              timeout )) ) {
-      goto done;
-    }
+    else
+      timed_out = !cond_reltimedwait( &chan->not_full, &chan->mtx, timeout );
     PTHREAD_MUTEX_UNLOCK( &chan->unbuf.mtx[1] );
-    if ( (is_closed = chan->is_closed) )
+    if ( (is_closed = chan->is_closed) || timed_out )
       goto done;
   }
   memcpy( chan->unbuf.recv_buf, data, chan->msg_size );

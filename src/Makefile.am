@@ -41,12 +41,14 @@ AM_CPPFLAGS =	-I$(top_srcdir)/lib -I$(top_builddir)/lib
 LDADD =		$(top_builddir)/lib/libgnu.a
 
 libc_chan_a_SOURCES = \
-		c_chan.c c_chan.h
+		c_chan.c c_chan.h \
+		util.h
 
 c_chan_test_SOURCES = \
 		$(c_chan_SOURCES) \
 		c_chan_test.c \
-		unit_test.h
+		util.c util.h \
+		unit_test.c unit_test.h
 
 TESTS =		$(check_PROGRAMS)
 

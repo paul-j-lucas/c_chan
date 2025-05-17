@@ -22,10 +22,22 @@
 #include "util.h"
 
 // standard
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+extern char const *me;
 
 ////////// extern functions ///////////////////////////////////////////////////
+
+char const* base_name( char const *path_name ) {
+  assert( path_name != NULL );
+  char const *const slash = strrchr( path_name, '/' );
+  if ( slash != NULL )
+    return slash[1] != '\0' ? slash + 1 : path_name;
+  return path_name;
+}
 
 void perror_exit( int status ) {
   perror( me );

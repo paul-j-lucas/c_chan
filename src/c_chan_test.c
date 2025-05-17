@@ -28,24 +28,13 @@
 #include <stdlib.h>
 #include <sysexits.h>
 
-///////////////////////////////////////////////////////////////////////////////
-
-// extern variables
-char const       *me;
-
-// local variables
-static unsigned   test_failures;
-
 ////////// local functions ////////////////////////////////////////////////////
 
 int main( int argc, char const *argv[] ) {
-  (void)argc;
-  me = argv[0];
+  test_prog_init( argc, argv );
 
   // TODO
 
-  printf( "%u failures\n", test_failures );
-  exit( test_failures > 0 ? EX_SOFTWARE : EX_OK );
 }
 
 ///////////////////////////////////////////////////////////////////////////////
