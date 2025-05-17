@@ -1,5 +1,5 @@
 /*
-**      C Channels -- Channels Library for C
+**      c_chan -- Channels Library for C
 **      src/util.h
 **
 **      Copyright (C) 2025  Paul J. Lucas

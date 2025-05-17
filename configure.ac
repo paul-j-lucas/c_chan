@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 ##
-#       C Channel -- Channels Library for C
+#       c_chan -- Channels Library for C
 #       configure.ac
 #
 #       Copyright (C) 2025  Paul J. Lucas

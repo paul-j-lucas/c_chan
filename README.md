@@ -1,8 +1,8 @@
-# C Channel
+# C Chan
 
 ## Introduction
 
-**C Channel**
+**C Chan**
 is a library that implements Go-like channels in C.
 
 ## Installation

@@ -1,5 +1,5 @@
 /*
-**      C Channels -- Channels Library for C
+**      c_chan -- Channels Library for C
 **      src/unit_test.h
 **
 **      Copyright (C) 2021-2025  Paul J. Lucas

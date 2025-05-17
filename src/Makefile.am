@@ -1,5 +1,5 @@
 ##
-#       C Channel -- Channels Library for C
+#       c_chan -- Channels Library for C
 #	src/Makefile.am
 #
 #	Copyright (C) 2025  Paul J. Lucas
