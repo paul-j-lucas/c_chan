@@ -54,17 +54,17 @@ typedef enum chan_rv chan_rv;
  * TODO
  */
 struct channel {
-  size_t              buf_cap;          ///< Capacity. If zero, unbuffered.
+  unsigned            buf_cap;          ///< Capacity. If zero, unbuffered.
 
   union {
     struct {
-      void           *ring_buf;
+      void           *ring_buf;         ///< Message ring buffer.
       unsigned        len;              ///< Number of messages in buffer.
       unsigned        idx[2];           ///< Ring indicies: 0 = read; 1 = write.
     } buf;
     struct {
       void           *recv_buf;
-      pthread_mutex_t mtx[2];
+      pthread_mutex_t recv_buf_mtx;
     } unbuf;
   };
 
@@ -105,7 +105,7 @@ void chan_close( struct channel *chan );
  * @sa chan_cleanup()
  * @sa chan_close()
  */
-bool chan_init( struct channel *chan, size_t buf_cap, size_t msg_size );
+bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size );
 
 /**
  * Receives data from a \ref channel.
@@ -140,9 +140,9 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
  * @param send_buf TODO.
  * @return Returns TODO.
  */
-int chan_select( size_t recv_n, struct channel *recv_chan[recv_n],
+int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
                  void *recv_buf[recv_n],
-                 size_t send_n, struct channel *send_chan[send_n],
+                 unsigned send_n, struct channel *send_chan[send_n],
                  void const *send_buf[send_n] );
 
 ///////////////////////////////////////////////////////////////////////////////
