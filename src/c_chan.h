@@ -108,42 +108,42 @@ void chan_close( struct channel *chan );
 bool chan_init( struct channel *chan, size_t buf_cap, size_t msg_size );
 
 /**
- * TODO
+ * Receives data from a \ref channel.
  *
  * @param chan The \ref channel to receive from.
- * @param data TODO
- * @param timeout TODO
+ * @param recv_buf TODO
+ * @param timeout The timeout to use. If `NULL`, waits indefinitely.
  * @return Returns `true` only upon success or `false` upon failure.
  */
-chan_rv chan_recv( struct channel *chan, void *data,
+chan_rv chan_recv( struct channel *chan, void *recv_buf,
                    struct timespec const *timeout );
 
 /**
- * TODO
+ * Sends data to a channel.
  *
  * @param chan The \ref channel to send to.
- * @param data TODO
- * @param timeout TODO
+ * @param send_buf TODO
+ * @param timeout The timeout to use. If `NULL`, waits indefinitely.
  * @return Returns `true` only upon success or `false` upon failure.
  */
-chan_rv chan_send( struct channel *chan, void *data,
+chan_rv chan_send( struct channel *chan, void const *send_buf,
                    struct timespec const *timeout );
 
 /**
  * TODO
  *
- * @param recv_n TODO.
+ * @param recv_n The size of \a recv_chan and \a recv_buf.
  * @param recv_chan TODO.
- * @param recv_data TODO.
- * @param send_n TODO.
+ * @param recv_buf TODO.
+ * @param send_n The size of \a send_chan and \a send_buf.
  * @param send_chan TODO.
- * @param send_data TODO.
+ * @param send_buf TODO.
  * @return Returns TODO.
  */
 int chan_select( size_t recv_n, struct channel *recv_chan[recv_n],
-                 void *recv_data[recv_n],
+                 void *recv_buf[recv_n],
                  size_t send_n, struct channel *send_chan[send_n],
-                 void const *send_data[send_n] );
+                 void const *send_buf[send_n] );
 
 ///////////////////////////////////////////////////////////////////////////////
 
