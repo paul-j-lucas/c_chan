@@ -76,10 +76,14 @@ struct channel {
 };
 
 /**
- * TODO
+ * Cleans-up a \ref channel.
  *
  * @param chan The \ref channel to clean-up.
- * @param free_fn TODO.
+ * @param free_fn For buffered channels only, the function to free unreceived
+ * messages, if any.
+ *
+ * @sa chan_close()
+ * @sa chan_init()
  */
 void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) );
 
@@ -91,6 +95,7 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) );
  * @param chan The \ref channel to close.
  *
  * @sa chan_cleanup()
+ * @sa chan_init()
  */
 void chan_close( struct channel *chan );
 
@@ -99,7 +104,7 @@ void chan_close( struct channel *chan );
  *
  * @param chan The \ref channel to initialize.
  * @param buf_cap The buffer capacity.  If zero, the channel is unbuffered.
- * @param msg_size The size of a message.
+ * @param msg_size The size of a message.  It must be &gt; 0.
  * @return Returns `true` only if initialization succeeded; `false` otherwise.
  *
  * @sa chan_cleanup()
@@ -110,10 +115,13 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size );
 /**
  * Receives data from a \ref channel.
  *
+ * @remarks If the channel is closed, the receive is aborted.
+ *
  * @param chan The \ref channel to receive from.
- * @param recv_buf TODO
+ * @param recv_buf The buffer to receive into.  It must be at least `msg_size`
+ * bytes.
  * @param timeout The timeout to use. If `NULL`, waits indefinitely.
- * @return Returns `true` only upon success or `false` upon failure.
+ * @return Returns a \ref chan_rv.
  */
 chan_rv chan_recv( struct channel *chan, void *recv_buf,
                    struct timespec const *timeout );
@@ -121,10 +129,13 @@ chan_rv chan_recv( struct channel *chan, void *recv_buf,
 /**
  * Sends data to a channel.
  *
+ * @remarks If the channel is closed, the send is aborted.
+ *
  * @param chan The \ref channel to send to.
- * @param send_buf TODO
+ * @param send_buf The buffer to send from.  It must be at least `msg_size`
+ * bytes.
  * @param timeout The timeout to use. If `NULL`, waits indefinitely.
- * @return Returns `true` only upon success or `false` upon failure.
+ * @return Returns a \ref chan_rv.
  */
 chan_rv chan_send( struct channel *chan, void const *send_buf,
                    struct timespec const *timeout );
