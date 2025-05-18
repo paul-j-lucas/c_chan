@@ -21,20 +21,73 @@
 // local
 #include "config.h"                     /* must go first */
 #include "c_chan.h"
+#include "util.h"
 #include "unit_test.h"
 
 // standard
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sysexits.h>
 
-////////// local functions ////////////////////////////////////////////////////
+#define PTHREAD_CREATE(THR,ATTR,START_FN,ARG) \
+  PERROR_EXIT_IF( pthread_create( (THR), (ATTR), (START_FN), (ARG) ) != 0, EX_IOERR )
+
+#define PTHREAD_JOIN(THR,VALUE) \
+  PERROR_EXIT_IF( pthread_join( (THR), (VALUE) ) != 0, EX_IOERR )
+
+////////// test functions /////////////////////////////////////////////////////
+
+static void* test_unbuf_chan_recv( void *arg ) {
+  struct channel *const chan = arg;
+  int data = 0;
+  TEST( chan_recv( chan, &data, /*timeout=*/NULL ) == CHAN_OK );
+  TEST( data == 42 );
+  return NULL;
+}
+
+static void* test_unbuf_chan_send( void *arg ) {
+  struct channel *const chan = arg;
+  int data = 42;
+  TEST( chan_send( chan, &data, /*timeout=*/NULL ) == CHAN_OK );
+  return NULL;
+}
+
+static bool test_unbuf_chan( void ) {
+  TEST_FUNC_BEGIN();
+  struct channel chan;
+  if ( TEST( chan_init( &chan, 0, sizeof(int) ) ) ) {
+    pthread_t recv_thrd, send_thrd;
+
+    // Create the receiving thread first and ensure it's ready before creating
+    // the sending thread.
+    PTHREAD_MUTEX_LOCK( &chan.mtx );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_unbuf_chan_recv, &chan );
+    PTHREAD_COND_WAIT( &chan.not_full, &chan.mtx );
+    PTHREAD_MUTEX_UNLOCK( &chan.mtx );
+
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_unbuf_chan_send, &chan );
+    PTHREAD_JOIN( recv_thrd, NULL );
+    PTHREAD_JOIN( send_thrd, NULL );
+
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_unbuf_chan_send, &chan );
+
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_unbuf_chan_recv, &chan );
+    PTHREAD_JOIN( recv_thrd, NULL );
+    PTHREAD_JOIN( send_thrd, NULL );
+
+    chan_close( &chan );
+    chan_cleanup( &chan, /*free_fn=*/NULL );
+  }
+  TEST_FUNC_END();
+}
+
+////////// main ///////////////////////////////////////////////////////////////
 
 int main( int argc, char const *argv[] ) {
   test_prog_init( argc, argv );
 
-  // TODO
-
+  test_unbuf_chan();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -49,74 +49,68 @@ static inline bool chan_is_full( struct channel *chan ) {
 
 ////////// local functions ////////////////////////////////////////////////////
 
-static bool chan_buf_recv( struct channel *chan, void *data,
-                           struct timespec const *timeout ) {
-  bool is_closed = false;
-  bool timed_out = false;
+static chan_rv chan_buf_recv( struct channel *chan, void *data,
+                              struct timespec const *timeout ) {
+  chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   while ( chan_is_empty( chan ) ) {
-    if ( (is_closed = chan->is_closed) )
-      goto done;
+    if ( chan->is_closed ) {
+      rv = CHAN_CLOSED;
+      break;
+    }
     if ( timeout == NULL ) {
       PTHREAD_COND_WAIT( &chan->not_empty, &chan->mtx );
     }
-    else if ( (timed_out = !cond_reltimedwait( &chan->not_empty, &chan->mtx,
-                                               timeout )) ) {
-      goto done;
+    else if ( !cond_reltimedwait( &chan->not_empty, &chan->mtx, timeout ) ) {
+      rv = CHAN_TIMEDOUT;
+      break;
     }
+  } // while
+
+  if ( rv == CHAN_OK ) {
+    memcpy( data, chan->buf.ring_buf + chan->buf.idx[0] * chan->msg_size,
+            chan->msg_size );
+    chan->buf.idx[0] = (chan->buf.idx[0] + 1) % chan->buf_cap;
+    --chan->buf.len;
+    PTHREAD_COND_SIGNAL( &chan->not_full );
   }
 
-  memcpy( data, chan->buf.ring_buf + chan->buf.idx[0] * chan->msg_size,
-          chan->msg_size );
-  chan->buf.idx[0] = (chan->buf.idx[0] + 1) % chan->buf_cap;
-  --chan->buf.len;
-
-  PTHREAD_COND_SIGNAL( &chan->not_full );
-
-done:
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
-  if ( is_closed ) {
-    errno = EPIPE;
-    return false;
-  }
-  return !timed_out;
+  return rv;
 }
 
-static bool chan_buf_send( struct channel *chan, void *data,
-                           struct timespec const *timeout ) {
-  bool is_closed;
-  bool timed_out = false;
+static chan_rv chan_buf_send( struct channel *chan, void *data,
+                              struct timespec const *timeout ) {
+  chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   while ( true ) {
-    if ( (is_closed = chan->is_closed) )
-      goto done;
+    if ( chan->is_closed ) {
+      rv = CHAN_CLOSED;
+      break;
+    }
     if ( !chan_is_full( chan ) )
       break;
     if ( timeout == NULL ) {
       PTHREAD_COND_WAIT( &chan->not_full, &chan->mtx );
     }
-    else if ( (timed_out = !cond_reltimedwait( &chan->not_full, &chan->mtx,
-                                               timeout )) ) {
-      goto done;
+    else if ( !cond_reltimedwait( &chan->not_full, &chan->mtx, timeout ) ) {
+      rv = CHAN_TIMEDOUT;
+      break;
     }
+  } // while
+
+  if ( rv == CHAN_OK ) {
+    memcpy( chan->buf.ring_buf + chan->buf.idx[1] * chan->msg_size, data,
+            chan->msg_size );
+    chan->buf.idx[1] = (chan->buf.idx[1] + 1) % chan->buf_cap;
+    ++chan->buf.len;
+    PTHREAD_COND_SIGNAL( &chan->not_empty );
   }
 
-  memcpy( chan->buf.ring_buf + chan->buf.idx[1] * chan->msg_size, data,
-          chan->msg_size );
-  chan->buf.idx[1] = (chan->buf.idx[1] + 1) % chan->buf_cap;
-  ++chan->buf.len;
-
-  PTHREAD_COND_SIGNAL( &chan->not_empty );
-
-done:
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
-  if ( is_closed ) {
-    errno = EPIPE;
-    return false;
-  }
-  return !timed_out;
+  return rv;
 }
 
 static bool chan_can_recv( struct channel const *chan ) {
@@ -124,59 +118,66 @@ static bool chan_can_recv( struct channel const *chan ) {
 
 static bool chan_unbuf_recv( struct channel *chan, void *data,
                              struct timespec const *timeout ) {
-  bool timed_out = false;
+  chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
-  bool const is_closed = chan->is_closed;
-  if ( is_closed )
-    goto done;
 
-  PTHREAD_MUTEX_LOCK( &chan->unbuf.mtx[0] );
-  chan->unbuf.recv_buf = data;
-  PTHREAD_COND_SIGNAL( &chan->not_full );
-  if ( timeout == NULL )
-    PTHREAD_COND_WAIT( &chan->not_empty, &chan->mtx );
-  else
-    timed_out = !cond_reltimedwait( &chan->not_empty, &chan->mtx, timeout );
-  chan->unbuf.recv_buf = NULL;
-  PTHREAD_MUTEX_UNLOCK( &chan->unbuf.mtx[0] );
-
-done:
-  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
-  if ( is_closed ) {
-    errno = EPIPE;
-    return false;
+  if ( chan->is_closed ) {
+    rv = CHAN_CLOSED;
   }
-  return !timed_out;
+  else {
+    PTHREAD_MUTEX_LOCK( &chan->unbuf.mtx[0] );
+    chan->unbuf.recv_buf = data;
+    PTHREAD_COND_SIGNAL( &chan->not_full );
+
+    // Wait for a sender to copy the data.
+    if ( timeout == NULL )
+      PTHREAD_COND_WAIT( &chan->not_empty, &chan->mtx );
+    else if ( !cond_reltimedwait( &chan->not_empty, &chan->mtx, timeout ) )
+      rv = CHAN_TIMEDOUT;
+
+    chan->unbuf.recv_buf = NULL;
+    PTHREAD_MUTEX_UNLOCK( &chan->unbuf.mtx[0] );
+    if ( rv == CHAN_OK && chan->is_closed )
+      rv = CHAN_CLOSED;
+  }
+
+  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
+  return rv;
 }
 
 static bool chan_unbuf_send( struct channel *chan, void *data,
                              struct timespec const *timeout ) {
-  bool timed_out = false;
+  chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
-  bool is_closed = chan->is_closed;
-  if ( is_closed )
-    goto done;
 
-  PTHREAD_MUTEX_LOCK( &chan->unbuf.mtx[1] );
-  if ( chan->unbuf.recv_buf == NULL ) { // there is no reader: wait
-    if ( timeout == NULL )
-      PTHREAD_COND_WAIT( &chan->not_full, &chan->mtx );
-    else
-      timed_out = !cond_reltimedwait( &chan->not_full, &chan->mtx, timeout );
+  if ( chan->is_closed ) {
+    rv = CHAN_CLOSED;
+  }
+  else {
+    PTHREAD_MUTEX_LOCK( &chan->unbuf.mtx[1] );
+    if ( chan->unbuf.recv_buf == NULL ) { // there is no reader: wait
+      if ( timeout == NULL ) {
+        PTHREAD_COND_WAIT( &chan->not_full, &chan->mtx );
+      }
+      else if ( !cond_reltimedwait( &chan->not_full, &chan->mtx, timeout ) ) {
+        rv = CHAN_TIMEDOUT;
+        goto abort_send;
+      }
+      if ( chan->is_closed ) {          // may have been closed while waiting
+        rv = CHAN_CLOSED;
+        goto abort_send;
+      }
+    }
+
+    memcpy( chan->unbuf.recv_buf, data, chan->msg_size );
+    PTHREAD_COND_SIGNAL( &chan->not_empty );
+
+  abort_send:
     PTHREAD_MUTEX_UNLOCK( &chan->unbuf.mtx[1] );
-    if ( (is_closed = chan->is_closed) || timed_out )
-      goto done;
   }
-  memcpy( chan->unbuf.recv_buf, data, chan->msg_size );
-  PTHREAD_COND_SIGNAL( &chan->not_empty );
 
-done:
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
-  if ( is_closed ) {
-    errno = EPIPE;
-    return false;
-  }
-  return !timed_out;
+  return rv;
 }
 
 /**
@@ -274,8 +275,8 @@ bool chan_init( struct channel *chan, size_t buf_cap, size_t msg_size ) {
   return true;
 }
 
-bool chan_recv( struct channel *chan, void *data,
-                struct timespec const *timeout ) {
+chan_rv chan_recv( struct channel *chan, void *data,
+                   struct timespec const *timeout ) {
   assert( chan != NULL );
   assert( data != NULL );
 
@@ -284,8 +285,8 @@ bool chan_recv( struct channel *chan, void *data,
     chan_buf_recv( chan, data, timeout );
 }
 
-bool chan_send( struct channel *chan, void *data,
-                struct timespec const *timeout ) {
+chan_rv chan_send( struct channel *chan, void *data,
+                   struct timespec const *timeout ) {
   assert( chan != NULL );
   assert( data != NULL );
 

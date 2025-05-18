@@ -41,6 +41,16 @@ extern "C" {
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
+ * Channel send/receive return value.
+ */
+enum chan_rv {
+  CHAN_OK,                              ///< Channel operation succeeded.
+  CHAN_CLOSED,                          ///< Channel is closed.
+  CHAN_TIMEDOUT                         ///< Channel timed out.
+};
+typedef enum chan_rv chan_rv;
+
+/**
  * TODO
  */
 struct channel {
@@ -49,8 +59,8 @@ struct channel {
   union {
     struct {
       void           *ring_buf;
-      unsigned        len;              ///< Number of elements in buffer.
-      unsigned        idx[2];           ///< 0 = read; 1 = write.
+      unsigned        len;              ///< Number of messages in buffer.
+      unsigned        idx[2];           ///< Ring indicies: 0 = read; 1 = write.
     } buf;
     struct {
       void           *recv_buf;
@@ -58,8 +68,8 @@ struct channel {
     } unbuf;
   };
 
-  size_t              msg_size;
-  pthread_mutex_t     mtx;
+  size_t              msg_size;         ///< Size of a message.
+  pthread_mutex_t     mtx;              ///< Channel mutex.
   pthread_cond_t      not_empty;        ///< Channel is no longer empty.
   pthread_cond_t      not_full;         ///< Channel is no longer full.
   bool                is_closed;        ///< Is channel closed?
@@ -105,8 +115,8 @@ bool chan_init( struct channel *chan, size_t buf_cap, size_t msg_size );
  * @param timeout TODO
  * @return Returns `true` only upon success or `false` upon failure.
  */
-bool chan_recv( struct channel *chan, void *data,
-                struct timespec const *timeout );
+chan_rv chan_recv( struct channel *chan, void *data,
+                   struct timespec const *timeout );
 
 /**
  * TODO
@@ -116,8 +126,8 @@ bool chan_recv( struct channel *chan, void *data,
  * @param timeout TODO
  * @return Returns `true` only upon success or `false` upon failure.
  */
-bool chan_send( struct channel *chan, void *data,
-                struct timespec const *timeout );
+chan_rv chan_send( struct channel *chan, void *data,
+                   struct timespec const *timeout );
 
 /**
  * TODO
