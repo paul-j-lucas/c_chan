@@ -283,11 +283,7 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
   assert( chan != NULL );
   assert( msg_size > 0 );
 
-  if ( buf_cap == 0 ) {                 // unbuffered init
-    chan->unbuf.recv_buf = NULL;
-    PTHREAD_MUTEX_INIT( &chan->unbuf.recv_buf_mtx, 0 );
-  }
-  else {                                // buffered init
+  if ( buf_cap > 0 ) {                  // buffered init
     chan->buf.ring_buf = malloc( buf_cap * msg_size );
     if ( chan->buf.ring_buf == NULL ) {
       errno = ENOMEM;
@@ -295,6 +291,10 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
     }
     chan->buf.idx[0] = chan->buf.idx[1] = 0;
     chan->buf.len = 0;
+  }
+  else {                                // unbuffered init
+    chan->unbuf.recv_buf = NULL;
+    PTHREAD_MUTEX_INIT( &chan->unbuf.recv_buf_mtx, 0 );
   }
 
   chan->buf_cap = buf_cap;
