@@ -39,8 +39,8 @@
 /// Otherwise Doxygen generates two entries.
 
 // extern variables
-char const *me;
-unsigned    test_failures;
+char const       *me;
+unsigned _Atomic  test_failures;
 
 /// @endcond
 

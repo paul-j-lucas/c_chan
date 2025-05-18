@@ -74,8 +74,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // extern variables
-extern char const  *me;                 ///< Program name.
-extern unsigned     test_failures;      ///< Test failure count.
+extern char const      *me;             ///< Program name.
+extern unsigned _Atomic test_failures;  ///< Test failure count.
 
 /**
  * Initializes a unit-test program.
