@@ -38,16 +38,16 @@
 
 ////////// test functions /////////////////////////////////////////////////////
 
-static void* test_unbuf_chan_recv( void *arg ) {
-  struct channel *const chan = arg;
+static void* test_unbuf_chan_recv( void *thrd_arg ) {
+  struct channel *const chan = thrd_arg;
   int data = 0;
-  TEST( chan_recv( chan, &data, /*timeout=*/NULL ) == CHAN_OK );
-  TEST( data == 42 );
+  if ( TEST( chan_recv( chan, &data, /*timeout=*/NULL ) == CHAN_OK ) )
+    TEST( data == 42 );
   return NULL;
 }
 
-static void* test_unbuf_chan_send( void *arg ) {
-  struct channel *const chan = arg;
+static void* test_unbuf_chan_send( void *thrd_arg ) {
+  struct channel *const chan = thrd_arg;
   int data = 42;
   TEST( chan_send( chan, &data, /*timeout=*/NULL ) == CHAN_OK );
   return NULL;
@@ -56,7 +56,7 @@ static void* test_unbuf_chan_send( void *arg ) {
 static bool test_unbuf_chan( void ) {
   TEST_FUNC_BEGIN();
   struct channel chan;
-  if ( TEST( chan_init( &chan, 0, sizeof(int) ) ) ) {
+  if ( TEST( chan_init( &chan, /*buf_cap=*/0, sizeof(int) ) ) ) {
     pthread_t recv_thrd, send_thrd;
 
     // Create the receiving thread first and ensure it's ready before creating
