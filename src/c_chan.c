@@ -199,6 +199,7 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
 
   if ( rv == CHAN_OK ) {
     memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
+    chan->unbuf.recv_buf = NULL;
     PTHREAD_COND_SIGNAL( &chan->not_empty );
   }
 

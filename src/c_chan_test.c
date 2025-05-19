@@ -38,7 +38,7 @@
 
 ////////// test functions /////////////////////////////////////////////////////
 
-static void* test_unbuf_chan_recv( void *thrd_arg ) {
+static void* test_chan_recv_1( void *thrd_arg ) {
   struct channel *const chan = thrd_arg;
   int data = 0;
   if ( TEST( chan_recv( chan, &data, /*timeout=*/NULL ) == CHAN_OK ) )
@@ -46,11 +46,25 @@ static void* test_unbuf_chan_recv( void *thrd_arg ) {
   return NULL;
 }
 
-static void* test_unbuf_chan_send( void *thrd_arg ) {
+static void* test_chan_send_1( void *thrd_arg ) {
   struct channel *const chan = thrd_arg;
   int data = 42;
   TEST( chan_send( chan, &data, /*timeout=*/NULL ) == CHAN_OK );
   return NULL;
+}
+
+static bool test_buf_chan( void ) {
+  TEST_FUNC_BEGIN();
+  struct channel chan;
+  if ( TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
+    pthread_t recv_thrd, send_thrd;
+
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
+    PTHREAD_JOIN( recv_thrd, NULL );
+    PTHREAD_JOIN( send_thrd, NULL );
+  }
+  TEST_FUNC_END();
 }
 
 static bool test_unbuf_chan( void ) {
@@ -62,17 +76,16 @@ static bool test_unbuf_chan( void ) {
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
     PTHREAD_MUTEX_LOCK( &chan.mtx );
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_unbuf_chan_recv, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
     PTHREAD_COND_WAIT( &chan.not_full, &chan.mtx );
     PTHREAD_MUTEX_UNLOCK( &chan.mtx );
 
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_unbuf_chan_send, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
 
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_unbuf_chan_send, &chan );
-
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_unbuf_chan_recv, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
 
@@ -87,6 +100,7 @@ static bool test_unbuf_chan( void ) {
 int main( int argc, char const *argv[] ) {
   test_prog_init( argc, argv );
 
+  test_buf_chan();
   test_unbuf_chan();
 }
 
