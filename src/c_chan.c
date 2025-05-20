@@ -30,6 +30,11 @@
 #include <string.h>                     /* for memcpy(3) */
 #include <unistd.h>
 
+struct select {
+  struct channel *chan;
+  unsigned        idx;
+};
+
 static chan_rv chan_wait( struct channel *chan, pthread_cond_t*, unsigned*,
                           struct timespec const* );
 
@@ -123,12 +128,27 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
  * TODO
  */
 static bool chan_can_recv( struct channel *chan ) {
-  if ( chan_is_buffered( chan ) )
-    return chan->buf.ring_len > 0;
+  bool can_recv;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
-  bool const can_recv = chan->send_wait_cnt > 0;
+
+  can_recv = chan_is_buffered( chan ) ?
+    chan->buf.ring_len > 0 :
+    chan->send_wait_cnt > 0;
+
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return can_recv;
+}
+
+static bool chan_can_send( struct channel *chan ) {
+  bool can_send;
+  PTHREAD_MUTEX_LOCK( &chan->mtx );
+
+  can_send = chan_is_buffered( chan ) ?
+    chan->buf.ring_len < chan->buf_cap :
+    chan->recv_wait_cnt > 0;
+
+  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
+  return can_send;
 }
 
 /**
@@ -337,19 +357,59 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
 }
 
 int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
-                 void *recv_buf[recv_n],
+                 void *recv_buf,
                  unsigned send_n, struct channel *send_chan[send_n],
                  void const *send_buf[send_n] ) {
-  (void)recv_n;
-  (void)recv_chan;
-  (void)recv_buf;
-  (void)send_n;
-  (void)send_chan;
-  (void)send_buf;
+  assert( recv_n < 64 );
+  assert( recv_n == 0 || (recv_chan != NULL && recv_buf != NULL) );
+  assert( send_n < 64 );
+  assert( send_n == 0 || (send_chan != NULL && send_buf != NULL) );
 
-  int rv = -1;
-  // TODO
-  return rv;
+  struct select fixed_select[64], *select;
+  unsigned const n = recv_n + send_n;
+  if ( n <= 64 )
+    select = fixed_select;
+  else
+    select = malloc( n * sizeof( struct select* ) );
+
+  unsigned ready_n = 0;
+
+  for ( unsigned i = 0; i < recv_n; ++i, ++ready_n ) {
+    if ( chan_can_recv( recv_chan[i] ) ) {
+      select[ready_n].idx = i;
+      select[ready_n].chan = recv_chan[i];
+    }
+  } // for
+  for ( unsigned i = 0; i < send_n; ++i, ++ready_n ) {
+    if ( chan_can_send( send_chan[i] ) ) {
+      select[ready_n].idx = i;
+      void *const chan_is_send = (void*)((uintptr_t)send_chan[i] | 1);
+      select[ready_n].chan = chan_is_send;
+    }
+  } // for
+
+  if ( ready_n == 0 )
+    return -1;
+
+  struct timeval now;
+  (void)gettimeofday( &now, /*tzp=*/NULL );
+  srand( (unsigned)now.tv_usec );
+
+  int const selected_idx = rand() % (int)n;
+  struct select const *const sel = &select[selected_idx];
+  chan_rv rv;
+  if ( ((uintptr_t)sel->chan & 1) == 0 ) {
+    rv = chan_recv( sel->chan, recv_buf, /*timeout=*/NULL );
+  }
+  else {
+    struct channel *const chan = (void*)((uintptr_t)sel->chan & ~(uintptr_t)1);
+    rv = chan_send( chan, send_buf[sel->idx], /*timeout=*/NULL );
+  }
+  assert( rv == CHAN_OK );
+
+  if ( select != fixed_select )
+    free( select );
+  return selected_idx;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

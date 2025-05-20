@@ -35,7 +35,7 @@
  *{
  */
 #define CHAN_SELECT_RECV(IDX)     (IDX)
-#define CHAN_SELECT_SEND(IDX)     (1000 + (IDX))
+#define CHAN_SELECT_SEND(IDX)     (64 + (IDX))
 /** @> */
 
 #ifdef __cplusplus
@@ -182,7 +182,7 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
  * @return Returns TODO.
  */
 int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
-                 void *recv_buf[recv_n],
+                 void *recv_buf,
                  unsigned send_n, struct channel *send_chan[send_n],
                  void const *send_buf[send_n] );
 
