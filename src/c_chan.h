@@ -30,14 +30,14 @@
 #include <stddef.h>
 #include <time.h>
 
-#define CHAN_SELECT_EACH_MAX      32
+#define CHAN_SELECT_MAX           64
 
 /**
  * Macros for use with cases of a `switch` statement on chan_select().
  *{
  */
 #define CHAN_SELECT_RECV(IDX)     (IDX)
-#define CHAN_SELECT_SEND(IDX)     (CHAN_SELECT_EACH_MAX * 2 + (IDX))
+#define CHAN_SELECT_SEND(IDX)     (CHAN_SELECT_MAX + (IDX))
 /** @> */
 
 #ifdef __cplusplus

@@ -360,17 +360,17 @@ int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
                  void *recv_buf[recv_n],
                  unsigned send_n, struct channel *send_chan[send_n],
                  void const *send_buf[send_n] ) {
-  assert( recv_n < CHAN_SELECT_EACH_MAX * 2 );
   assert( recv_n == 0 || (recv_chan != NULL && recv_buf != NULL) );
-  assert( send_n < CHAN_SELECT_EACH_MAX * 2 );
   assert( send_n == 0 || (send_chan != NULL && send_buf != NULL) );
 
-  struct select fixed_select[CHAN_SELECT_EACH_MAX * 2], *select;
-  unsigned const n = recv_n + send_n;
-  if ( n <= CHAN_SELECT_EACH_MAX * 2 )
+  unsigned const total_n = recv_n + send_n;
+  assert( total_n < CHAN_SELECT_MAX );
+
+  struct select fixed_select[ CHAN_SELECT_MAX ], *select;
+  if ( total_n <= CHAN_SELECT_MAX )
     select = fixed_select;
   else
-    select = malloc( n * sizeof( struct select* ) );
+    select = malloc( total_n * sizeof( struct select* ) );
 
   int ready_n = 0;
 
