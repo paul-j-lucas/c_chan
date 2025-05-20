@@ -25,16 +25,45 @@
 #include "unit_test.h"
 
 // standard
+#include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sysexits.h>
+#include <time.h>
 
 #define PTHREAD_CREATE(THR,ATTR,START_FN,ARG) \
   PERROR_EXIT_IF( pthread_create( (THR), (ATTR), (START_FN), (ARG) ) != 0, EX_IOERR )
 
 #define PTHREAD_JOIN(THR,VALUE) \
   PERROR_EXIT_IF( pthread_join( (THR), (VALUE) ) != 0, EX_IOERR )
+
+////////// local functions ////////////////////////////////////////////////////
+
+/**
+ * Sleeps for \a ms milliseconds.
+ *
+ * @param ms The number of milliseconds to sleep.
+ */
+static void ms_sleep( unsigned ms ) {
+  struct timespec req, rem;
+
+  req.tv_sec  =  ms / 1000;
+  req.tv_nsec = (ms % 1000) * 1000000L;
+
+  while ( nanosleep( &req, &rem ) == -1 && errno == EINTR )
+    req = rem;
+}
+
+static void spin_wait( pthread_mutex_t *mtx, unsigned *pu ) {
+  PTHREAD_MUTEX_LOCK( mtx );
+  while ( *pu == 0 ) {
+    PTHREAD_MUTEX_UNLOCK( mtx );
+    ms_sleep( 5 );
+    PTHREAD_MUTEX_LOCK( mtx );
+  }
+  PTHREAD_MUTEX_UNLOCK( mtx );
+}
 
 ////////// test functions /////////////////////////////////////////////////////
 
@@ -59,10 +88,20 @@ static bool test_buf_chan( void ) {
   if ( TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
     pthread_t recv_thrd, send_thrd;
 
+    // Create the receiving thread first and ensure it's ready before creating
+    // the sending thread.
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
+    spin_wait( &chan.mtx, &chan.recv_wait_cnt );
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
+
+    // Create the sending thread first and ensure it sent before creating the
+    // receiving thread.
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
+    PTHREAD_JOIN( send_thrd, NULL );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
+    PTHREAD_JOIN( recv_thrd, NULL );
   }
   TEST_FUNC_END();
 }
@@ -75,16 +114,16 @@ static bool test_unbuf_chan( void ) {
 
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
-    PTHREAD_MUTEX_LOCK( &chan.mtx );
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
-    PTHREAD_COND_WAIT( &chan.not_full, &chan.mtx );
-    PTHREAD_MUTEX_UNLOCK( &chan.mtx );
-
+    spin_wait( &chan.mtx, &chan.recv_wait_cnt );
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
 
+    // Create the sending thread first and ensure it's ready before creating
+    // the receiving thread.
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
+    spin_wait( &chan.mtx, &chan.send_wait_cnt );
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );

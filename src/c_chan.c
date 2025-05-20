@@ -30,7 +30,7 @@
 #include <string.h>                     /* for memcpy(3) */
 #include <unistd.h>
 
-static chan_rv cond_wait( pthread_cond_t*, pthread_mutex_t*,
+static chan_rv chan_wait( struct channel *chan, pthread_cond_t*, unsigned*,
                           struct timespec const* );
 
 ////////// inline functions ///////////////////////////////////////////////////
@@ -67,7 +67,7 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
     if ( chan->is_closed )
       rv = CHAN_CLOSED;
     else
-      rv = cond_wait( &chan->not_empty, &chan->mtx, timeout );
+      rv = chan_wait( chan, &chan->not_empty, &chan->recv_wait_cnt, timeout );
   } // while
 
   if ( rv == CHAN_OK ) {
@@ -104,7 +104,7 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
     else if ( chan->buf.ring_len < chan->buf_cap )
       break;
     else
-      rv = cond_wait( &chan->not_full, &chan->mtx, timeout );
+      rv = chan_wait( chan, &chan->not_full, &chan->send_wait_cnt, timeout );
   } // while
 
   if ( rv == CHAN_OK ) {
@@ -125,6 +125,10 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
 static bool chan_can_recv( struct channel const *chan ) {
   if ( chan_is_buffered( chan ) )
     return chan->buf.ring_len > 0;
+  PTHREAD_MUTEX_LOCK( &chan->mtx );
+  bool const can_recv = chan->send_wait_cnt > 0;
+  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
+  return can_recv;
 }
 
 /**
@@ -152,9 +156,7 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
     PTHREAD_COND_BROADCAST( &chan->not_full );
 
     // Wait for a sender to copy the data.
-    ++chan->recv_wait_cnt;
-    rv = cond_wait( &chan->not_empty, &chan->mtx, timeout );
-    --chan->recv_wait_cnt;
+    rv = chan_wait( chan, &chan->not_empty, &chan->recv_wait_cnt, timeout );
 
     chan->unbuf.recv_buf = NULL;
     PTHREAD_MUTEX_UNLOCK( &chan->unbuf.recv_buf_mtx );
@@ -183,17 +185,12 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   while ( rv == CHAN_OK ) {
-    if ( chan->is_closed ) {
+    if ( chan->is_closed )
       rv = CHAN_CLOSED;
-    }
-    else if ( chan->unbuf.recv_buf == NULL ) { // there is no reader: wait
-      ++chan->send_wait_cnt;
-      rv = cond_wait( &chan->not_full, &chan->mtx, timeout );
-      --chan->send_wait_cnt;
-    }
-    else {
+    else if ( chan->unbuf.recv_buf == NULL )  // there is no reader: wait
+      rv = chan_wait( chan, &chan->not_full, &chan->send_wait_cnt, timeout );
+    else
       break;
-    }
   } // while
 
   if ( rv == CHAN_OK ) {
@@ -217,13 +214,17 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
  * @return Returns `true` only if the wait succeeded; `false` if the timeout
  * expired.
  */
-static chan_rv cond_wait( pthread_cond_t *cond, pthread_mutex_t *mtx,
+static chan_rv chan_wait( struct channel *chan, pthread_cond_t *cond,
+                          unsigned *pwait_cnt,
                           struct timespec const *timeout ) {
+  assert( chan != NULL );
   assert( cond != NULL );
-  assert( mtx != NULL );
+  assert( pwait_cnt != NULL );
 
   if ( timeout == NULL ) {
-    PTHREAD_COND_WAIT( cond, mtx );
+    ++*pwait_cnt;
+    PTHREAD_COND_WAIT( cond, &chan->mtx );
+    --*pwait_cnt;
     return CHAN_OK;
   }
 
@@ -235,7 +236,9 @@ static chan_rv cond_wait( pthread_cond_t *cond, pthread_mutex_t *mtx,
     .tv_nsec = timeout->tv_nsec + now.tv_usec * 1000
   };
 
-  int const rv = pthread_cond_timedwait( cond, mtx, &abs_time );
+  ++*pwait_cnt;
+  int const rv = pthread_cond_timedwait( cond, &chan->mtx, &abs_time );
+  --*pwait_cnt;
   switch ( rv ) {
     case 0:
       return CHAN_OK;
