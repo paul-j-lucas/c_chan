@@ -63,7 +63,7 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
   chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
-  while ( chan->buf.len == 0 && rv == CHAN_OK ) {
+  while ( chan->buf.ring_len == 0 && rv == CHAN_OK ) {
     if ( chan->is_closed )
       rv = CHAN_CLOSED;
     else if ( timeout == NULL )
@@ -73,10 +73,10 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
   } // while
 
   if ( rv == CHAN_OK ) {
-    memcpy( recv_buf, chan->buf.ring_buf + chan->buf.idx[0] * chan->msg_size,
+    memcpy( recv_buf, chan->buf.ring_buf + chan->buf.recv_idx * chan->msg_size,
             chan->msg_size );
-    chan->buf.idx[0] = (chan->buf.idx[0] + 1) % chan->buf_cap;
-    --chan->buf.len;
+    chan->buf.recv_idx = (chan->buf.recv_idx + 1) % chan->buf_cap;
+    --chan->buf.ring_len;
     PTHREAD_COND_SIGNAL( &chan->not_full );
   }
 
@@ -103,7 +103,7 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
   while ( rv == CHAN_OK ) {
     if ( chan->is_closed )
       rv = CHAN_CLOSED;
-    else if ( chan->buf.len < chan->buf_cap )
+    else if ( chan->buf.ring_len < chan->buf_cap )
       break;
     else if ( timeout == NULL )
       PTHREAD_COND_WAIT( &chan->not_full, &chan->mtx );
@@ -112,10 +112,10 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
   } // while
 
   if ( rv == CHAN_OK ) {
-    memcpy( chan->buf.ring_buf + chan->buf.idx[1] * chan->msg_size, send_buf,
+    memcpy( chan->buf.ring_buf + chan->buf.send_idx * chan->msg_size, send_buf,
             chan->msg_size );
-    chan->buf.idx[1] = (chan->buf.idx[1] + 1) % chan->buf_cap;
-    ++chan->buf.len;
+    chan->buf.send_idx = (chan->buf.send_idx + 1) % chan->buf_cap;
+    ++chan->buf.ring_len;
     PTHREAD_COND_SIGNAL( &chan->not_empty );
   }
 
@@ -123,7 +123,12 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
   return rv;
 }
 
+/**
+ * TODO
+ */
 static bool chan_can_recv( struct channel const *chan ) {
+  if ( chan_is_buffered( chan ) )
+    return chan->buf.ring_len > 0;
 }
 
 /**
@@ -151,10 +156,12 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
     PTHREAD_COND_BROADCAST( &chan->not_full );
 
     // Wait for a sender to copy the data.
+    ++chan->recv_wait_cnt;
     if ( timeout == NULL )
       PTHREAD_COND_WAIT( &chan->not_empty, &chan->mtx );
     else if ( !cond_reltimedwait( &chan->not_empty, &chan->mtx, timeout ) )
       rv = CHAN_TIMEDOUT;
+    --chan->recv_wait_cnt;
 
     chan->unbuf.recv_buf = NULL;
     PTHREAD_MUTEX_UNLOCK( &chan->unbuf.recv_buf_mtx );
@@ -187,10 +194,12 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
       rv = CHAN_CLOSED;
     }
     else if ( chan->unbuf.recv_buf == NULL ) { // there is no reader: wait
+      ++chan->send_wait_cnt;
       if ( timeout == NULL )
         PTHREAD_COND_WAIT( &chan->not_full, &chan->mtx );
       else if ( !cond_reltimedwait( &chan->not_full, &chan->mtx, timeout ) )
         rv = CHAN_TIMEDOUT;
+      --chan->send_wait_cnt;
     }
     else {
       break;
@@ -250,8 +259,8 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) ) {
     return;
   if ( chan_is_buffered( chan ) ) {
     if ( free_fn != NULL ) {
-      unsigned idx = chan->buf.idx[0];
-      for ( ; chan->buf.len > 0; --chan->buf.len ) {
+      unsigned idx = chan->buf.recv_idx;
+      for ( ; chan->buf.ring_len > 0; --chan->buf.ring_len ) {
         (*free_fn)( &chan->buf.ring_buf[idx] );
         idx = (idx + 1) % chan->buf_cap;
       }
@@ -259,7 +268,7 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) ) {
     chan->buf_cap = 0;
     free( chan->buf.ring_buf );
     chan->buf.ring_buf = NULL;
-    chan->buf.idx[0] = chan->buf.idx[1] = 0;
+    chan->buf.recv_idx = chan->buf.send_idx = 0;
   }
   else {
     chan->unbuf.recv_buf = NULL;
@@ -290,8 +299,8 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
       errno = ENOMEM;
       return false;
     }
-    chan->buf.idx[0] = chan->buf.idx[1] = 0;
-    chan->buf.len = 0;
+    chan->buf.recv_idx = chan->buf.send_idx = 0;
+    chan->buf.ring_len = 0;
   }
   else {                                // unbuffered init
     chan->unbuf.recv_buf = NULL;
@@ -299,8 +308,9 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
   }
 
   chan->buf_cap = buf_cap;
-  chan->msg_size = msg_size;
   chan->is_closed = false;
+  chan->msg_size = msg_size;
+  chan->recv_wait_cnt = chan->send_wait_cnt = 0;
 
   PTHREAD_MUTEX_INIT( &chan->mtx, 0 );
   PTHREAD_COND_INIT( &chan->not_empty, 0 );

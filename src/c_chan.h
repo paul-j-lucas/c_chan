@@ -30,9 +30,13 @@
 #include <stddef.h>
 #include <time.h>
 
-#define CHAN_SELECT_RECV(X) (X)
-
-#define CHAN_SELECT_SEND(X) (1000 + (X))
+/**
+ * Macros for use with cases of a `switch` statement on chan_select().
+ *{
+ */
+#define CHAN_SELECT_RECV(IDX)     (IDX)
+#define CHAN_SELECT_SEND(IDX)     (1000 + (IDX))
+/** @> */
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,24 +58,26 @@ typedef enum chan_rv chan_rv;
  * TODO
  */
 struct channel {
-  unsigned            buf_cap;          ///< Capacity. If zero, unbuffered.
-
   union {
     struct {
       void           *ring_buf;         ///< Message ring buffer.
-      unsigned        len;              ///< Number of messages in buffer.
-      unsigned        idx[2];           ///< Ring indicies: 0 = read; 1 = write.
+      unsigned        ring_len;         ///< Number of messages in buffer.
+      unsigned        recv_idx;         ///< Ring buffer receive index.
+      unsigned        send_idx;         ///< Ring buffer send index.
     } buf;
     struct {
-      void           *recv_buf;
+      void           *recv_buf;         ///< Where to put a received message.
       pthread_mutex_t recv_buf_mtx;
     } unbuf;
   };
 
+  unsigned            buf_cap;          ///< Channel capacity; 0 = unbuffered.
   size_t              msg_size;         ///< Size of a message.
   pthread_mutex_t     mtx;              ///< Channel mutex.
   pthread_cond_t      not_empty;        ///< Channel is no longer empty.
   pthread_cond_t      not_full;         ///< Channel is no longer full.
+  unsigned            recv_wait_cnt;    ///< Number of receivers waiting.
+  unsigned            send_wait_cnt;    ///< Number of senders waiting.
   bool                is_closed;        ///< Is channel closed?
 };
 
@@ -141,7 +147,31 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
                    struct timespec const *timeout );
 
 /**
- * TODO
+ * Selects at most one channel from either \a recv_chan or \a send_chan that
+ * has either received or sent a message, respectively.
+ *
+ *  ```c
+ *  struct channel *const r_chan[] = { &r1, &r2 };
+ *  int r_buf[2];
+ *  struct channel *const s_chan[] = { &s1, &s2 };
+ *  int s_buf[2];
+ *  switch ( chan_select( chan, 2, r_chan, r_buf, 2, s_chan, s_buf, false ) ) {
+ *    case CHAN_SELECT_RECV(1):
+ *      // ...
+ *      break;
+ *    case CHAN_SELECT_RECV(2):
+ *      // ...
+ *      break;
+ *    case CHAN_SELECT_SEND(1):
+ *      // ...
+ *      break;
+ *    case CHAN_SELECT_SEND(2):
+ *      // ...
+ *      break;
+ *    default:
+ *      // ...
+ *  }
+ *  ```
  *
  * @param recv_n The size of \a recv_chan and \a recv_buf.
  * @param recv_chan TODO.
