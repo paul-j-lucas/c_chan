@@ -30,12 +30,14 @@
 #include <stddef.h>
 #include <time.h>
 
+#define CHAN_SELECT_EACH_MAX      32
+
 /**
  * Macros for use with cases of a `switch` statement on chan_select().
  *{
  */
 #define CHAN_SELECT_RECV(IDX)     (IDX)
-#define CHAN_SELECT_SEND(IDX)     (64 + (IDX))
+#define CHAN_SELECT_SEND(IDX)     (CHAN_SELECT_EACH_MAX * 2 + (IDX))
 /** @> */
 
 #ifdef __cplusplus
@@ -182,7 +184,7 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
  * @return Returns TODO.
  */
 int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
-                 void *recv_buf,
+                 void *recv_buf[recv_n],
                  unsigned send_n, struct channel *send_chan[send_n],
                  void const *send_buf[send_n] );
 
