@@ -364,13 +364,10 @@ int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
   assert( send_n == 0 || (send_chan != NULL && send_buf != NULL) );
 
   unsigned const total_n = recv_n + send_n;
-  assert( total_n < CHAN_SELECT_MAX );
 
-  struct select fixed_select[ CHAN_SELECT_MAX ], *select;
-  if ( total_n <= CHAN_SELECT_MAX )
-    select = fixed_select;
-  else
-    select = malloc( total_n * sizeof( struct select* ) );
+  struct select fixed_select[64];
+  struct select *const select = total_n <= ARRAY_SIZE( fixed_select ) ?
+    fixed_select : malloc( total_n * sizeof( struct select* ) );
 
   int ready_n = 0;
 
@@ -409,7 +406,7 @@ int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
 
   if ( select != fixed_select )
     free( select );
-  return selected_idx;
+  return is_send ? CHAN_SELECT_SEND( sel->idx ) : CHAN_SELECT_RECV( sel->idx );
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -33,6 +33,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
+ * Gets the number of elements of the given array.
+ *
+ * @param ARRAY The array to get the number of elements of.
+ * @return Returns the number of elements of \a ARRAY.
+ *
+ * @note \a ARRAY _must_ be a statically allocated array.
+ */
+#define ARRAY_SIZE(ARRAY)       (sizeof( (ARRAY) ) / sizeof( 0[ (ARRAY) ] ))
+
+/**
  * Asserts that this line of code is run at most once --- useful in
  * initialization functions that must be called at most once.  For example:
  *
