@@ -122,7 +122,7 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
 /**
  * TODO
  */
-static bool chan_can_recv( struct channel const *chan ) {
+static bool chan_can_recv( struct channel *chan ) {
   if ( chan_is_buffered( chan ) )
     return chan->buf.ring_len > 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
