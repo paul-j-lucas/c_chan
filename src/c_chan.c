@@ -42,7 +42,11 @@ struct chan_select {
   unsigned  idx;
 };
 
-static inline void* ptr_bool( void *p, bool b ) {
+static inline bool ptr_bool( void *p ) {
+  return ((uintptr_t)p & 1) != 0;
+}
+
+static inline void* ptr_with_bool( void *p, bool b ) {
   return (void*)((uintptr_t)p | b);
 }
 
@@ -397,7 +401,7 @@ int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
   for ( unsigned i = 0; i < send_n; ++i, ++ready_n ) {
     if ( chan_can_send( send_chan[i] ) ) {
       select[ready_n] = (struct chan_select){
-        .chan_is_send = ptr_bool( send_chan[i], true ),
+        .chan_is_send = ptr_with_bool( send_chan[i], true ),
         .idx = i
       };
     }
@@ -412,7 +416,7 @@ int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
     srand( (unsigned)now.tv_usec );
 
     sel = &select[ rand() % ready_n ];
-    is_send = ((uintptr_t)sel->chan_is_send & 1) != 0;
+    is_send = ptr_bool( sel->chan_is_send );
     chan_rv rv;
 
     if ( is_send ) {
