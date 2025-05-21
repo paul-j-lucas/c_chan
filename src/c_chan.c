@@ -37,10 +37,18 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-struct select {
+struct chan_select {
   void     *chan_is_send;
   unsigned  idx;
 };
+
+static inline void* ptr_bool( void *p, bool b ) {
+  return (void*)((uintptr_t)p | b);
+}
+
+static inline void* ptr_raw( void *p ) {
+  return (void*)((uintptr_t)p & ~(uintptr_t)1);
+}
 
 static chan_rv chan_wait( struct channel *chan, pthread_cond_t*, unsigned*,
                           struct timespec const* );
@@ -372,47 +380,55 @@ int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
 
   unsigned const total_n = recv_n + send_n;
 
-  struct select fixed_select[64];
-  struct select *const select = total_n <= ARRAY_SIZE( fixed_select ) ?
-    fixed_select : malloc( total_n * sizeof( struct select* ) );
+  struct chan_select fixed_select[64];
+  struct chan_select *const select = total_n <= ARRAY_SIZE( fixed_select ) ?
+    fixed_select : malloc( total_n * sizeof( struct chan_select* ) );
 
   int ready_n = 0;
 
   for ( unsigned i = 0; i < recv_n; ++i, ++ready_n ) {
     if ( chan_can_recv( recv_chan[i] ) ) {
-      select[ready_n].idx = i;
-      select[ready_n].chan_is_send = recv_chan[i];
+      select[ready_n] = (struct chan_select){
+        .chan_is_send = recv_chan[i],
+        .idx = i
+      };
     }
   } // for
   for ( unsigned i = 0; i < send_n; ++i, ++ready_n ) {
     if ( chan_can_send( send_chan[i] ) ) {
-      select[ready_n].idx = i;
-      select[ready_n].chan_is_send = (void*)((uintptr_t)send_chan[i] | 1);
+      select[ready_n] = (struct chan_select){
+        .chan_is_send = ptr_bool( send_chan[i], true ),
+        .idx = i
+      };
     }
   } // for
 
-  if ( ready_n == 0 )
-    return -1;
+  struct chan_select const *sel = NULL;
+  bool is_send = false;
 
-  struct timeval now;
-  (void)gettimeofday( &now, /*tzp=*/NULL );
-  srand( (unsigned)now.tv_usec );
+  if ( ready_n > 0 ) {
+    struct timeval now;
+    (void)gettimeofday( &now, /*tzp=*/NULL );
+    srand( (unsigned)now.tv_usec );
 
-  int const selected_idx = rand() % ready_n;
-  struct select const *const sel = &select[selected_idx];
-  chan_rv rv;
-  bool const is_send = ((uintptr_t)sel->chan_is_send & 1) != 0;
-  if ( is_send ) {
-    struct channel *const chan = (void*)((uintptr_t)sel->chan_is_send & ~(uintptr_t)1);
-    rv = chan_send( chan, send_buf[sel->idx], /*timeout=*/NULL );
+    sel = &select[ rand() % ready_n ];
+    is_send = ((uintptr_t)sel->chan_is_send & 1) != 0;
+    chan_rv rv;
+
+    if ( is_send ) {
+      struct channel *const chan = ptr_raw( sel->chan_is_send );
+      rv = chan_send( chan, send_buf[sel->idx], /*timeout=*/NULL );
+    }
+    else {
+      rv = chan_recv( sel->chan_is_send, recv_buf[sel->idx], /*timeout=*/NULL );
+    }
+    assert( rv == CHAN_OK );
   }
-  else {
-    rv = chan_recv( sel->chan_is_send, recv_buf[sel->idx], /*timeout=*/NULL );
-  }
-  assert( rv == CHAN_OK );
 
   if ( select != fixed_select )
     free( select );
+  if ( ready_n == 0 )
+    return -1;
   return is_send ? CHAN_SELECT_SEND( sel->idx ) : CHAN_SELECT_RECV( sel->idx );
 }
 
