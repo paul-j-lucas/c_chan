@@ -21,6 +21,15 @@
 #ifndef C_CHAN_H
 #define C_CHAN_H
 
+/**
+ * @file
+ * Declares types, macros, and functions to implement Go-like channels in C.
+ *
+ * @sa Hoare, C. A. R., "Communicating Sequential Processes," Communications of
+ * the ACM, 21(8), 1978, pp. 666–677,
+ * [doi:10.1145/359576.359585](https://doi.org/10.1145/359576.35958).
+ */
+
 // local
 #include "config.h"                     /* must go first */
 

@@ -18,6 +18,11 @@
 **      along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/**
+ * @file
+ * Defines types and functions to implement Go-like channels in C.
+ */
+
 // local
 #include "c_chan.h"
 #include "util.h"
@@ -29,6 +34,8 @@
 #include <stdlib.h>
 #include <string.h>                     /* for memcpy(3) */
 #include <unistd.h>
+
+///////////////////////////////////////////////////////////////////////////////
 
 struct select {
   void     *chan_is_send;
