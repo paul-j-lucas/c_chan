@@ -37,7 +37,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <time.h>
+#include <time.h>                       /* for timespec */
 
 /**
  * Macros for use with cases of a `switch` statement on chan_select().
@@ -45,7 +45,7 @@
  */
 #define CHAN_SELECT_RECV(IDX)     ((int)(IDX))
 #define CHAN_SELECT_SEND(IDX)     (1000 + (int)(IDX))
-/** @> */
+/** @} */
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,17 +54,35 @@ extern "C" {
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * Channel send/receive return value.
+ * Channel send/receive function return value.
+ *
+ * @sa chan_recv()
+ * @sa chan_send()
  */
 enum chan_rv {
   CHAN_OK,                              ///< Channel operation succeeded.
   CHAN_CLOSED,                          ///< Channel is closed.
   CHAN_TIMEDOUT                         ///< Channel timed out.
 };
-typedef enum chan_rv chan_rv;
+
+typedef struct  chan_cond         chan_cond;
+typedef struct  chan_select_info  chan_select_info;
+typedef enum    chan_rv           chan_rv;
 
 /**
  * TODO
+ */
+struct chan_cond {
+  pthread_cond_t    ready_cond;
+  chan_select_info *select;
+};
+
+/**
+ * A Go-like channel.
+ *
+ * @sa Hoare, C. A. R., "Communicating Sequential Processes," Communications of
+ * the ACM, 21(8), 1978, pp. 666–677,
+ * [doi:10.1145/359576.359585](https://doi.org/10.1145/359576.35958).
  */
 struct channel {
   union {
@@ -76,19 +94,27 @@ struct channel {
     } buf;
     struct {
       void           *recv_buf;         ///< Where to put a received message.
-      pthread_mutex_t recv_buf_mtx;
     } unbuf;
   };
 
   unsigned            buf_cap;          ///< Channel capacity; 0 = unbuffered.
   size_t              msg_size;         ///< Size of a message.
   pthread_mutex_t     mtx;              ///< Channel mutex.
-  pthread_cond_t      not_empty;        ///< Channel is no longer empty.
-  pthread_cond_t      not_full;         ///< Channel is no longer full.
-  unsigned            recv_wait_cnt;    ///< Number of receivers waiting.
-  unsigned            send_wait_cnt;    ///< Number of senders waiting.
+
+  chan_cond           c_cond[2];        ///< Proceed: 0=receiver, 1=sender.
+  unsigned            wait_cnt[2];      ///< Waiting: 0=receivers, 1=senders.
+
   bool                is_closed;        ///< Is channel closed?
 };
+
+////////// extern variables ///////////////////////////////////////////////////
+
+/**
+ * For chan_select(), a `timespec` value to wait indefinitely.
+ */
+extern struct timespec const *const CHAN_NO_TIMEOUT;
+
+////////// extern functions ///////////////////////////////////////////////////
 
 /**
  * Cleans-up a \ref channel.
@@ -119,8 +145,10 @@ void chan_close( struct channel *chan );
  *
  * @param chan The \ref channel to initialize.
  * @param buf_cap The buffer capacity.  If zero, the channel is unbuffered.
- * @param msg_size The size of a message.  It must be &gt; 0.
- * @return Returns `true` only if initialization succeeded; `false` otherwise.
+ * @param msg_size The size of a message.  It must be &gt; 0 only if \a buf_cap
+ * is &gt; 0.
+ * @return Returns `true` only if initialization succeeded; `false` only if
+ * memory allocation for a buffered channel fails.
  *
  * @sa chan_cleanup()
  * @sa chan_close()
@@ -135,8 +163,11 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size );
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.  It must be at least `msg_size`
  * bytes.
- * @param timeout The timeout to use. If `NULL`, waits indefinitely.
+ * @param timeout The duration of time to wait. If `NULL` or \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
+ *
+ * @sa chan_send()
  */
 chan_rv chan_recv( struct channel *chan, void *recv_buf,
                    struct timespec const *timeout );
@@ -149,8 +180,11 @@ chan_rv chan_recv( struct channel *chan, void *recv_buf,
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.  It must be at least `msg_size`
  * bytes.
- * @param timeout The timeout to use. If `NULL`, waits indefinitely.
+ * @param timeout The duration of time to wait. If `NULL` or \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
+ *
+ * @sa chan_recv()
  */
 chan_rv chan_send( struct channel *chan, void const *send_buf,
                    struct timespec const *timeout );
@@ -164,17 +198,17 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
  *  int r_buf[2];
  *  struct channel *const s_chan[] = { &s1, &s2 };
  *  int s_buf[2];
- *  switch ( chan_select( chan, 2, r_chan, r_buf, 2, s_chan, s_buf, false ) ) {
+ *  switch ( chan_select( 2, r_chan, r_buf, 2, s_chan, s_buf, timeout ) ) {
+ *    case CHAN_SELECT_RECV(0):
+ *      // ...
+ *      break;
  *    case CHAN_SELECT_RECV(1):
  *      // ...
  *      break;
- *    case CHAN_SELECT_RECV(2):
+ *    case CHAN_SELECT_SEND(0):
  *      // ...
  *      break;
  *    case CHAN_SELECT_SEND(1):
- *      // ...
- *      break;
- *    case CHAN_SELECT_SEND(2):
  *      // ...
  *      break;
  *    default:
@@ -182,18 +216,29 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
  *  }
  *  ```
  *
- * @param recv_n The size of \a recv_chan and \a recv_buf.
- * @param recv_chan TODO.
- * @param recv_buf TODO.
- * @param send_n The size of \a send_chan and \a send_buf.
- * @param send_chan TODO.
- * @param send_buf TODO.
- * @return Returns TODO.
+ * @param recv_len The length of \a recv_chan and \a recv_buf.
+ * @param recv_chan An array of zero or more channels to read from.  If \a
+ * recv_len is 0, may be `NULL`.
+ * @param recv_buf An array of zero or more buffers to receive into
+ * corresponding to \a recv_chan.  If \a recv_len is 0, may be `NULL`.
+ * @param send_len The length of \a send_chan and \a send_buf.
+ * @param send_chan An array of zero or more channels to send from.  If \a
+ * send_len is 0, may be `NULL`.
+ * @param send_buf An array of zero or more buffers to send from corresponding
+ * to \a send_chan.  If \a send_len is 0, may be `NULL`.
+ * @param timeout The duration of time to wait. If `NULL`, does not wait; if
+ * \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @return Returns an integer &ge; 0 for a selected channel or `-1` when no
+ * channel was selected.
+ *
+ * @warning No \ref channel may appear in both \a recv_chan and \a send_chan
+ * nor more than once in either.
  */
-int chan_select( unsigned recv_n, struct channel *recv_chan[recv_n],
-                 void *recv_buf[recv_n],
-                 unsigned send_n, struct channel *send_chan[send_n],
-                 void const *send_buf[send_n] );
+int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
+                 void *recv_buf[recv_len],
+                 unsigned send_len, struct channel *send_chan[send_len],
+                 void const *send_buf[send_len],
+                 struct timespec const *timeout );
 
 ///////////////////////////////////////////////////////////////////////////////
 
