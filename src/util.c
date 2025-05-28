@@ -27,8 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern char const *me;
-
 ////////// extern functions ///////////////////////////////////////////////////
 
 char const* base_name( char const *path_name ) {
@@ -40,7 +38,7 @@ char const* base_name( char const *path_name ) {
 }
 
 void perror_exit( int status ) {
-  perror( me );
+  perror( PACKAGE );
   exit( status );
 }
 
