@@ -91,7 +91,7 @@ static bool test_buf_chan( void ) {
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
-    spin_wait( &chan.mtx, &chan.recv_wait_cnt );
+    spin_wait( &chan.mtx, &chan.wait_cnt[0] );
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
@@ -115,7 +115,7 @@ static bool test_unbuf_chan( void ) {
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
-    spin_wait( &chan.mtx, &chan.recv_wait_cnt );
+    spin_wait( &chan.mtx, &chan.wait_cnt[0] );
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
@@ -123,7 +123,7 @@ static bool test_unbuf_chan( void ) {
     // Create the sending thread first and ensure it's ready before creating
     // the receiving thread.
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
-    spin_wait( &chan.mtx, &chan.send_wait_cnt );
+    spin_wait( &chan.mtx, &chan.wait_cnt[1] );
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
