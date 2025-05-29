@@ -75,9 +75,9 @@ typedef enum    chan_rv       chan_rv;
  */
 struct chan_obs_impl {
   pthread_cond_t    cond;
+  struct channel   *chan;
   chan_obs_impl    *next;               ///< The next observer, if any.
   pthread_mutex_t  *pmtx;
-  struct channel   *chan;
 };
 
 /**
@@ -90,23 +90,24 @@ struct chan_obs_impl {
 struct channel {
   union {
     struct {
-      void       *ring_buf;             ///< Message ring buffer.
-      unsigned    ring_len;             ///< Number of messages in buffer.
-      unsigned    recv_idx;             ///< Ring buffer receive index.
-      unsigned    send_idx;             ///< Ring buffer send index.
+      void           *ring_buf;         ///< Message ring buffer.
+      unsigned        ring_len;         ///< Number of messages in buffer.
+      unsigned        recv_idx;         ///< Ring buffer receive index.
+      unsigned        send_idx;         ///< Ring buffer send index.
     } buf;
     struct {
-      void       *recv_buf;             ///< Where to put a received message.
+      void           *recv_buf;         ///< Where to put a received message.
+      pthread_cond_t  recv_buf_is_null; ///< Is \ref recv_buf `NULL`?
     } unbuf;
   };
 
-  chan_obs_impl   observer[2];          ///< Proceed: 0=receiver, 1=sender.
-  unsigned short  wait_cnt[2];          ///< Waiting to receive (0) or send (1).
+  chan_obs_impl       observer[2];      ///< Proceed: 0=receiver, 1=sender.
+  unsigned short      wait_cnt[2];      ///< Waiting to receive (0) or send (1).
 
-  pthread_mutex_t mtx;                  ///< Channel mutex.
-  size_t          msg_size;             ///< Size of a message.
-  unsigned        buf_cap;              ///< Channel capacity; 0 = unbuffered.
-  bool            is_closed;            ///< Is channel closed?
+  pthread_mutex_t     mtx;              ///< Channel mutex.
+  size_t              msg_size;         ///< Size of a message.
+  unsigned            buf_cap;          ///< Channel capacity; 0 = unbuffered.
+  bool                is_closed;        ///< Is channel closed?
 };
 
 ////////// extern variables ///////////////////////////////////////////////////

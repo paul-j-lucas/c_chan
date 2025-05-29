@@ -411,6 +411,12 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
     else if ( chan->wait_cnt[ CHAN_SEND ] == 0 && timeout == NULL ) {
       rv = CHAN_TIMEDOUT;               // no sender and shouldn't wait
     }
+    else if ( chan->unbuf.recv_buf != NULL ) {
+      // Some other thread has called chan_unbuf_recv() that has already set
+      // recv_buf and is waiting for a sender.  We must wait for that other
+      // thread to reset recv_buf.
+      PTHREAD_COND_WAIT( &chan->unbuf.recv_buf_is_null, &chan->mtx );
+    }
     else {
       chan->unbuf.recv_buf = recv_buf;
       chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
@@ -418,10 +424,8 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
       // Wait for a sender to copy the data.
       rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, timeout );
 
-      if ( rv == CHAN_OK && chan->unbuf.recv_buf == recv_buf ) {
-        chan->unbuf.recv_buf = NULL;
-        break;
-      }
+      chan->unbuf.recv_buf = NULL;
+      PTHREAD_COND_SIGNAL( &chan->unbuf.recv_buf_is_null );
     }
   } // while
 
@@ -567,6 +571,9 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) ) {
     }
     free( chan->buf.ring_buf );
   }
+  else {
+    PTHREAD_COND_DESTROY( &chan->unbuf.recv_buf_is_null );
+  }
 
   PTHREAD_COND_DESTROY( &chan->observer[ CHAN_RECV ].cond );
   PTHREAD_COND_DESTROY( &chan->observer[ CHAN_SEND ].cond );
@@ -576,12 +583,14 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) ) {
 void chan_close( struct channel *chan ) {
   assert( chan != NULL );
   PTHREAD_MUTEX_LOCK( &chan->mtx );
-  bool const was_closed = chan->is_closed;
+  bool const was_already_closed = chan->is_closed;
   chan->is_closed = true;
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
-  if ( !was_closed ) {                  // wake up all waiting threads, if any
+  if ( !was_already_closed ) {          // wake up all waiting threads, if any
     chan_notify( chan, CHAN_RECV, &pthread_cond_broadcast );
     chan_notify( chan, CHAN_SEND, &pthread_cond_broadcast );
+    if ( !chan_is_buffered( chan ) )
+      PTHREAD_COND_BROADCAST( &chan->unbuf.recv_buf_is_null );
   }
 }
 
@@ -600,6 +609,7 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
   }
   else {
     chan->unbuf.recv_buf = NULL;
+    PTHREAD_COND_INIT( &chan->unbuf.recv_buf_is_null, /*attr=*/0 );
   }
 
   chan->msg_size = msg_size;

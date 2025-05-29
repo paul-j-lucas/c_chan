@@ -55,7 +55,7 @@ static void ms_sleep( unsigned ms ) {
     req = rem;
 }
 
-static void spin_wait( pthread_mutex_t *mtx, unsigned *pu ) {
+static void spin_wait( pthread_mutex_t *mtx, unsigned short *pu ) {
   PTHREAD_MUTEX_LOCK( mtx );
   while ( *pu == 0 ) {
     PTHREAD_MUTEX_UNLOCK( mtx );
