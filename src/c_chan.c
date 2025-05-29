@@ -67,6 +67,8 @@ typedef enum chan_dir chan_dir;
  * TODO
  */
 struct chan_select_ref {
+  struct channel *chan;                 ///< The \ref channel referred to.
+
   /**
    * Index into either the \p recv_chan and \p recv_buf, or \p send_chan and \p
    * send_buf parameters of chan_select().
@@ -231,6 +233,7 @@ static void chan_notify( struct channel *chan, chan_dir dir,
                          int (*pthread_cond_fn)( pthread_cond_t* ) ) {
   for ( chan_obs_impl *obs = &chan->observer[ dir ]; obs != NULL;
         obs = obs->next ) {
+    obs->chan = chan;
     PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->cond ) != 0, EX_IOERR );
   } // for
 }
@@ -336,6 +339,7 @@ static void chan_select_init( chan_select_ref ref[], unsigned *pref_len,
 
       if ( is_ready || add_obs != NULL ) {
         ref[ (*pref_len)++ ] = (chan_select_ref){
+          .chan = chan[i],
           .dir = dir,
           .param_idx = (unsigned short)i,
           .maybe_ready = is_ready
@@ -604,13 +608,17 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
   PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/0 );
   chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
 
-  PTHREAD_COND_INIT( &chan->observer[ CHAN_RECV ].cond, /*attr=*/0 );
-  chan->observer[ CHAN_RECV ].next = NULL;
-  chan->observer[ CHAN_RECV ].pmtx = &chan->mtx;
+  chan_obs_impl *obs = &chan->observer[ CHAN_RECV ];
+  PTHREAD_COND_INIT( &obs->cond, /*attr=*/0 );
+  obs->next = NULL;
+  obs->pmtx = &chan->mtx;
+  obs->chan = NULL;
 
-  PTHREAD_COND_INIT( &chan->observer[ CHAN_SEND ].cond, /*attr=*/0 );
-  chan->observer[ CHAN_SEND ].next = NULL;
-  chan->observer[ CHAN_SEND ].pmtx = &chan->mtx;
+  obs = &chan->observer[ CHAN_RECV ];
+  PTHREAD_COND_INIT( &obs->cond, /*attr=*/0 );
+  obs->next = NULL;
+  obs->pmtx = &chan->mtx;
+  obs->chan = NULL;
 
   return true;
 }
@@ -690,10 +698,17 @@ retry:;
                                       timeout ) == ETIMEDOUT ) {
         rv = CHAN_TIMEDOUT;
       }
-      else {
-        //selected_ref = csi.observer.select;
-      }
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
+
+      if ( rv == CHAN_OK ) {
+        for ( unsigned i = 0; i < ref_len; ++i ) {
+          if ( ref[i].chan == select_obs.chan ) {
+            selected_ref = &ref[i];
+            break;
+          }
+        } // for
+        assert( selected_ref != NULL );
+      }
     }
     else {
       struct timeval now;

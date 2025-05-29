@@ -77,6 +77,7 @@ struct chan_obs_impl {
   pthread_cond_t    cond;
   chan_obs_impl    *next;               ///< The next observer, if any.
   pthread_mutex_t  *pmtx;
+  struct channel   *chan;
 };
 
 /**
