@@ -36,17 +36,6 @@
 #include <sys/time.h>                   /* for gettimeofday(2) */
 #include <unistd.h>
 
-///////////////////////////////////////////////////////////////////////////////
-
-/**
- * Channel direction.
- */
-enum chan_dir {
-  CHAN_RECV,                            ///< Receive direction.
-  CHAN_SEND                             ///< Send direction.
-};
-typedef enum chan_dir chan_dir;
-
 /**
  * TODO
  * @{
@@ -62,6 +51,34 @@ typedef enum chan_dir chan_dir;
 #define CHAN_UNBUF_SEND_DONE  CHAN_RECV
 #define CHAN_UNBUF_RECV_WAIT  CHAN_SEND
 /** @} */
+
+////////// enumerations ///////////////////////////////////////////////////////
+
+/**
+ * Channel direction.
+ */
+enum chan_dir {
+  CHAN_RECV,                            ///< Receive direction.
+  CHAN_SEND                             ///< Send direction.
+};
+
+////////// typedefs ///////////////////////////////////////////////////////////
+
+typedef enum    chan_dir chan_dir;
+typedef struct  chan_select_ref     chan_select_ref;
+
+/**
+ * The signature for a function passed to **qsort**(3).
+ *
+ * @param i_data A pointer to data.
+ * @param j_data A pointer to data.
+ * @return Returns an integer less than, equal to, or greater than 0, according
+ * to whether the data pointed to by \a i_data is less than, equal to, or
+ * greater than the data pointed to by \a j_data.
+ */
+typedef int (*qsort_cmp_fn)( void const *i_data, void const *j_data );
+
+////////// structs ////////////////////////////////////////////////////////////
 
 /**
  * TODO
@@ -81,20 +98,10 @@ struct chan_select_ref {
    */
   chan_dir        dir;
 
-  bool            maybe_ready;          ///< Referred-to channel maybe ready?
+  bool            maybe_ready;          ///< Is \ref chan maybe ready?
 };
-typedef struct chan_select_ref chan_select_ref;
 
-/**
- * The signature for a function passed to **qsort**(3).
- *
- * @param i_data A pointer to data.
- * @param j_data A pointer to data.
- * @return Returns an integer less than, equal to, or greater than 0, according
- * to whether the data pointed to by \a i_data is less than, equal to, or
- * greater than the data pointed to by \a j_data.
- */
-typedef int (*qsort_cmp_fn)( void const *i_data, void const *j_data );
+////////// local functions ////////////////////////////////////////////////////
 
 static void     chan_notify( struct channel*, chan_dir,
                              int (*)( pthread_cond_t* ) );

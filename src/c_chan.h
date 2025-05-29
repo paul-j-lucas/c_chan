@@ -75,7 +75,7 @@ typedef enum    chan_rv       chan_rv;
  */
 struct chan_obs_impl {
   pthread_cond_t    cond;
-  struct channel   *chan;
+  struct channel   *chan;               ///< The channel being observed.
   chan_obs_impl    *next;               ///< The next observer, if any.
   pthread_mutex_t  *pmtx;
 };
