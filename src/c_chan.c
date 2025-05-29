@@ -260,26 +260,27 @@ static chan_rv chan_recv_nowait( struct channel *chan, void *recv_buf ) {
 /**
  * TODO
  *
- * @param remove_link TODO.
+ * @param remove_obs TODO.
  * @param chan_len The length of \a chan.
  * @param chan TODO.
  * @param dir The common direction of \a chan.
  */
-static void chan_select_cleanup( chan_obs_impl *remove_obs,
-                                 unsigned chan_len,
+static void chan_select_cleanup( chan_obs_impl *remove_obs, unsigned chan_len,
                                  struct channel *chan[chan_len],
                                  chan_dir dir ) {
+  assert( remove_obs != NULL );
+  assert( chan != NULL );
+
   for ( unsigned i = 0; i < chan_len; ++i ) {
     pthread_mutex_t *pmtx = &chan[i]->mtx;
     PTHREAD_MUTEX_LOCK( pmtx );
     --chan[i]->wait_cnt[ dir ];
 
-    for ( chan_obs_impl *obs = chan[i]->observer[ dir ].next;
-          obs != NULL; ) {
-
+    for ( chan_obs_impl *obs = chan[i]->observer[ dir ].next; obs != NULL; ) {
       if ( obs->next == remove_obs ) {
         PTHREAD_MUTEX_LOCK( obs->next->pmtx );
         obs->next = obs->next->next;
+        PTHREAD_MUTEX_UNLOCK( obs->next->pmtx );
         break;
       }
 
@@ -287,7 +288,6 @@ static void chan_select_cleanup( chan_obs_impl *remove_obs,
       pmtx = obs->pmtx;
       PTHREAD_MUTEX_LOCK( pmtx );
       obs = obs->next;
-
     } // for
     PTHREAD_MUTEX_UNLOCK( pmtx );
   } // for
@@ -296,20 +296,25 @@ static void chan_select_cleanup( chan_obs_impl *remove_obs,
 /**
  * Initializes \a ref for chan_select().
  *
- * @param ref TODO.
- * @param pref_len TODO.
+ * @param ref The array of channel references to initialize.
+ * @param pref_len Must be 0 to start; updated to be the number of references.
  * @param chan_len The length of \a chan.
  * @param chan The channels to initialize from.
  * @param dir The common direction of \a chan.
- * @param pmaybe_ready_len Updated to be the number of channels that may be
- * ready.
- * @param add_obs TODO.  If `NULL`, the ref will be non-blocking.
+ * @param pmaybe_ready_len Must be 0 to start; updated to be the number of
+ * channels that may be ready.
+ * @param add_obs The observer to add to each channel.  If `NULL`, the select
+ * is be non-blocking.
  */
 static void chan_select_init( chan_select_ref ref[], unsigned *pref_len,
                               unsigned chan_len,
                               struct channel *chan[chan_len], chan_dir dir,
                               unsigned *pmaybe_ready_len,
                               chan_obs_impl *add_obs ) {
+  assert( ref != NULL );
+  assert( pref_len != NULL );
+  assert( pmaybe_ready_len != NULL );
+
   for ( unsigned i = 0; i < chan_len; ++i ) {
     bool is_ready = false;
     PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
@@ -322,7 +327,9 @@ static void chan_select_init( chan_select_ref ref[], unsigned *pref_len,
         chan[i]->wait_cnt[ !dir ] > 0;
 
       if ( add_obs != NULL ) {
+        PTHREAD_MUTEX_LOCK( add_obs->pmtx );
         add_obs->next = chan[i]->observer[ dir ].next;
+        PTHREAD_MUTEX_UNLOCK( add_obs->pmtx );
         chan[i]->observer[ dir ].next = add_obs;
         ++chan[i]->wait_cnt[ dir ];
       }
@@ -641,13 +648,13 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
 
   if ( wait ) {
     PTHREAD_COND_INIT( &select_obs.cond, /*attr=*/0 );
+    select_obs.next = NULL;
+    select_obs.pmtx = &select_mtx;
   }
 
   PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/0 );
 
 retry:;
-
-  PTHREAD_MUTEX_LOCK( &select_mtx );
 
   unsigned ref_len = 0;                 // number of channels to select from
   unsigned maybe_ready_len = 0;         // number of those that may be ready
@@ -675,6 +682,7 @@ retry:;
     chan_rv rv = CHAN_OK;
 
     if ( maybe_ready_len == 0 && wait ) {
+      PTHREAD_MUTEX_LOCK( &select_mtx );
       if ( timeout == CHAN_NO_TIMEOUT ) {
         PTHREAD_COND_WAIT( &select_obs.cond, &select_mtx );
       }
@@ -685,6 +693,7 @@ retry:;
       else {
         //selected_ref = csi.observer.select;
       }
+      PTHREAD_MUTEX_UNLOCK( &select_mtx );
     }
     else {
       struct timeval now;
@@ -692,8 +701,6 @@ retry:;
       srand( (unsigned)now.tv_usec );
       selected_ref = &ref[ rand() % (int)ref_len ];
     }
-
-    PTHREAD_MUTEX_UNLOCK( &select_mtx );
 
     if ( rv == CHAN_OK ) {
       rv = selected_ref->dir == CHAN_RECV ?
@@ -717,9 +724,6 @@ retry:;
       case CHAN_TIMEDOUT:
         goto retry;
     } // switch
-  }
-  else {
-    PTHREAD_MUTEX_UNLOCK( &select_mtx );
   }
 
   if ( ref != stack_ref )
