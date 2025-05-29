@@ -666,7 +666,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
   unsigned const total_len = recv_len + send_len;
   bool const wait = timeout != NULL;
 
-  chan_select_ref stack_ref[8];
+  chan_select_ref stack_ref[16];
   chan_select_ref *const ref = total_len <= ARRAY_SIZE( stack_ref ) ?
     stack_ref : malloc( total_len * sizeof( chan_select_ref ) );
 
