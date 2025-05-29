@@ -304,19 +304,20 @@ static void chan_select_cleanup( chan_obs_impl *remove_obs, unsigned chan_len,
  * @param chan_len The length of \a chan.
  * @param chan The channels to initialize from.
  * @param dir The common direction of \a chan.
- * @param pmaybe_ready_len Must be 0 to start; updated to be the number of
- * channels that may be ready.
  * @param add_obs The observer to add to each channel.  If `NULL`, the select
  * is be non-blocking.
+ * @return Returns the number of channels that may be ready.
  */
-static void chan_select_init( chan_select_ref ref[], unsigned *pref_len,
-                              unsigned chan_len,
-                              struct channel *chan[chan_len], chan_dir dir,
-                              unsigned *pmaybe_ready_len,
-                              chan_obs_impl *add_obs ) {
+NODISCARD
+static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
+                                  unsigned chan_len,
+                                  struct channel *chan[chan_len], chan_dir dir,
+                                  chan_obs_impl *add_obs ) {
   assert( ref != NULL );
   assert( pref_len != NULL );
-  assert( pmaybe_ready_len != NULL );
+  assert( chan != NULL );
+
+  unsigned maybe_ready_len = 0;
 
   for ( unsigned i = 0; i < chan_len; ++i ) {
     bool is_ready = false;
@@ -350,8 +351,10 @@ static void chan_select_init( chan_select_ref ref[], unsigned *pref_len,
     PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
 
     if ( is_ready )
-      ++*pmaybe_ready_len;
+      ++maybe_ready_len;
   } // for
+
+  return maybe_ready_len;
 }
 
 /**
@@ -675,16 +678,13 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
 retry:;
 
   unsigned ref_len = 0;                 // number of channels to select from
-  unsigned maybe_ready_len = 0;         // number of those that may be ready
-
-  chan_select_init(
-    ref, &ref_len, recv_len, recv_chan, CHAN_RECV, &maybe_ready_len,
-    wait ? &select_obs : NULL
-  );
-  chan_select_init(
-    ref, &ref_len, send_len, send_chan, CHAN_SEND, &maybe_ready_len,
-    wait ? &select_obs : NULL
-  );
+  unsigned const maybe_ready_len =      // number of those that may be ready
+    chan_select_init(
+      ref, &ref_len, recv_len, recv_chan, CHAN_RECV, wait ? &select_obs : NULL
+    ) +
+    chan_select_init(
+      ref, &ref_len, send_len, send_chan, CHAN_SEND, wait ? &select_obs : NULL
+    );
 
   if ( maybe_ready_len > 0 && maybe_ready_len < ref_len ) {
     qsort(                              // sort maybe ready channels first ...
