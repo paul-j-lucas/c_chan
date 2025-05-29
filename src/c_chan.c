@@ -229,10 +229,10 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
 }
 
 /**
- * TODO
+ * Notifies \a chan and all its observers that a condition has been signaled.
  *
  * @param chan The \ref channel to notify about.
- * @param dir Whether to notify about a receive or send operation.
+ * @param dir Whether to notify about a receive or send condition.
  * @param pthread_cond_fn The `pthread_cond_t` function to call, either
  * `pthread_cond_signal` or `pthread_cond_broadcast`.
  */
@@ -246,38 +246,15 @@ static void chan_notify( struct channel *chan, chan_dir dir,
 }
 
 /**
- * Attempts to receive data from a \ref channel, but does not wait if either
- * the channel is empty (buffered) or no sender is waiting (unbuffered).
- *
- * @param chan The \ref channel to receive from.
- * @param recv_buf The buffer to receive into.
- * @return Returns a \ref chan_rv.
- *
- * @sa chan_recv()
- */
-NODISCARD
-static chan_rv chan_recv_nowait( struct channel *chan, void *recv_buf ) {
-  assert( chan != NULL );
-
-  if ( chan_is_buffered( chan ) ) {
-    assert( recv_buf != NULL );
-    return chan_buf_recv( chan, recv_buf, /*timeout=*/NULL );
-  }
-
-  return chan_unbuf_recv( chan, recv_buf, /*timeout=*/NULL );
-}
-
-/**
- * TODO
+ * Removes \a remove_obs as an observer from all \a chan.
  *
  * @param remove_obs TODO.
  * @param chan_len The length of \a chan.
- * @param chan TODO.
+ * @param chan The array of channels to remove \a remove_obs from.
  * @param dir The common direction of \a chan.
  */
-static void chan_select_cleanup( chan_obs_impl *remove_obs, unsigned chan_len,
-                                 struct channel *chan[chan_len],
-                                 chan_dir dir ) {
+static void chan_obs_remove( chan_obs_impl *remove_obs, unsigned chan_len,
+                             struct channel *chan[chan_len], chan_dir dir ) {
   assert( remove_obs != NULL );
   assert( chan != NULL );
 
@@ -301,6 +278,28 @@ static void chan_select_cleanup( chan_obs_impl *remove_obs, unsigned chan_len,
     } // for
     PTHREAD_MUTEX_UNLOCK( pmtx );
   } // for
+}
+
+/**
+ * Attempts to receive data from a \ref channel, but does not wait if either
+ * the channel is empty (buffered) or no sender is waiting (unbuffered).
+ *
+ * @param chan The \ref channel to receive from.
+ * @param recv_buf The buffer to receive into.
+ * @return Returns a \ref chan_rv.
+ *
+ * @sa chan_recv()
+ */
+NODISCARD
+static chan_rv chan_recv_nowait( struct channel *chan, void *recv_buf ) {
+  assert( chan != NULL );
+
+  if ( chan_is_buffered( chan ) ) {
+    assert( recv_buf != NULL );
+    return chan_buf_recv( chan, recv_buf, /*timeout=*/NULL );
+  }
+
+  return chan_unbuf_recv( chan, recv_buf, /*timeout=*/NULL );
 }
 
 /**
@@ -762,8 +761,8 @@ retry:;
     free( ref );
 
   if ( wait ) {
-    chan_select_cleanup( &select_obs, recv_len, recv_chan, CHAN_RECV );
-    chan_select_cleanup( &select_obs, send_len, send_chan, CHAN_SEND );
+    chan_obs_remove( &select_obs, recv_len, recv_chan, CHAN_RECV );
+    chan_obs_remove( &select_obs, send_len, send_chan, CHAN_SEND );
     PTHREAD_COND_DESTROY( &select_obs.cond );
   }
 
