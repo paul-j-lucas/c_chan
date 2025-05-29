@@ -312,7 +312,7 @@ static chan_rv chan_recv_nowait( struct channel *chan, void *recv_buf ) {
  * @param chan The channels to initialize from.
  * @param dir The common direction of \a chan.
  * @param add_obs The observer to add to each channel.  If `NULL`, the select
- * is be non-blocking.
+ * is non-blocking.
  * @return Returns the number of channels that may be ready.
  */
 NODISCARD
