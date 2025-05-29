@@ -122,7 +122,8 @@ static int      pthread_cond_relwait( pthread_cond_t*, pthread_mutex_t*,
                                       struct timespec const* );
 
 // local variables
-static struct timespec const CHAN_NO_TIMEOUT_TIMESPEC;
+static struct timespec const  CHAN_NO_TIMEOUT_TIMESPEC;
+static pthread_once_t         srand_once = PTHREAD_ONCE_INIT;
 
 // extern variables
 struct timespec const *const CHAN_NO_TIMEOUT = &CHAN_NO_TIMEOUT_TIMESPEC;
@@ -565,6 +566,15 @@ static int pthread_cond_relwait( pthread_cond_t *cond, pthread_mutex_t *mtx,
   } // switch
 }
 
+/**
+ * Calls **srand**(3) using the time-of-day as the seed.
+ */
+static void srand_init( void ) {
+  struct timeval now;
+  (void)gettimeofday( &now, /*tzp=*/NULL );
+  srand( (unsigned)now.tv_usec );
+}
+
 ////////// extern functions ///////////////////////////////////////////////////
 
 void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) ) {
@@ -727,9 +737,7 @@ retry:;
       }
     }
     else {
-      struct timeval now;
-      (void)gettimeofday( &now, /*tzp=*/NULL );
-      srand( (unsigned)now.tv_usec );
+      PTHREAD_ONCE( &srand_once, &srand_init );
       selected_ref = &ref[ rand() % (int)ref_len ];
     }
 
