@@ -41,10 +41,10 @@
 
 /**
  * Macros for use with cases of a `switch` statement on chan_select().
- *{
+ * @{
  */
 #define CHAN_SELECT_RECV(IDX)     ((int)(IDX))
-#define CHAN_SELECT_SEND(IDX)     (1000 + (int)(IDX))
+#define CHAN_SELECT_SEND(IDX)     (1024 + (int)(IDX))
 /** @} */
 
 #ifdef __cplusplus
@@ -65,16 +65,18 @@ enum chan_rv {
   CHAN_TIMEDOUT                         ///< Channel timed out.
 };
 
-typedef struct  chan_cond         chan_cond;
-typedef struct  chan_select_info  chan_select_info;
-typedef enum    chan_rv           chan_rv;
+typedef struct  chan_obs_impl chan_obs_impl;
+typedef enum    chan_rv       chan_rv;
 
 /**
  * TODO
+ *
+ * @note This is not part of the public API.
  */
-struct chan_cond {
-  pthread_cond_t    ready_cond;
-  chan_select_info *select;
+struct chan_obs_impl {
+  pthread_cond_t    cond;
+  chan_obs_impl    *next;               ///< The next observer, if any.
+  pthread_mutex_t  *pmtx;
 };
 
 /**
@@ -87,24 +89,23 @@ struct chan_cond {
 struct channel {
   union {
     struct {
-      void           *ring_buf;         ///< Message ring buffer.
-      unsigned        ring_len;         ///< Number of messages in buffer.
-      unsigned        recv_idx;         ///< Ring buffer receive index.
-      unsigned        send_idx;         ///< Ring buffer send index.
+      void       *ring_buf;             ///< Message ring buffer.
+      unsigned    ring_len;             ///< Number of messages in buffer.
+      unsigned    recv_idx;             ///< Ring buffer receive index.
+      unsigned    send_idx;             ///< Ring buffer send index.
     } buf;
     struct {
-      void           *recv_buf;         ///< Where to put a received message.
+      void       *recv_buf;             ///< Where to put a received message.
     } unbuf;
   };
 
-  unsigned            buf_cap;          ///< Channel capacity; 0 = unbuffered.
-  size_t              msg_size;         ///< Size of a message.
-  pthread_mutex_t     mtx;              ///< Channel mutex.
+  chan_obs_impl   observer[2];          ///< Proceed: 0=receiver, 1=sender.
+  unsigned short  wait_cnt[2];          ///< Waiting to receive (0) or send (1).
 
-  chan_cond           c_cond[2];        ///< Proceed: 0=receiver, 1=sender.
-  unsigned            wait_cnt[2];      ///< Waiting: 0=receivers, 1=senders.
-
-  bool                is_closed;        ///< Is channel closed?
+  pthread_mutex_t mtx;                  ///< Channel mutex.
+  size_t          msg_size;             ///< Size of a message.
+  unsigned        buf_cap;              ///< Channel capacity; 0 = unbuffered.
+  bool            is_closed;            ///< Is channel closed?
 };
 
 ////////// extern variables ///////////////////////////////////////////////////
@@ -119,7 +120,7 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
 /**
  * Cleans-up a \ref channel.
  *
- * @param chan The \ref channel to clean-up.
+ * @param chan The \ref channel to clean-up.  If `NULL`, does nothing.
  * @param free_fn For buffered channels only, the function to free unreceived
  * messages, if any.
  *
@@ -129,9 +130,9 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
 void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) );
 
 /**
- * Closes a channel.  If already closed, has no effect.  Once a channel is
- * closed, it can no longer be sent to.  Unreceived messages may still be
- * received until the channel becomes empty.
+ * Closes a channel.  If already closed, does nothing.  Once a channel is
+ * closed, it can no longer be sent to.  Messages may still be received from a
+ * buffered channel until it becomes empty.
  *
  * @param chan The \ref channel to close.
  *

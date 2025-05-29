@@ -47,30 +47,21 @@ enum chan_dir {
 };
 typedef enum chan_dir chan_dir;
 
+/**
+ * TODO
+ * @{
+ */
 #define CHAN_BUF_NOT_EMPTY    CHAN_RECV
 #define CHAN_BUF_NOT_FULL     CHAN_SEND
-
-#define CHAN_UNBUF_SEND_DONE  CHAN_RECV
-#define CHAN_UNBUF_RECV_WAIT  CHAN_SEND
-
-/**
- * The signature for a function passed to **qsort**(3).
- *
- * @param i_data A pointer to data.
- * @param j_data A pointer to data.
- * @return Returns an integer less than, equal to, or greater than 0, according
- * to whether the data pointed to by \a i_data is less than, equal to, or
- * greater than the data pointed to by \a j_data.
- */
-typedef int (*qsort_cmp_fn)( void const *i_data, void const *j_data );
+/** @} */
 
 /**
  * TODO
+ * @{
  */
-struct chan_select_info {
-  chan_cond         c_cond;
-  pthread_mutex_t   mtx;
-};
+#define CHAN_UNBUF_SEND_DONE  CHAN_RECV
+#define CHAN_UNBUF_RECV_WAIT  CHAN_SEND
+/** @} */
 
 /**
  * TODO
@@ -92,8 +83,19 @@ struct chan_select_ref {
 };
 typedef struct chan_select_ref chan_select_ref;
 
-static void     chan_cond_fn( struct channel *chan, chan_dir dir,
-                              int (*)( pthread_cond_t* ) );
+/**
+ * The signature for a function passed to **qsort**(3).
+ *
+ * @param i_data A pointer to data.
+ * @param j_data A pointer to data.
+ * @return Returns an integer less than, equal to, or greater than 0, according
+ * to whether the data pointed to by \a i_data is less than, equal to, or
+ * greater than the data pointed to by \a j_data.
+ */
+typedef int (*qsort_cmp_fn)( void const *i_data, void const *j_data );
+
+static void     chan_notify( struct channel*, chan_dir,
+                             int (*)( pthread_cond_t* ) );
 
 NODISCARD
 static bool     chan_unbuf_recv( struct channel*, void*,
@@ -117,6 +119,18 @@ static struct timespec const CHAN_NO_TIMEOUT_TIMESPEC;
 struct timespec const *const CHAN_NO_TIMEOUT = &CHAN_NO_TIMEOUT_TIMESPEC;
 
 ////////// inline functions ///////////////////////////////////////////////////
+
+/**
+ * Gets a pointer to the ith message in the buffered \a chan.
+ *
+ * @param chan The buffered channel to get a pointer to the ith message of.
+ * @param i The index of the message.
+ * @return Returns a pointer to the ith message in buffered \a chan.
+ */
+NODISCARD
+static inline void* chan_buf_at( struct channel *chan, unsigned i ) {
+  return (char*)chan->buf.ring_buf + i * chan->msg_size;
+}
 
 /**
  * Gets whether \a chan is buffered.
@@ -158,11 +172,10 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
   } // while
 
   if ( rv == CHAN_OK ) {
-    memcpy( recv_buf, chan->buf.ring_buf + chan->buf.recv_idx * chan->msg_size,
-            chan->msg_size );
+    memcpy( recv_buf, chan_buf_at( chan, chan->buf.recv_idx ), chan->msg_size );
     chan->buf.recv_idx = (chan->buf.recv_idx + 1) % chan->buf_cap;
     if ( chan->buf.ring_len-- == chan->buf_cap )
-      chan_cond_fn( chan, CHAN_BUF_NOT_FULL, &pthread_cond_signal );
+      chan_notify( chan, CHAN_BUF_NOT_FULL, &pthread_cond_signal );
   }
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
@@ -196,11 +209,10 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
   } // while
 
   if ( rv == CHAN_OK ) {
-    memcpy( chan->buf.ring_buf + chan->buf.send_idx * chan->msg_size, send_buf,
-            chan->msg_size );
+    memcpy( chan_buf_at( chan, chan->buf.send_idx ), send_buf, chan->msg_size );
     chan->buf.send_idx = (chan->buf.send_idx + 1) % chan->buf_cap;
     if ( chan->buf.ring_len++ == 0 )
-      chan_cond_fn( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
+      chan_notify( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
   }
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
@@ -210,24 +222,17 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
 /**
  * TODO
  *
- * @param chan TODO.
- * @param dir TODO.
+ * @param chan The \ref channel to notify about.
+ * @param dir Whether to notify about a receive or send operation.
  * @param pthread_cond_fn The `pthread_cond_t` function to call, either
  * `pthread_cond_signal` or `pthread_cond_broadcast`.
  */
-static void chan_cond_fn( struct channel *chan, chan_dir dir,
-                          int (*pthread_cond_fn)( pthread_cond_t* ) ) {
-  PERROR_EXIT_IF(
-    (*pthread_cond_fn)( &chan->c_cond[ dir ].ready_cond ) != 0, EX_IOERR
-  );
-
-  for ( chan_select_info *select = chan->c_cond[ dir ].select;
-        select != NULL;
-        select = select->c_cond.select ) {
-    PERROR_EXIT_IF(
-      (*pthread_cond_fn)( &select->c_cond.ready_cond ) != 0, EX_IOERR
-    );
-  }
+static void chan_notify( struct channel *chan, chan_dir dir,
+                         int (*pthread_cond_fn)( pthread_cond_t* ) ) {
+  for ( chan_obs_impl *obs = &chan->observer[ dir ]; obs != NULL;
+        obs = obs->next ) {
+    PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->cond ) != 0, EX_IOERR );
+  } // for
 }
 
 /**
@@ -260,32 +265,31 @@ static chan_rv chan_recv_nowait( struct channel *chan, void *recv_buf ) {
  * @param chan TODO.
  * @param dir The common direction of \a chan.
  */
-static void chan_select_cleanup( chan_select_info *remove_select,
+static void chan_select_cleanup( chan_obs_impl *remove_obs,
                                  unsigned chan_len,
                                  struct channel *chan[chan_len],
                                  chan_dir dir ) {
-
   for ( unsigned i = 0; i < chan_len; ++i ) {
-    pthread_mutex_t *mtx = &chan[i]->mtx;
-    PTHREAD_MUTEX_LOCK( mtx );
+    pthread_mutex_t *pmtx = &chan[i]->mtx;
+    PTHREAD_MUTEX_LOCK( pmtx );
     --chan[i]->wait_cnt[ dir ];
 
-    for ( chan_select_info *select = chan[i]->c_cond[ dir ].select;
-          select != NULL; ) {
+    for ( chan_obs_impl *obs = chan[i]->observer[ dir ].next;
+          obs != NULL; ) {
 
-      if ( select->c_cond.select == remove_select ) {
-        PTHREAD_MUTEX_LOCK( &select->c_cond.select->c_cond.select->mtx );
-        select->c_cond.select = select->c_cond.select->c_cond.select;
+      if ( obs->next == remove_obs ) {
+        PTHREAD_MUTEX_LOCK( obs->next->pmtx );
+        obs->next = obs->next->next;
         break;
       }
 
-      PTHREAD_MUTEX_UNLOCK( mtx );
-      mtx = &select->c_cond.select->mtx;
-      PTHREAD_MUTEX_LOCK( mtx );
-      select = select->c_cond.select;
+      PTHREAD_MUTEX_UNLOCK( pmtx );
+      pmtx = obs->pmtx;
+      PTHREAD_MUTEX_LOCK( pmtx );
+      obs = obs->next;
 
     } // for
-    PTHREAD_MUTEX_UNLOCK( mtx );
+    PTHREAD_MUTEX_UNLOCK( pmtx );
   } // for
 }
 
@@ -299,13 +303,13 @@ static void chan_select_cleanup( chan_select_info *remove_select,
  * @param dir The common direction of \a chan.
  * @param pmaybe_ready_len Updated to be the number of channels that may be
  * ready.
- * @param csi TODO.  If `NULL`, the ref will be non-blocking.
+ * @param add_obs TODO.  If `NULL`, the ref will be non-blocking.
  */
 static void chan_select_init( chan_select_ref ref[], unsigned *pref_len,
                               unsigned chan_len,
                               struct channel *chan[chan_len], chan_dir dir,
                               unsigned *pmaybe_ready_len,
-                              chan_select_info *csi ) {
+                              chan_obs_impl *add_obs ) {
   for ( unsigned i = 0; i < chan_len; ++i ) {
     bool is_ready = false;
     PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
@@ -317,13 +321,13 @@ static void chan_select_init( chan_select_ref ref[], unsigned *pref_len,
           chan[i]->buf.ring_len < chan[i]->buf_cap) :
         chan[i]->wait_cnt[ !dir ] > 0;
 
-      if ( csi != NULL ) {
-        csi->c_cond.select = chan[i]->c_cond[ dir ].select;
-        chan[i]->c_cond[ dir ].select = csi;
+      if ( add_obs != NULL ) {
+        add_obs->next = chan[i]->observer[ dir ].next;
+        chan[i]->observer[ dir ].next = add_obs;
         ++chan[i]->wait_cnt[ dir ];
       }
 
-      if ( is_ready || csi != NULL ) {
+      if ( is_ready || add_obs != NULL ) {
         ref[ (*pref_len)++ ] = (chan_select_ref){
           .dir = dir,
           .param_idx = (unsigned short)i,
@@ -398,7 +402,7 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
     }
     else {
       chan->unbuf.recv_buf = recv_buf;
-      chan_cond_fn( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
+      chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
 
       // Wait for a sender to copy the data.
       rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, timeout );
@@ -437,7 +441,7 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
     else if ( chan->wait_cnt[ CHAN_RECV ] == 0 && timeout == NULL )
       rv = CHAN_TIMEDOUT;               // no receiver and shouldn't wait
     else if ( chan->unbuf.recv_buf != NULL )
-      break;                            // there is a reader
+      break;                            // there is a receiver
     else
       rv = chan_wait( chan, CHAN_UNBUF_RECV_WAIT, timeout );
   } // while
@@ -445,7 +449,7 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
   if ( rv == CHAN_OK ) {
     if ( chan->msg_size > 0 )
       memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
-    chan_cond_fn( chan, CHAN_UNBUF_SEND_DONE, &pthread_cond_broadcast );
+    chan_notify( chan, CHAN_UNBUF_SEND_DONE, &pthread_cond_broadcast );
   }
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
@@ -479,11 +483,11 @@ static chan_rv chan_wait( struct channel *chan, chan_dir dir,
     rv = CHAN_OK;
     ++chan->wait_cnt[ dir ];
     if ( timeout == CHAN_NO_TIMEOUT ) {
-      PTHREAD_COND_WAIT( &chan->c_cond[ dir ].ready_cond, &chan->mtx );
+      PTHREAD_COND_WAIT( &chan->observer[ dir ].cond, &chan->mtx );
     }
     else {
       int const pcr_rv = pthread_cond_relwait( 
-        &chan->c_cond[ dir ].ready_cond, &chan->mtx, timeout
+        &chan->observer[ dir ].cond, &chan->mtx, timeout
       );
       switch ( pcr_rv ) {
         case 0:
@@ -546,15 +550,15 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) ) {
     if ( chan->buf.ring_len > 0 && free_fn != NULL ) {
       unsigned idx = chan->buf.recv_idx;
       for ( unsigned i = 0; i < chan->buf.ring_len; ++i ) {
-        (*free_fn)( &chan->buf.ring_buf[idx] );
+        (*free_fn)( chan_buf_at( chan, idx ) );
         idx = (idx + 1) % chan->buf_cap;
       }
     }
     free( chan->buf.ring_buf );
   }
 
-  PTHREAD_COND_DESTROY( &chan->c_cond[ CHAN_RECV ].ready_cond );
-  PTHREAD_COND_DESTROY( &chan->c_cond[ CHAN_SEND ].ready_cond );
+  PTHREAD_COND_DESTROY( &chan->observer[ CHAN_RECV ].cond );
+  PTHREAD_COND_DESTROY( &chan->observer[ CHAN_SEND ].cond );
   PTHREAD_MUTEX_DESTROY( &chan->mtx );
 }
 
@@ -565,15 +569,17 @@ void chan_close( struct channel *chan ) {
   chan->is_closed = true;
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   if ( !was_closed ) {                  // wake up all waiting threads, if any
-    chan_cond_fn( chan, CHAN_RECV, &pthread_cond_broadcast );
-    chan_cond_fn( chan, CHAN_SEND, &pthread_cond_broadcast );
+    chan_notify( chan, CHAN_RECV, &pthread_cond_broadcast );
+    chan_notify( chan, CHAN_SEND, &pthread_cond_broadcast );
   }
 }
 
 bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
   assert( chan != NULL );
 
-  if ( buf_cap > 0 ) {                  // buffered init
+  chan->buf_cap = buf_cap;
+
+  if ( chan_is_buffered( chan ) ) {
     assert( msg_size > 0 );
     chan->buf.ring_buf = malloc( buf_cap * msg_size );
     if ( chan->buf.ring_buf == NULL )
@@ -581,21 +587,23 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
     chan->buf.recv_idx = chan->buf.send_idx = 0;
     chan->buf.ring_len = 0;
   }
-  else {                                // unbuffered init
+  else {
     chan->unbuf.recv_buf = NULL;
   }
 
-  chan->buf_cap = buf_cap;
-  chan->is_closed = false;
   chan->msg_size = msg_size;
+  chan->is_closed = false;
+
   PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/0 );
   chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
 
-  PTHREAD_COND_INIT( &chan->c_cond[ CHAN_RECV ].ready_cond, /*attr=*/0 );
-  chan->c_cond[ CHAN_RECV ].select = NULL;
+  PTHREAD_COND_INIT( &chan->observer[ CHAN_RECV ].cond, /*attr=*/0 );
+  chan->observer[ CHAN_RECV ].next = NULL;
+  chan->observer[ CHAN_RECV ].pmtx = &chan->mtx;
 
-  PTHREAD_COND_INIT( &chan->c_cond[ CHAN_SEND ].ready_cond, /*attr=*/0 );
-  chan->c_cond[ CHAN_SEND ].select = NULL;
+  PTHREAD_COND_INIT( &chan->observer[ CHAN_SEND ].cond, /*attr=*/0 );
+  chan->observer[ CHAN_SEND ].next = NULL;
+  chan->observer[ CHAN_SEND ].pmtx = &chan->mtx;
 
   return true;
 }
@@ -628,28 +636,29 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
   chan_select_ref *const ref = total_len <= ARRAY_SIZE( stack_ref ) ?
     stack_ref : malloc( total_len * sizeof( chan_select_ref ) );
 
-  chan_select_info csi;
+  chan_obs_impl select_obs;
+  pthread_mutex_t select_mtx;
 
   if ( wait ) {
-    PTHREAD_COND_INIT( &csi.c_cond.ready_cond, /*attr=*/0 );
+    PTHREAD_COND_INIT( &select_obs.cond, /*attr=*/0 );
   }
 
-  PTHREAD_MUTEX_INIT( &csi.mtx, /*attr=*/0 );
+  PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/0 );
 
 retry:;
 
-  PTHREAD_MUTEX_LOCK( &csi.mtx );
+  PTHREAD_MUTEX_LOCK( &select_mtx );
 
   unsigned ref_len = 0;                 // number of channels to select from
   unsigned maybe_ready_len = 0;         // number of those that may be ready
 
   chan_select_init(
     ref, &ref_len, recv_len, recv_chan, CHAN_RECV, &maybe_ready_len,
-    wait ? &csi : NULL
+    wait ? &select_obs : NULL
   );
   chan_select_init(
     ref, &ref_len, send_len, send_chan, CHAN_SEND, &maybe_ready_len,
-    wait ? &csi : NULL
+    wait ? &select_obs : NULL
   );
 
   if ( maybe_ready_len > 0 && maybe_ready_len < ref_len ) {
@@ -660,39 +669,41 @@ retry:;
     ref_len = maybe_ready_len;          // ... and select only from those
   }
 
-  chan_select_ref const *selected = NULL;
+  chan_select_ref const *selected_ref = NULL;
 
   if ( ref_len > 0 ) {
     chan_rv rv = CHAN_OK;
 
     if ( maybe_ready_len == 0 && wait ) {
       if ( timeout == CHAN_NO_TIMEOUT ) {
-        PTHREAD_COND_WAIT( &csi.c_cond.ready_cond, &csi.mtx );
+        PTHREAD_COND_WAIT( &select_obs.cond, &select_mtx );
       }
-      else if ( pthread_cond_relwait( &csi.c_cond.ready_cond, &csi.mtx,
+      else if ( pthread_cond_relwait( &select_obs.cond, &select_mtx,
                                       timeout ) == ETIMEDOUT ) {
         rv = CHAN_TIMEDOUT;
       }
       else {
-        //selected = csi.c_cond.select;
+        //selected_ref = csi.observer.select;
       }
     }
     else {
       struct timeval now;
       (void)gettimeofday( &now, /*tzp=*/NULL );
       srand( (unsigned)now.tv_usec );
-      selected = &ref[ rand() % (int)ref_len ];
+      selected_ref = &ref[ rand() % (int)ref_len ];
     }
 
-    PTHREAD_MUTEX_UNLOCK( &csi.mtx );
+    PTHREAD_MUTEX_UNLOCK( &select_mtx );
 
     if ( rv == CHAN_OK ) {
-      rv = selected->dir == CHAN_RECV ?
+      rv = selected_ref->dir == CHAN_RECV ?
         chan_recv_nowait(
-          recv_chan[ selected->param_idx ], recv_buf[ selected->param_idx ]
+          recv_chan[ selected_ref->param_idx ],
+          recv_buf[ selected_ref->param_idx ]
         ) :
         chan_send_nowait(
-          send_chan[ selected->param_idx ], send_buf[ selected->param_idx ]
+          send_chan[ selected_ref->param_idx ],
+          send_buf[ selected_ref->param_idx ]
         );
     }
 
@@ -708,25 +719,25 @@ retry:;
     } // switch
   }
   else {
-    PTHREAD_MUTEX_UNLOCK( &csi.mtx );
+    PTHREAD_MUTEX_UNLOCK( &select_mtx );
   }
 
   if ( ref != stack_ref )
     free( ref );
 
   if ( wait ) {
-    chan_select_cleanup( &csi, recv_len, recv_chan, CHAN_RECV );
-    chan_select_cleanup( &csi, send_len, send_chan, CHAN_SEND );
-    PTHREAD_COND_DESTROY( &csi.c_cond.ready_cond );
+    chan_select_cleanup( &select_obs, recv_len, recv_chan, CHAN_RECV );
+    chan_select_cleanup( &select_obs, send_len, send_chan, CHAN_SEND );
+    PTHREAD_COND_DESTROY( &select_obs.cond );
   }
 
-  PTHREAD_MUTEX_DESTROY( &csi.mtx );
+  PTHREAD_MUTEX_DESTROY( &select_mtx );
 
-  if ( selected == NULL )
+  if ( selected_ref == NULL )
     return -1;
-  return selected->dir == CHAN_RECV ?
-    CHAN_SELECT_RECV( selected->param_idx ) :
-    CHAN_SELECT_SEND( selected->param_idx );
+  return selected_ref->dir == CHAN_RECV ?
+    CHAN_SELECT_RECV( selected_ref->param_idx ) :
+    CHAN_SELECT_SEND( selected_ref->param_idx );
 }
 
 chan_rv chan_send( struct channel *chan, void const *send_buf,
