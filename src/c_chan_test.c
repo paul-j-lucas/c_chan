@@ -102,6 +102,9 @@ static bool test_buf_chan( void ) {
     PTHREAD_JOIN( send_thrd, NULL );
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
+
+    chan_close( &chan );
+    chan_cleanup( &chan, /*free_fn=*/NULL );
   }
   TEST_FUNC_END();
 }
