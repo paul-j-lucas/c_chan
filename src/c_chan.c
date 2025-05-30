@@ -230,54 +230,78 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
 }
 
 /**
- * Notifies \a chan and all its observers that a condition has been signaled.
+ * Signals all of a channel's observers' conditions.
  *
  * @param chan The \ref channel to notify about.
  * @param dir Whether to notify about a receive or send condition.
  * @param pthread_cond_fn The `pthread_cond_t` function to call, either
- * `pthread_cond_signal` or `pthread_cond_broadcast`.
+ * **pthread_cond_signal**(3) or **pthread_cond_broadcast**(3).
  */
 static void chan_notify( struct channel *chan, chan_dir dir,
                          int (*pthread_cond_fn)( pthread_cond_t* ) ) {
+  chan_obs_impl *next_obs;
+  pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
+
   for ( chan_obs_impl *obs = &chan->observer[ dir ]; obs != NULL;
-        obs = obs->next ) {
+        obs = next_obs, pmtx = next_pmtx ) {
     obs->chan = chan;
     PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->cond ) != 0, EX_IOERR );
+    next_obs = obs->next;
+    if ( next_obs != NULL ) {
+      next_pmtx = next_obs->pmtx;
+      PTHREAD_MUTEX_LOCK( next_pmtx );
+    }
+    if ( pmtx != NULL )
+      PTHREAD_MUTEX_UNLOCK( pmtx );
   } // for
 }
 
 /**
  * Removes \a remove_obs as an observer from all \a chan.
  *
- * @param remove_obs TODO.
+ * @param remove_obs The observer to remove.
  * @param chan_len The length of \a chan.
- * @param chan The array of channels to remove \a remove_obs from.
+ * @param chan The array of channels to remove \a remove_obs from.  If \a
+ * chan_len is 0, may be `NULL`.
  * @param dir The common direction of \a chan.
  */
 static void chan_obs_remove( chan_obs_impl *remove_obs, unsigned chan_len,
                              struct channel *chan[chan_len], chan_dir dir ) {
   assert( remove_obs != NULL );
-  assert( chan != NULL );
 
   for ( unsigned i = 0; i < chan_len; ++i ) {
-    pthread_mutex_t *pmtx = &chan[i]->mtx;
-    PTHREAD_MUTEX_LOCK( pmtx );
-    --chan[i]->wait_cnt[ dir ];
+    pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
-    for ( chan_obs_impl *obs = chan[i]->observer[ dir ].next; obs != NULL; ) {
+    PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
+
+    // Whether the channel is closed now doesn't matter since it may have been
+    // open when the observer was added.
+
+    bool removed = false;
+    for ( chan_obs_impl *obs = &chan[i]->observer[ dir ]; obs != NULL;
+          obs = obs->next, pmtx = next_pmtx ) {
       if ( obs->next == remove_obs ) {
-        PTHREAD_MUTEX_LOCK( obs->next->pmtx );
+        // remove_obs is an observer in the caller's stack frame, i.e., this
+        // thread, so there's no need to lock obs->next->pmtx.
         obs->next = obs->next->next;
-        PTHREAD_MUTEX_UNLOCK( obs->next->pmtx );
+        if ( pmtx != NULL )
+          PTHREAD_MUTEX_UNLOCK( pmtx );
+        removed = true;
         break;
       }
 
-      PTHREAD_MUTEX_UNLOCK( pmtx );
-      pmtx = obs->pmtx;
-      PTHREAD_MUTEX_LOCK( pmtx );
-      obs = obs->next;
+      if ( obs->next != NULL ) {
+        next_pmtx = obs->next->pmtx;
+        PTHREAD_MUTEX_LOCK( next_pmtx );
+      }
+      if ( pmtx != NULL )
+        PTHREAD_MUTEX_UNLOCK( pmtx );
     } // for
-    PTHREAD_MUTEX_UNLOCK( pmtx );
+
+    if ( removed )
+      --chan[i]->wait_cnt[ dir ];
+
+    PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
   } // for
 }
 
@@ -439,8 +463,9 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
 }
 
 /**
- * Like `pthread_cond_wait()` and `pthread_cond_timedwait()` except if \a
- * abs_time is #CHAN_NO_TIMEOUT waits indefinitely;
+ * Like **pthread_cond_wait**(3)** and **pthread_cond_timedwait**(3) except:
+ *  + If \a abs_time is `NULL`, does not wait.
+ *  + If \a abs_time is #CHAN_NO_TIMEOUT, waits indefinitely.
  *
  * @param chan The \ref channel to wait for.
  * @param dir Whether to wait to receive or send.
