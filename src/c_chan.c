@@ -338,9 +338,7 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
         chan[i]->wait_cnt[ !dir ] > 0;
 
       if ( add_obs != NULL ) {
-        PTHREAD_MUTEX_LOCK( add_obs->pmtx );
         add_obs->next = chan[i]->observer[ dir ].next;
-        PTHREAD_MUTEX_UNLOCK( add_obs->pmtx );
         chan[i]->observer[ dir ].next = add_obs;
         ++chan[i]->wait_cnt[ dir ];
       }
@@ -374,7 +372,8 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
  */
 static int chan_select_ref_cmp( chan_select_ref const *i_csr,
                                 chan_select_ref const *j_csr ) {
-  return (int)i_csr->maybe_ready - (int)j_csr->maybe_ready;
+  // sort maybe_ready (true, aka, 1) before !maybe_ready (false, aka, 0)
+  return (int)j_csr->maybe_ready - (int)i_csr->maybe_ready;
 }
 
 /**
