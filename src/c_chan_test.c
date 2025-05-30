@@ -70,7 +70,7 @@ static void spin_wait( pthread_mutex_t *mtx, unsigned short *pu ) {
 static void* test_chan_recv_1( void *thrd_arg ) {
   struct channel *const chan = thrd_arg;
   int data = 0;
-  if ( TEST( chan_recv( chan, &data, /*timeout=*/NULL ) == CHAN_OK ) )
+  if ( TEST( chan_recv( chan, &data, CHAN_NO_TIMEOUT ) == CHAN_OK ) )
     TEST( data == 42 );
   return NULL;
 }
@@ -78,7 +78,7 @@ static void* test_chan_recv_1( void *thrd_arg ) {
 static void* test_chan_send_1( void *thrd_arg ) {
   struct channel *const chan = thrd_arg;
   int data = 42;
-  TEST( chan_send( chan, &data, /*timeout=*/NULL ) == CHAN_OK );
+  TEST( chan_send( chan, &data, CHAN_NO_TIMEOUT ) == CHAN_OK );
   return NULL;
 }
 
