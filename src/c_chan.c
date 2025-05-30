@@ -177,7 +177,7 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
       rv = CHAN_CLOSED;
     else if ( chan->buf.ring_len > 0 )
       break;
-    else
+    else                                // channel is empty
       rv = chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } // while
 
@@ -214,14 +214,14 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
       rv = CHAN_CLOSED;
     else if ( chan->buf.ring_len < chan->buf_cap )
       break;
-    else
+    else                                // channel is full
       rv = chan_wait( chan, CHAN_BUF_NOT_FULL, abs_time );
   } // while
 
   if ( rv == CHAN_OK ) {
     memcpy( chan_buf_at( chan, chan->buf.send_idx ), send_buf, chan->msg_size );
     chan->buf.send_idx = (chan->buf.send_idx + 1) % chan->buf_cap;
-    if ( chan->buf.ring_len++ == 0 )
+    if ( ++chan->buf.ring_len == 1 )
       chan_notify( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
   }
 
