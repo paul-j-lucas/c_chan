@@ -65,9 +65,9 @@ static void spin_wait( pthread_mutex_t *mtx, unsigned short *pu ) {
   PTHREAD_MUTEX_UNLOCK( mtx );
 }
 
-////////// test functions /////////////////////////////////////////////////////
+////////// test helper functions //////////////////////////////////////////////
 
-static void* test_chan_recv_1( void *thrd_arg ) {
+static void* chan_recv_1( void *thrd_arg ) {
   struct channel *const chan = thrd_arg;
   int data = 0;
   if ( TEST( chan_recv( chan, &data, CHAN_NO_TIMEOUT ) == CHAN_OK ) )
@@ -75,12 +75,33 @@ static void* test_chan_recv_1( void *thrd_arg ) {
   return NULL;
 }
 
-static void* test_chan_send_1( void *thrd_arg ) {
+static void* chan_select_recv_nowait_1( void *thrd_arg ) {
+  struct channel *const chan = thrd_arg;
+
+  struct channel *r_chan[] = { chan };
+  int data = 0;
+  int const cs_rv = chan_select(
+    /*recv_len=*/ARRAY_SIZE( r_chan ),
+    /*recv_chan=*/r_chan,
+    (void*[]){ &data },
+    /*send_len=*/0,
+    /*send_chan=*/NULL,
+    /*send_buf=*/NULL,
+    CHAN_NO_TIMEOUT
+  );
+  if ( TEST( cs_rv == CHAN_SELECT_RECV(0) ) )
+    TEST( data == 42 );
+  return NULL;
+}
+
+static void* chan_send_1( void *thrd_arg ) {
   struct channel *const chan = thrd_arg;
   int data = 42;
   TEST( chan_send( chan, &data, CHAN_NO_TIMEOUT ) == CHAN_OK );
   return NULL;
 }
+
+////////// test functions /////////////////////////////////////////////////////
 
 static bool test_buf_chan( void ) {
   TEST_FUNC_BEGIN();
@@ -90,18 +111,38 @@ static bool test_buf_chan( void ) {
 
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_recv_1, &chan );
     spin_wait( &chan.mtx, &chan.wait_cnt[0] );
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &chan_send_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
 
     // Create the sending thread first and ensure it sent before creating the
     // receiving thread.
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &chan_send_1, &chan );
     PTHREAD_JOIN( send_thrd, NULL );
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_recv_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
+
+    chan_close( &chan );
+    chan_cleanup( &chan, /*free_fn=*/NULL );
+  }
+  TEST_FUNC_END();
+}
+
+static bool test_select_recv_1_nowait( void ) {
+  TEST_FUNC_BEGIN();
+  struct channel chan;
+  if ( TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
+    pthread_t recv_thrd, send_thrd;
+
+    // Create the receiving thread first and ensure it's ready before creating
+    // the sending thread.
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_select_recv_nowait_1, &chan );
+    spin_wait( &chan.mtx, &chan.wait_cnt[0] );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &chan_send_1, &chan );
+    PTHREAD_JOIN( recv_thrd, NULL );
+    PTHREAD_JOIN( send_thrd, NULL );
 
     chan_close( &chan );
     chan_cleanup( &chan, /*free_fn=*/NULL );
@@ -117,17 +158,17 @@ static bool test_unbuf_chan( void ) {
 
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_recv_1, &chan );
     spin_wait( &chan.mtx, &chan.wait_cnt[0] );
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &chan_send_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
 
     // Create the sending thread first and ensure it's ready before creating
     // the receiving thread.
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &test_chan_send_1, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &chan_send_1, &chan );
     spin_wait( &chan.mtx, &chan.wait_cnt[1] );
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &test_chan_recv_1, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_recv_1, &chan );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
 
@@ -144,6 +185,8 @@ int main( int argc, char const *argv[] ) {
 
   test_buf_chan();
   test_unbuf_chan();
+
+  test_select_recv_1_nowait();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
