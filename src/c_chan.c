@@ -118,8 +118,8 @@ NODISCARD
 static chan_rv  chan_wait( struct channel*, chan_dir, struct timespec const* );
 
 NODISCARD
-static int      check_pthread_cond_timedwait( pthread_cond_t*, pthread_mutex_t*,
-                                              struct timespec const* );
+static int      pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
+                                           struct timespec const* );
 
 // local variables
 static struct timespec const  CHAN_NO_TIMEOUT_TIMESPEC;
@@ -488,23 +488,18 @@ static chan_rv chan_wait( struct channel *chan, chan_dir dir,
   else {
     rv = CHAN_OK;
     ++chan->wait_cnt[ dir ];
-    if ( abs_time == CHAN_NO_TIMEOUT ) {
-      PTHREAD_COND_WAIT( &chan->observer[ dir ].chan_ready, &chan->mtx );
-    }
-    else {
-      int const pcr_rv = check_pthread_cond_timedwait( 
-        &chan->observer[ dir ].chan_ready, &chan->mtx, abs_time
-      );
-      switch ( pcr_rv ) {
-        case 0:
-          break;
-        case ETIMEDOUT:
-          rv = CHAN_TIMEDOUT;
-          break;
-        default:
-          unreachable();
-      } // switch
-    }
+    int const pcww_rv = pthread_cond_wait_wrapper(
+      &chan->observer[ dir ].chan_ready, &chan->mtx, abs_time
+    );
+    switch ( pcww_rv ) {
+      case 0:
+        break;
+      case ETIMEDOUT:
+        rv = CHAN_TIMEDOUT;
+        break;
+      default:
+        unreachable();
+    } // switch
     --chan->wait_cnt[ dir ];
   }
 
@@ -512,22 +507,30 @@ static chan_rv chan_wait( struct channel *chan, chan_dir dir,
 }
 
 /**
- * Checks the return value of **pthread_cond_timedwait**(3) for errors other
- * than #ETIMEDOUT.
+ * Like **pthread_cond_wait**(3)** and **pthread_cond_timedwait**(3) except:
+ *  + If \a abs_time is \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ *  + Checks the return value of **pthread_cond_timedwait**(3) for errors other
+ *    than #ETIMEDOUT.
  *
  * @param cond The condition to wait for.
  * @param mtx The mutex to unlock temporarily.
- * @param abs_time When to wait until.
+ * @param abs_time When to wait until.  If \ref CHAN_NO_TIMEOUT, waits
+ * indefinitely.
  * @return Returns either 0 only if \a cond was signaled or `ETIMEDOUT` only if
  * \a abs_time has passed.
  */
 NODISCARD
-static int check_pthread_cond_timedwait( pthread_cond_t *cond,
-                                         pthread_mutex_t *mtx,
-                                         struct timespec const *abs_time ) {
+static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
+                                      pthread_mutex_t *mtx,
+                                      struct timespec const *abs_time ) {
   assert( cond != NULL );
   assert( mtx != NULL );
   assert( abs_time != NULL );
+
+  if ( abs_time == CHAN_NO_TIMEOUT ) {
+    PTHREAD_COND_WAIT( cond, mtx );
+    return 0;
+  }
 
   int const pct_rv = pthread_cond_timedwait( cond, mtx, abs_time );
   switch ( pct_rv ) {
@@ -718,12 +721,8 @@ retry:;
 
     if ( maybe_ready_len == 0 && wait ) {
       PTHREAD_MUTEX_LOCK( &select_mtx );
-      if ( duration == CHAN_NO_TIMEOUT ) {
-        PTHREAD_COND_WAIT( &select_obs.chan_ready, &select_mtx );
-      }
-      else if ( check_pthread_cond_timedwait( &select_obs.chan_ready,
-                                              &select_mtx,
-                                              abs_time ) == ETIMEDOUT ) {
+      if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
+                                      abs_time ) == ETIMEDOUT ) {
         rv = CHAN_TIMEDOUT;
       }
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
