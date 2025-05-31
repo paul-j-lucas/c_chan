@@ -197,10 +197,14 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
  * has either received or sent a message, respectively.
  *
  *  ```c
- *  struct channel *const r_chan[] = { &r1, &r2 };
- *  int r_buf[2];
- *  struct channel *const s_chan[] = { &s1, &s2 };
- *  int s_buf[2];
+ *  struct channel *const r_chan[] = { &r_chan1, &r_chan2 };
+ *  int r1, r2;
+ *  void *const r_buf[] = { &r1, &r2 };
+ *
+ *  struct channel *const s_chan[] = { &s_chan1, &s_chan2 };
+ *  int s1 = 1, s2 = 2;
+ *  void *const s_buf[] = { &s1, &s2 };
+ *
  *  switch ( chan_select( 2, r_chan, r_buf, 2, s_chan, s_buf, duration ) ) {
  *    case CHAN_SELECT_RECV(0):
  *      // ...
