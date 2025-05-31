@@ -37,7 +37,10 @@
 #include <unistd.h>
 
 /**
- * TODO
+ * For buffered channels, more mnemonic names for specifying which observer
+ * (receive or send) is meant.
+ *
+ * @sa chan_dir
  * @{
  */
 #define CHAN_BUF_NOT_EMPTY    CHAN_RECV
@@ -45,7 +48,10 @@
 /** @} */
 
 /**
- * TODO
+ * For unbuffered channels, more mnemonic names for specifying which observer
+ * (receive or send) is meant.
+ *
+ * @sa chan_dir
  * @{
  */
 #define CHAN_UNBUF_SEND_DONE  CHAN_RECV
@@ -81,20 +87,21 @@ typedef int (*qsort_cmp_fn)( void const *i_data, void const *j_data );
 ////////// structs ////////////////////////////////////////////////////////////
 
 /**
- * TODO
+ * In chan_select(), a single array of references to both receive and send
+ * channels is created.
  */
 struct chan_select_ref {
   struct channel *chan;                 ///< The \ref channel referred to.
 
   /**
-   * Index into either the \p recv_chan and \p recv_buf, or \p send_chan and \p
+   * Index into either \p recv_chan and \p recv_buf, or \p send_chan and \p
    * send_buf parameters of chan_select().
    */
   unsigned short  param_idx;
 
   /**
    * Indicates whether param_idx refers to either the \p recv_chan and \p
-   * recv_buf, or or \p send_chan and \p send_buf parameters of chan_select().
+   * recv_buf, or \p send_chan and \p send_buf parameters of chan_select().
    */
   chan_dir        dir;
 
@@ -160,7 +167,8 @@ static inline bool chan_is_buffered( struct channel const *chan ) {
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
- * @param abs_time When to wait until. If `NULL`, waits indefinitely.
+ * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEOUT; if
+ * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
  * @sa chan_buf_send()
@@ -197,7 +205,8 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
- * @param abs_time When to wait until. If `NULL`, waits indefinitely.
+ * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEOUT; if
+ * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
  * @sa chan_buf_recv()
@@ -236,13 +245,14 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
  * @param dir Whether to notify about a receive or send condition.
  * @param pthread_cond_fn The `pthread_cond_t` function to call, either
  * **pthread_cond_signal**(3) or **pthread_cond_broadcast**(3).
+ *
+ * @warning \ref channel::mtx must be locked before calling this function.
  */
 static void chan_notify( struct channel *chan, chan_dir dir,
                          int (*pthread_cond_fn)( pthread_cond_t* ) ) {
-  chan_obs_impl *next_obs;
   pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
-  for ( chan_obs_impl *obs = &chan->observer[ dir ]; obs != NULL;
+  for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
         obs = next_obs, pmtx = next_pmtx ) {
     obs->chan = chan;
     PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->chan_ready ) != 0, EX_IOERR );
@@ -257,52 +267,48 @@ static void chan_notify( struct channel *chan, chan_dir dir,
 }
 
 /**
- * Removes \a remove_obs as an observer from all \a chan.
+ * Removes \a remove_obs as an observer from \a chan.
  *
+ * @param chan Then \ref channel to remove \a remove_obs from.
+ * @param dir The direction of \a chan.
  * @param remove_obs The observer to remove.
- * @param chan_len The length of \a chan.
- * @param chan The array of channels to remove \a remove_obs from.  If \a
- * chan_len is 0, may be `NULL`.
- * @param dir The common direction of \a chan.
+ * @return Returns `true` only if \a remove_obs was removed.
+ *
+ * @warning \ref channel::mtx must be locked before calling this function.
+ *
+ * @sa obs_remove_all_chan()
  */
-static void chan_obs_remove( chan_obs_impl *remove_obs, unsigned chan_len,
-                             struct channel *chan[chan_len], chan_dir dir ) {
+static bool chan_obs_remove( struct channel *chan, chan_dir dir,
+                             chan_obs_impl *remove_obs ) {
+  assert( chan != NULL );
   assert( remove_obs != NULL );
 
-  for ( unsigned i = 0; i < chan_len; ++i ) {
-    pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
+  // Whether the channel is closed now doesn't matter since it may have been
+  // open when the observer was added.
 
-    PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
+  pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
-    // Whether the channel is closed now doesn't matter since it may have been
-    // open when the observer was added.
-
-    bool removed = false;
-    for ( chan_obs_impl *obs = &chan[i]->observer[ dir ]; obs != NULL;
-          obs = obs->next, pmtx = next_pmtx ) {
-      if ( obs->next == remove_obs ) {
-        // remove_obs is an observer in the caller's stack frame, i.e., this
-        // thread, so there's no need to lock obs->next->pmtx.
-        obs->next = obs->next->next;
-        if ( pmtx != NULL )
-          PTHREAD_MUTEX_UNLOCK( pmtx );
-        removed = true;
-        break;
-      }
-
-      if ( obs->next != NULL ) {
-        next_pmtx = obs->next->pmtx;
-        PTHREAD_MUTEX_LOCK( next_pmtx );
-      }
+  for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
+        obs = next_obs, pmtx = next_pmtx ) {
+    next_obs = obs->next;
+    if ( next_obs == remove_obs ) {
+      // remove_obs is an observer in our caller's stack frame, i.e., this
+      // thread, so there's no need to lock next_obs->pmtx.
+      obs->next = next_obs->next;
       if ( pmtx != NULL )
         PTHREAD_MUTEX_UNLOCK( pmtx );
-    } // for
+      return true;
+    }
 
-    if ( removed )
-      --chan[i]->wait_cnt[ dir ];
-
-    PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
+    if ( next_obs != NULL ) {
+      next_pmtx = next_obs->pmtx;
+      PTHREAD_MUTEX_LOCK( next_pmtx );
+    }
+    if ( pmtx != NULL )
+      PTHREAD_MUTEX_UNLOCK( pmtx );
   } // for
+
+  return false;
 }
 
 /**
@@ -383,7 +389,8 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
- * @param abs_time When to wait until. If `NULL`, waits indefinitely.
+ * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEOUT; if
+ * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
  * @sa chan_buf_recv()
@@ -429,7 +436,8 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
- * @param abs_time When to wait until. If `NULL`, waits indefinitely.
+ * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEOUT; if
+ * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
  * @sa chan_buf_send()
@@ -465,7 +473,7 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
 /**
  * Like **pthread_cond_wait**(3)** and **pthread_cond_timedwait**(3) except:
  *  + If \a abs_time is `NULL`, does not wait.
- *  + If \a abs_time is #CHAN_NO_TIMEOUT, waits indefinitely.
+ *  + If \a abs_time is \ref CHAN_NO_TIMEOUT, waits indefinitely.
  *
  * @param chan The \ref channel to wait for.
  * @param dir Whether to wait to receive or send.
@@ -502,6 +510,30 @@ static chan_rv chan_wait( struct channel *chan, chan_dir dir,
   }
 
   return chan->is_closed ? CHAN_CLOSED : rv;
+}
+
+/**
+ * Removes \a remove_obs as an observer from all \a chan.
+ *
+ * @param remove_obs The observer to remove.
+ * @param chan_len The length of \a chan.
+ * @param chan The array of channels to remove \a remove_obs from.  If \a
+ * chan_len is 0, may be `NULL`.
+ * @param dir The common direction of \a chan.
+ *
+ * @sa chan_obs_remove()
+ */
+static void obs_remove_all_chan( chan_obs_impl *remove_obs, unsigned chan_len,
+                                 struct channel *chan[chan_len],
+                                 chan_dir dir ) {
+  assert( remove_obs != NULL );
+
+  for ( unsigned i = 0; i < chan_len; ++i ) {
+    PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
+    if ( chan_obs_remove( chan[i], dir, remove_obs ) )
+      --chan[i]->wait_cnt[ dir ];
+    PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
+  } // for
 }
 
 /**
@@ -775,8 +807,8 @@ retry:;
     free( ref );
 
   if ( wait ) {
-    chan_obs_remove( &select_obs, recv_len, recv_chan, CHAN_RECV );
-    chan_obs_remove( &select_obs, send_len, send_chan, CHAN_SEND );
+    obs_remove_all_chan( &select_obs, recv_len, recv_chan, CHAN_RECV );
+    obs_remove_all_chan( &select_obs, send_len, send_chan, CHAN_SEND );
     PTHREAD_COND_DESTROY( &select_obs.chan_ready );
   }
 
