@@ -551,16 +551,21 @@ static void srand_init( void ) {
 }
 
 /**
- * Converts a relative to absolute time.
+ * Converts a duration to an absolute time in the future relative to now.
  *
- * @param duration TODO.
+ * @param duration The duration to convert.  May be `NULL` to mean do not wait
+ * or \ref CHAN_NO_TIMEOUT to mean wait indefinitely.
+ * @param abs_time A pointer to receive the absolute time, but only if \a
+ * duration is neither `NULL` nor \a CHAN_NO_TIMEOUT.
+ * @return Returns \a duration if either `NULL` or \a CHAN_NO_TIMEOUT, or \a
+ * abs_time otherwise.
  */
-static struct timespec const* timespec_to_abs( struct timespec const *duration,
-                                               struct timespec *abs_time ) {
+static struct timespec const* ts_dur_to_abs( struct timespec const *duration,
+                                             struct timespec *abs_time ) {
+  assert( abs_time != NULL );
+
   if ( duration == NULL || duration == CHAN_NO_TIMEOUT )
     return duration;
-
-  assert( abs_time != NULL );
 
   struct timeval now;
   (void)gettimeofday( &now, /*tzp=*/NULL );
@@ -656,7 +661,7 @@ chan_rv chan_recv( struct channel *chan, void *recv_buf,
   assert( recv_buf != NULL );
 
   struct timespec abs_ts;
-  struct timespec const *const abs_time = timespec_to_abs( duration, &abs_ts );
+  struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
 
   return chan_is_buffered( chan ) ?
     chan_buf_recv( chan, recv_buf, abs_time ) :
@@ -678,7 +683,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     stack_ref : malloc( total_len * sizeof( chan_select_ref ) );
 
   struct timespec abs_ts;
-  struct timespec const *const abs_time = timespec_to_abs( duration, &abs_ts );
+  struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
 
   bool const wait = duration != NULL;
 
@@ -789,7 +794,7 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
   assert( chan != NULL );
 
   struct timespec abs_ts;
-  struct timespec const *const abs_time = timespec_to_abs( duration, &abs_ts );
+  struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
 
   if ( chan_is_buffered( chan ) ) {
     assert( send_buf != NULL );
