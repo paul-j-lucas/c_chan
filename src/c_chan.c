@@ -488,10 +488,8 @@ static chan_rv chan_wait( struct channel *chan, chan_dir dir,
   else {
     rv = CHAN_OK;
     ++chan->wait_cnt[ dir ];
-    int const pcww_rv = pthread_cond_wait_wrapper(
-      &chan->observer[ dir ].chan_ready, &chan->mtx, abs_time
-    );
-    switch ( pcww_rv ) {
+    switch ( pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
+                                        &chan->mtx, abs_time ) ) {
       case 0:
         break;
       case ETIMEDOUT:
