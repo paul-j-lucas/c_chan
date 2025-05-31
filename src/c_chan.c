@@ -267,6 +267,20 @@ static void chan_notify( struct channel *chan, chan_dir dir,
 }
 
 /**
+ * Initializes a channels's observer.
+ *
+ * @param chan The \ref channel to initialize the observer of.
+ * @param dir The direction of the observer to initialize.
+ */
+static void chan_obs_init( struct channel *chan, chan_dir dir ) {
+  chan_obs_impl *const obs = &chan->observer[ dir ];
+  PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/0 );
+  obs->chan = NULL;
+  obs->next = NULL;
+  obs->pmtx = NULL;
+}
+
+/**
  * Removes \a remove_obs as an observer from \a chan.
  *
  * @param chan Then \ref channel to remove \a remove_obs from.
@@ -403,29 +417,30 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   while ( rv == CHAN_OK ) {
-    if ( chan->is_closed ) {
+    if ( chan->is_closed )
       rv = CHAN_CLOSED;
-    }
-    else if ( chan->wait_cnt[ CHAN_SEND ] == 0 && abs_time == NULL ) {
+    else if ( chan->wait_cnt[ CHAN_SEND ] == 0 && abs_time == NULL )
       rv = CHAN_TIMEDOUT;               // no sender and shouldn't wait
-    }
-    else if ( chan->unbuf.recv_buf != NULL ) {
+    else if ( chan->unbuf.recv_buf == NULL )
+      break;
+    else {
       // Some other thread has called chan_unbuf_recv() that has already set
       // recv_buf and is waiting for a sender.  We must wait for that other
       // thread to reset recv_buf.
       PTHREAD_COND_WAIT( &chan->unbuf.recv_buf_is_null, &chan->mtx );
     }
-    else {
-      chan->unbuf.recv_buf = recv_buf;
-      chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
-
-      // Wait for a sender to copy the data.
-      rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
-
-      chan->unbuf.recv_buf = NULL;
-      PTHREAD_COND_SIGNAL( &chan->unbuf.recv_buf_is_null );
-    }
   } // while
+
+  if ( rv == CHAN_OK ) {
+    chan->unbuf.recv_buf = recv_buf;
+    chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
+
+    // Wait for a sender to copy the data.
+    rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
+
+    chan->unbuf.recv_buf = NULL;
+    PTHREAD_COND_SIGNAL( &chan->unbuf.recv_buf_is_null );
+  }
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return rv;
@@ -452,10 +467,10 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
   while ( rv == CHAN_OK ) {
     if ( chan->is_closed )
       rv = CHAN_CLOSED;
-    else if ( chan->wait_cnt[ CHAN_RECV ] == 0 && abs_time == NULL )
-      rv = CHAN_TIMEDOUT;               // no receiver and shouldn't wait
     else if ( chan->unbuf.recv_buf != NULL )
       break;                            // there is a receiver
+    else if ( abs_time == NULL )
+      rv = CHAN_TIMEDOUT;               // no receiver and shouldn't wait
     else
       rv = chan_wait( chan, CHAN_UNBUF_RECV_WAIT, abs_time );
   } // while
@@ -673,17 +688,8 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
   PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/0 );
   chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
 
-  chan_obs_impl *obs = &chan->observer[ CHAN_RECV ];
-  PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/0 );
-  obs->next = NULL;
-  obs->pmtx = &chan->mtx;
-  obs->chan = NULL;
-
-  obs = &chan->observer[ CHAN_RECV ];
-  PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/0 );
-  obs->next = NULL;
-  obs->pmtx = &chan->mtx;
-  obs->chan = NULL;
+  chan_obs_init( chan, CHAN_RECV );
+  chan_obs_init( chan, CHAN_SEND );
 
   return true;
 }
