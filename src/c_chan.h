@@ -62,22 +62,22 @@ extern "C" {
 enum chan_rv {
   CHAN_OK,                              ///< Channel operation succeeded.
   CHAN_CLOSED,                          ///< Channel is closed.
-  CHAN_TIMEDOUT                         ///< Channel timed out.
+  CHAN_TIMEDOUT                         ///< Channel operation timed out.
 };
 
 typedef struct  chan_obs_impl chan_obs_impl;
 typedef enum    chan_rv       chan_rv;
 
 /**
- * TODO
+ * An "observer" for a channel that is used to wait until it's ready.
  *
- * @note This is not part of the public API.
+ * @note This is an implementation detail not part of the public API.
  */
 struct chan_obs_impl {
   struct channel   *chan;               ///< The channel being observed.
   pthread_cond_t    chan_ready;         ///< Is \ref chan ready?
   chan_obs_impl    *next;               ///< The next observer, if any.
-  pthread_mutex_t  *pmtx;
+  pthread_mutex_t  *pmtx;               ///< The mutex to use.
 };
 
 /**
@@ -113,7 +113,7 @@ struct channel {
 ////////// extern variables ///////////////////////////////////////////////////
 
 /**
- * For chan_select(), a `timespec` value to wait indefinitely.
+ * A `timespec` value to wait indefinitely.
  */
 extern struct timespec const *const CHAN_NO_TIMEOUT;
 
@@ -125,6 +125,8 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
  * @param chan The \ref channel to clean-up.  If `NULL`, does nothing.
  * @param free_fn For buffered channels only, the function to free unreceived
  * messages, if any.
+ *
+ * @note A channel _must_ be closed before it's cleaned-up.
  *
  * @sa chan_close()
  * @sa chan_init()
@@ -138,6 +140,8 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) );
  *
  * @param chan The \ref channel to close.
  *
+ * @note A channel _must_ be cleaned-up eventually.
+ *
  * @sa chan_cleanup()
  * @sa chan_init()
  */
@@ -145,6 +149,18 @@ void chan_close( struct channel *chan );
 
 /**
  * Initializes a channel.
+ *
+ * @remarks
+ * There are two types of channels:
+ *
+ *  1. **Buffered**: the channel has a buffer of a fixed capacity.  New
+ *     messages may be sent as long as the buffer is not full.  Once full,
+ *     senders will wait (unless instructed not to).  Messages may be received
+ *     as long as the buffer is not empty.  If empty, receivers will wait
+ *     (unless instructed not to).
+ *
+ *  2. **Unbuffered**: A sender and receiver will wait (unless instructed not
+ *     to) until both are simultaneously ready.
  *
  * @param chan The \ref channel to initialize.
  * @param buf_cap The buffer capacity.  If zero, the channel is unbuffered.
