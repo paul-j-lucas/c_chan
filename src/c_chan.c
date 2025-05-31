@@ -527,6 +527,7 @@ static void obs_remove_all_chan( chan_obs_impl *remove_obs, unsigned chan_len,
                                  struct channel *chan[chan_len],
                                  chan_dir dir ) {
   assert( remove_obs != NULL );
+  assert( chan_len == 0 || chan != NULL );
 
   for ( unsigned i = 0; i < chan_len; ++i ) {
     PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
