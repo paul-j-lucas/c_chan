@@ -74,8 +74,8 @@ typedef enum    chan_rv       chan_rv;
  * @note This is not part of the public API.
  */
 struct chan_obs_impl {
-  pthread_cond_t    cond;
   struct channel   *chan;               ///< The channel being observed.
+  pthread_cond_t    chan_ready;         ///< Is \ref chan ready?
   chan_obs_impl    *next;               ///< The next observer, if any.
   pthread_mutex_t  *pmtx;
 };

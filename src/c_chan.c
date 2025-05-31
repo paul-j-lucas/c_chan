@@ -245,7 +245,7 @@ static void chan_notify( struct channel *chan, chan_dir dir,
   for ( chan_obs_impl *obs = &chan->observer[ dir ]; obs != NULL;
         obs = next_obs, pmtx = next_pmtx ) {
     obs->chan = chan;
-    PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->cond ) != 0, EX_IOERR );
+    PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->chan_ready ) != 0, EX_IOERR );
     next_obs = obs->next;
     if ( next_obs != NULL ) {
       next_pmtx = next_obs->pmtx;
@@ -489,11 +489,11 @@ static chan_rv chan_wait( struct channel *chan, chan_dir dir,
     rv = CHAN_OK;
     ++chan->wait_cnt[ dir ];
     if ( abs_time == CHAN_NO_TIMEOUT ) {
-      PTHREAD_COND_WAIT( &chan->observer[ dir ].cond, &chan->mtx );
+      PTHREAD_COND_WAIT( &chan->observer[ dir ].chan_ready, &chan->mtx );
     }
     else {
       int const pcr_rv = check_pthread_cond_timedwait( 
-        &chan->observer[ dir ].cond, &chan->mtx, abs_time
+        &chan->observer[ dir ].chan_ready, &chan->mtx, abs_time
       );
       switch ( pcr_rv ) {
         case 0:
@@ -591,8 +591,8 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) ) {
     PTHREAD_COND_DESTROY( &chan->unbuf.recv_buf_is_null );
   }
 
-  PTHREAD_COND_DESTROY( &chan->observer[ CHAN_RECV ].cond );
-  PTHREAD_COND_DESTROY( &chan->observer[ CHAN_SEND ].cond );
+  PTHREAD_COND_DESTROY( &chan->observer[ CHAN_RECV ].chan_ready );
+  PTHREAD_COND_DESTROY( &chan->observer[ CHAN_SEND ].chan_ready );
   PTHREAD_MUTEX_DESTROY( &chan->mtx );
 }
 
@@ -635,13 +635,13 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
   chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
 
   chan_obs_impl *obs = &chan->observer[ CHAN_RECV ];
-  PTHREAD_COND_INIT( &obs->cond, /*attr=*/0 );
+  PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/0 );
   obs->next = NULL;
   obs->pmtx = &chan->mtx;
   obs->chan = NULL;
 
   obs = &chan->observer[ CHAN_RECV ];
-  PTHREAD_COND_INIT( &obs->cond, /*attr=*/0 );
+  PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/0 );
   obs->next = NULL;
   obs->pmtx = &chan->mtx;
   obs->chan = NULL;
@@ -685,7 +685,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
   pthread_mutex_t select_mtx;
 
   if ( wait ) {
-    PTHREAD_COND_INIT( &select_obs.cond, /*attr=*/0 );
+    PTHREAD_COND_INIT( &select_obs.chan_ready, /*attr=*/0 );
     select_obs.next = NULL;
     select_obs.pmtx = &select_mtx;
   }
@@ -719,9 +719,10 @@ retry:;
     if ( maybe_ready_len == 0 && wait ) {
       PTHREAD_MUTEX_LOCK( &select_mtx );
       if ( duration == CHAN_NO_TIMEOUT ) {
-        PTHREAD_COND_WAIT( &select_obs.cond, &select_mtx );
+        PTHREAD_COND_WAIT( &select_obs.chan_ready, &select_mtx );
       }
-      else if ( check_pthread_cond_timedwait( &select_obs.cond, &select_mtx,
+      else if ( check_pthread_cond_timedwait( &select_obs.chan_ready,
+                                              &select_mtx,
                                               abs_time ) == ETIMEDOUT ) {
         rv = CHAN_TIMEDOUT;
       }
@@ -774,7 +775,7 @@ retry:;
   if ( wait ) {
     chan_obs_remove( &select_obs, recv_len, recv_chan, CHAN_RECV );
     chan_obs_remove( &select_obs, send_len, send_chan, CHAN_SEND );
-    PTHREAD_COND_DESTROY( &select_obs.cond );
+    PTHREAD_COND_DESTROY( &select_obs.chan_ready );
   }
 
   PTHREAD_MUTEX_DESTROY( &select_mtx );
