@@ -297,15 +297,13 @@ static void chan_obs_add( struct channel *chan, chan_dir dir,
       if ( add_obs->key < next_obs->key ) {
         obs->next = add_obs;
         add_obs->next = next_obs;
+        PTHREAD_MUTEX_UNLOCK( next_pmtx );
         next_obs = NULL;                // will cause loop to exit ...
       }
     }
     if ( pmtx != NULL )                 // ... yet still run this code
       PTHREAD_MUTEX_UNLOCK( pmtx );
   } // for
-
-  if ( next_pmtx != NULL )
-    PTHREAD_MUTEX_UNLOCK( next_pmtx );
 
   ++chan->wait_cnt[ dir ];
 }
