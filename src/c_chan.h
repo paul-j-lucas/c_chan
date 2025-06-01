@@ -76,6 +76,7 @@ typedef enum    chan_rv       chan_rv;
 struct chan_obs_impl {
   struct channel   *chan;               ///< The channel being observed.
   pthread_cond_t    chan_ready;         ///< Is \ref chan ready?
+  unsigned          key;                ///< A fairly unique key.
   chan_obs_impl    *next;               ///< The next observer, if any.
   pthread_mutex_t  *pmtx;               ///< The mutex to use.
 };

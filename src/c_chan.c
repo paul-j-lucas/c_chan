@@ -267,17 +267,37 @@ static void chan_notify( struct channel *chan, chan_dir dir,
 }
 
 /**
- * Initializes a channels's observer.
+ * Initializes a \ref chan_obs_impl.
  *
- * @param chan The \ref channel to initialize the observer of.
- * @param dir The direction of the observer to initialize.
+ * @param obs The \ref chan_obs_impl to initialize.
+ * @param pmtx The mutex to use, if any.
  */
-static void chan_obs_init( struct channel *chan, chan_dir dir ) {
-  chan_obs_impl *const obs = &chan->observer[ dir ];
-  PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/0 );
+static void chan_obs_init( chan_obs_impl *obs, pthread_mutex_t *pmtx ) {
+  assert( obs != NULL );
+
   obs->chan = NULL;
+  PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/0 );
+  obs->key  = 0;
   obs->next = NULL;
-  obs->pmtx = NULL;
+  obs->pmtx = pmtx;
+}
+
+/**
+ * Initializes a \ref chan_obs_impl key.
+ *
+ * @param obs The \ref chan_obs_impl to initialize the key of.
+ */
+static void chan_obs_init_key( chan_obs_impl *obs ) {
+  assert( obs != NULL );
+
+  static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+  static unsigned next_key = 1;
+
+  PTHREAD_MUTEX_LOCK( &mtx );
+  obs->key = next_key++;
+  if ( next_key == 0 )
+    next_key = 1;
+  PTHREAD_MUTEX_UNLOCK( &mtx );
 }
 
 /**
@@ -362,9 +382,27 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
           chan[i]->wait_cnt[ !dir ] > 0;
 
         if ( add_obs != NULL ) {
-          add_obs->next = chan[i]->observer[ dir ].next;
-          chan[i]->observer[ dir ].next = add_obs;
           ++chan[i]->wait_cnt[ dir ];
+          pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
+
+          for ( chan_obs_impl *obs = &chan[i]->observer[ dir ], *next_obs;
+                obs != NULL;
+                obs = next_obs, pmtx = next_pmtx ) {
+            next_obs = obs->next;
+            if ( next_obs == NULL ) {
+              obs->next = add_obs;
+            }
+            else {
+              next_pmtx = next_obs->pmtx;
+              PTHREAD_MUTEX_LOCK( next_pmtx );
+              if ( add_obs->key < next_obs->key ) {
+                obs->next = add_obs;
+                add_obs->next = next_obs;
+              }
+            }
+            if ( pmtx != NULL )
+              PTHREAD_MUTEX_UNLOCK( pmtx );
+          } // for
         }
 
         if ( is_ready || add_obs != NULL ) {
@@ -691,8 +729,8 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
   PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/0 );
   chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
 
-  chan_obs_init( chan, CHAN_RECV );
-  chan_obs_init( chan, CHAN_SEND );
+  chan_obs_init( &chan->observer[ CHAN_RECV ], /*pmtx=*/NULL );
+  chan_obs_init( &chan->observer[ CHAN_SEND ], /*pmtx=*/NULL );
 
   return true;
 }
@@ -733,9 +771,8 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
   pthread_mutex_t select_mtx;
 
   if ( wait ) {
-    PTHREAD_COND_INIT( &select_obs.chan_ready, /*attr=*/0 );
-    select_obs.next = NULL;
-    select_obs.pmtx = &select_mtx;
+    chan_obs_init( &select_obs, &select_mtx );
+    chan_obs_init_key( &select_obs );
   }
 
   PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/0 );
