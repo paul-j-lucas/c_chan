@@ -271,6 +271,8 @@ static void chan_notify( struct channel *chan, chan_dir dir,
  *
  * @param obs The \ref chan_obs_impl to initialize.
  * @param pmtx The mutex to use, if any.
+ *
+ * @sa chan_obs_init_key()
  */
 static void chan_obs_init( chan_obs_impl *obs, pthread_mutex_t *pmtx ) {
   assert( obs != NULL );
@@ -285,19 +287,28 @@ static void chan_obs_init( chan_obs_impl *obs, pthread_mutex_t *pmtx ) {
 /**
  * Initializes a \ref chan_obs_impl key.
  *
+ * @remarks An observer has a key so the linked list of a channel's observers
+ * can be in ascending key order.  The linked list is traversed using hand-
+ * over-hand locking.  Since an observer can be in multiple channels' lists,
+ * the ordering ensures that pairs of mutexes are always locked in the same
+ * order on every list to avoid deadlocks.
+ *
  * @param obs The \ref chan_obs_impl to initialize the key of.
+ *
+ * @sa chan_obs_init()
+ * @sa chan_select_init()
  */
 static void chan_obs_init_key( chan_obs_impl *obs ) {
   assert( obs != NULL );
 
-  static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
-  static unsigned next_key = 1;
+  static unsigned         next_key      = 1;
+  static pthread_mutex_t  next_key_mtx  = PTHREAD_MUTEX_INITIALIZER;
 
-  PTHREAD_MUTEX_LOCK( &mtx );
+  PTHREAD_MUTEX_LOCK( &next_key_mtx );
   obs->key = next_key++;
-  if ( next_key == 0 )
-    next_key = 1;
-  PTHREAD_MUTEX_UNLOCK( &mtx );
+  if ( next_key == 0 )                  // reserved for channel itself
+    ++next_key;
+  PTHREAD_MUTEX_UNLOCK( &next_key_mtx );
 }
 
 /**
@@ -306,13 +317,12 @@ static void chan_obs_init_key( chan_obs_impl *obs ) {
  * @param chan Then \ref channel to remove \a remove_obs from.
  * @param dir The direction of \a chan.
  * @param remove_obs The observer to remove.
- * @return Returns `true` only if \a remove_obs was removed.
  *
  * @warning \ref channel::mtx must be locked before calling this function.
  *
  * @sa obs_remove_all_chan()
  */
-static bool chan_obs_remove( struct channel *chan, chan_dir dir,
+static void chan_obs_remove( struct channel *chan, chan_dir dir,
                              chan_obs_impl *remove_obs ) {
   assert( chan != NULL );
   assert( remove_obs != NULL );
@@ -326,23 +336,19 @@ static bool chan_obs_remove( struct channel *chan, chan_dir dir,
         obs = next_obs, pmtx = next_pmtx ) {
     next_obs = obs->next;
     if ( next_obs == remove_obs ) {
+      --chan->wait_cnt[ dir ];
       // remove_obs is an observer in our caller's stack frame, i.e., this
       // thread, so there's no need to lock next_obs->pmtx.
       obs->next = next_obs->next;
-      if ( pmtx != NULL )
-        PTHREAD_MUTEX_UNLOCK( pmtx );
-      return true;
+      next_obs = NULL;                  // will cause loop to exit ...
     }
-
-    if ( next_obs != NULL ) {
+    else if ( next_obs != NULL ) {
       next_pmtx = next_obs->pmtx;
       PTHREAD_MUTEX_LOCK( next_pmtx );
     }
-    if ( pmtx != NULL )
+    if ( pmtx != NULL )                 // ... yet still run this code
       PTHREAD_MUTEX_UNLOCK( pmtx );
   } // for
-
-  return false;
 }
 
 /**
@@ -382,7 +388,6 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
           chan[i]->wait_cnt[ !dir ] > 0;
 
         if ( add_obs != NULL ) {
-          ++chan[i]->wait_cnt[ dir ];
           pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
           for ( chan_obs_impl *obs = &chan[i]->observer[ dir ], *next_obs;
@@ -398,11 +403,17 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
               if ( add_obs->key < next_obs->key ) {
                 obs->next = add_obs;
                 add_obs->next = next_obs;
+                next_obs = NULL;        // will cause loop to exit ...
               }
             }
-            if ( pmtx != NULL )
+            if ( pmtx != NULL )         // ... yet still run this code
               PTHREAD_MUTEX_UNLOCK( pmtx );
           } // for
+
+          ++chan[i]->wait_cnt[ dir ];
+
+          if ( next_pmtx != NULL )
+            PTHREAD_MUTEX_UNLOCK( next_pmtx );
         }
 
         if ( is_ready || add_obs != NULL ) {
@@ -587,8 +598,7 @@ static void obs_remove_all_chan( chan_obs_impl *remove_obs, unsigned chan_len,
 
   for ( unsigned i = 0; i < chan_len; ++i ) {
     PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
-    if ( chan_obs_remove( chan[i], dir, remove_obs ) )
-      --chan[i]->wait_cnt[ dir ];
+    chan_obs_remove( chan[i], dir, remove_obs );
     PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
   } // for
 }
