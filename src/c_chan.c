@@ -331,7 +331,8 @@ static bool chan_obs_remove( struct channel *chan, chan_dir dir,
  * @param ref The array of channel references to initialize.
  * @param pref_len Must be 0 to start; updated to be the number of references.
  * @param chan_len The length of \a chan.
- * @param chan The channels to initialize from.
+ * @param chan The channels to initialize from.  May be `NULL` only if \a
+ * chan_len is 0.
  * @param dir The common direction of \a chan.
  * @param add_obs The observer to add to each channel.  If `NULL`, the select
  * is non-blocking.
@@ -344,42 +345,44 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
                                   chan_obs_impl *add_obs ) {
   assert( ref != NULL );
   assert( pref_len != NULL );
-  assert( chan != NULL );
+  assert( chan_len == 0 || chan != NULL );
 
   unsigned maybe_ready_len = 0;
 
-  for ( unsigned i = 0; i < chan_len; ++i ) {
-    bool is_ready = false;
-    PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
+  if ( chan != NULL ) {
+    for ( unsigned i = 0; i < chan_len; ++i ) {
+      bool is_ready = false;
+      PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
 
-    if ( !chan[i]->is_closed ) {
-      is_ready = chan_is_buffered( chan[i] ) ?
-        (dir == CHAN_RECV ?
-          chan[i]->buf.ring_len > 0 :
-          chan[i]->buf.ring_len < chan[i]->buf_cap) :
-        chan[i]->wait_cnt[ !dir ] > 0;
+      if ( !chan[i]->is_closed ) {
+        is_ready = chan_is_buffered( chan[i] ) ?
+          (dir == CHAN_RECV ?
+            chan[i]->buf.ring_len > 0 :
+            chan[i]->buf.ring_len < chan[i]->buf_cap) :
+          chan[i]->wait_cnt[ !dir ] > 0;
 
-      if ( add_obs != NULL ) {
-        add_obs->next = chan[i]->observer[ dir ].next;
-        chan[i]->observer[ dir ].next = add_obs;
-        ++chan[i]->wait_cnt[ dir ];
+        if ( add_obs != NULL ) {
+          add_obs->next = chan[i]->observer[ dir ].next;
+          chan[i]->observer[ dir ].next = add_obs;
+          ++chan[i]->wait_cnt[ dir ];
+        }
+
+        if ( is_ready || add_obs != NULL ) {
+          ref[ (*pref_len)++ ] = (chan_select_ref){
+            .chan = chan[i],
+            .dir = dir,
+            .param_idx = (unsigned short)i,
+            .maybe_ready = is_ready
+          };
+        }
       }
 
-      if ( is_ready || add_obs != NULL ) {
-        ref[ (*pref_len)++ ] = (chan_select_ref){
-          .chan = chan[i],
-          .dir = dir,
-          .param_idx = (unsigned short)i,
-          .maybe_ready = is_ready
-        };
-      }
-    }
+      PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
 
-    PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
-
-    if ( is_ready )
-      ++maybe_ready_len;
-  } // for
+      if ( is_ready )
+        ++maybe_ready_len;
+    } // for
+  }
 
   return maybe_ready_len;
 }
