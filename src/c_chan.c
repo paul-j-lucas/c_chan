@@ -267,6 +267,50 @@ static void chan_notify( struct channel *chan, chan_dir dir,
 }
 
 /**
+ * Adds \a add_obs as an observer of \a chan.
+ *
+ * @param chan Then \ref channel to add \a add_obs to.
+ * @param dir The direction of \a chan.
+ * @param add_obs The observer to add.
+ *
+ * @warning \ref channel::mtx must be locked before calling this function.
+ *
+ * @sa chan_obs_remove()
+ * @sa chan_select_init()
+ */
+static void chan_obs_add( struct channel *chan, chan_dir dir,
+                          chan_obs_impl *add_obs ) {
+  assert( chan != NULL );
+  assert( add_obs != NULL );
+
+  pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
+
+  for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
+        obs = next_obs, pmtx = next_pmtx ) {
+    next_obs = obs->next;
+    if ( next_obs == NULL ) {           // at end of list
+      obs->next = add_obs;
+    }
+    else {
+      next_pmtx = next_obs->pmtx;
+      PTHREAD_MUTEX_LOCK( next_pmtx );
+      if ( add_obs->key < next_obs->key ) {
+        obs->next = add_obs;
+        add_obs->next = next_obs;
+        next_obs = NULL;                // will cause loop to exit ...
+      }
+    }
+    if ( pmtx != NULL )                 // ... yet still run this code
+      PTHREAD_MUTEX_UNLOCK( pmtx );
+  } // for
+
+  if ( next_pmtx != NULL )
+    PTHREAD_MUTEX_UNLOCK( next_pmtx );
+
+  ++chan->wait_cnt[ dir ];
+}
+
+/**
  * Initializes a \ref chan_obs_impl.
  *
  * @param obs The \ref chan_obs_impl to initialize.
@@ -320,6 +364,7 @@ static void chan_obs_init_key( chan_obs_impl *obs ) {
  *
  * @warning \ref channel::mtx must be locked before calling this function.
  *
+ * @sa chan_obs_add()
  * @sa obs_remove_all_chan()
  */
 static void chan_obs_remove( struct channel *chan, chan_dir dir,
@@ -387,34 +432,8 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
             chan[i]->buf.ring_len < chan[i]->buf_cap) :
           chan[i]->wait_cnt[ !dir ] > 0;
 
-        if ( add_obs != NULL ) {
-          pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
-
-          for ( chan_obs_impl *obs = &chan[i]->observer[ dir ], *next_obs;
-                obs != NULL;
-                obs = next_obs, pmtx = next_pmtx ) {
-            next_obs = obs->next;
-            if ( next_obs == NULL ) {
-              obs->next = add_obs;
-            }
-            else {
-              next_pmtx = next_obs->pmtx;
-              PTHREAD_MUTEX_LOCK( next_pmtx );
-              if ( add_obs->key < next_obs->key ) {
-                obs->next = add_obs;
-                add_obs->next = next_obs;
-                next_obs = NULL;        // will cause loop to exit ...
-              }
-            }
-            if ( pmtx != NULL )         // ... yet still run this code
-              PTHREAD_MUTEX_UNLOCK( pmtx );
-          } // for
-
-          ++chan[i]->wait_cnt[ dir ];
-
-          if ( next_pmtx != NULL )
-            PTHREAD_MUTEX_UNLOCK( next_pmtx );
-        }
+        if ( add_obs != NULL )
+          chan_obs_add( chan[i], dir, add_obs );
 
         if ( is_ready || add_obs != NULL ) {
           ref[ (*pref_len)++ ] = (chan_select_ref){
