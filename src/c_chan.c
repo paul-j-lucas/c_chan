@@ -791,18 +791,16 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
 
   struct timespec abs_ts;
   struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
-
   bool const wait = duration != NULL;
 
-  chan_obs_impl select_obs;
+  chan_obs_impl   select_obs;
   pthread_mutex_t select_mtx;
 
   if ( wait ) {
     chan_obs_init( &select_obs, &select_mtx );
     chan_obs_init_key( &select_obs );
+    PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/0 );
   }
-
-  PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/0 );
 
 retry:;
 
@@ -884,9 +882,8 @@ retry:;
     obs_remove_all_chan( &select_obs, recv_len, recv_chan, CHAN_RECV );
     obs_remove_all_chan( &select_obs, send_len, send_chan, CHAN_SEND );
     PTHREAD_COND_DESTROY( &select_obs.chan_ready );
+    PTHREAD_MUTEX_DESTROY( &select_mtx );
   }
-
-  PTHREAD_MUTEX_DESTROY( &select_mtx );
 
   if ( selected_ref == NULL )
     return -1;
