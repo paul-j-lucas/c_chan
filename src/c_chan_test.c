@@ -59,7 +59,7 @@ static void ms_sleep( unsigned ms ) {
  * Spin-waits for `*pus` to be non-zero.
  *
  * @param mtx The mutex to lock/unlock before/after checking `*pus`.
- * @param pus A pointer
+ * @param pus A pointer to an `unsigned short`.
  */
 static void spin_wait_us( pthread_mutex_t *mtx, unsigned short *pus ) {
   PTHREAD_MUTEX_LOCK( mtx );
