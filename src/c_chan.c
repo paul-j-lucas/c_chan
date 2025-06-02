@@ -842,7 +842,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
       }
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
     }
-    else {
+    else {                              // otherwise pick a channel at random
       PTHREAD_ONCE( &srand_once, &srand_init );
       selected_ref = &ref[ rand() % (int)select_len ];
     }
@@ -862,12 +862,12 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     }
 
     switch ( rv ) {
+      case CHAN_CLOSED:
+        if ( ref_len > 1 )              // another channel may be open
+          break;
+        FALLTHROUGH;                    // the only channel closed
       case CHAN_OK:
         done = true;
-        break;
-      case CHAN_CLOSED:
-        if ( ref_len == 1 )           // last channel is closed
-          done = true;
         break;
       case CHAN_TIMEDOUT:
         break;
