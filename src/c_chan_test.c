@@ -38,6 +38,13 @@
 #define PTHREAD_JOIN(THR,VALUE) \
   PERROR_EXIT_IF( pthread_join( (THR), (VALUE) ) != 0, EX_IOERR )
 
+struct thrd_arg {
+  struct channel         *chan;
+  struct timespec const  *duration;
+  chan_rv                 expected_rv;
+};
+typedef struct thrd_arg thrd_arg;
+
 ////////// local functions ////////////////////////////////////////////////////
 
 /**
@@ -73,21 +80,6 @@ static void spin_wait_us( pthread_mutex_t *mtx, unsigned short *pus ) {
 
 ////////// test helper functions //////////////////////////////////////////////
 
-static void* chan_recv_1( void *thrd_arg ) {
-  struct channel *const chan = thrd_arg;
-  int data = 0;
-  if ( TEST( chan_recv( chan, &data, CHAN_NO_TIMEOUT ) == CHAN_OK ) )
-    TEST( data == 42 );
-  return NULL;
-}
-
-static void* chan_recv_nowait_0( void *thrd_arg ) {
-  struct channel *const chan = thrd_arg;
-  int data = 0;
-  TEST( chan_recv( chan, &data, /*duration=*/NULL ) == CHAN_TIMEDOUT );
-  return NULL;
-}
-
 static void* chan_select_recv_nowait_0( void *thrd_arg ) {
   struct channel *const chan = thrd_arg;
 
@@ -106,10 +98,21 @@ static void* chan_select_recv_nowait_0( void *thrd_arg ) {
   return NULL;
 }
 
-static void* chan_send_1( void *thrd_arg ) {
-  struct channel *const chan = thrd_arg;
+static void* thrd_chan_recv( void *p ) {
+  thrd_arg const *const arg = p;
+  int data = 0;
+  if ( TEST( chan_recv( arg->chan, &data,
+                        arg->duration ) == arg->expected_rv ) &&
+       arg->expected_rv == CHAN_OK ) {
+    TEST( data == 42 );
+  }
+  return NULL;
+}
+
+static void* thrd_chan_send( void *p ) {
+  thrd_arg const *const arg = p;
   int data = 42;
-  TEST( chan_send( chan, &data, CHAN_NO_TIMEOUT ) == CHAN_OK );
+  TEST( chan_send( arg->chan, &data, arg->duration ) == arg->expected_rv );
   return NULL;
 }
 
@@ -122,22 +125,32 @@ static bool test_buf_chan( void ) {
     pthread_t recv_thrd, send_thrd;
 
     // Create a receiving thread that won't wait and no sender.
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_recv_nowait_0, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, (&(thrd_arg){
+      .chan = &chan,
+      .duration = NULL,
+      .expected_rv = CHAN_TIMEDOUT
+    }));
     PTHREAD_JOIN( recv_thrd, NULL );
+
+    thrd_arg arg = {
+      .chan = &chan,
+      .duration = CHAN_NO_TIMEOUT,
+      .expected_rv = CHAN_OK
+    };
 
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_recv_1, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     spin_wait_us( &chan.mtx, &chan.wait_cnt[0] );
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &chan_send_1, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
 
     // Create the sending thread first and ensure it sent before creating the
     // receiving thread.
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &chan_send_1, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( send_thrd, NULL );
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_recv_1, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
 
     chan_close( &chan );
@@ -167,19 +180,25 @@ static bool test_unbuf_chan( void ) {
   if ( TEST( chan_init( &chan, /*buf_cap=*/0, sizeof(int) ) ) ) {
     pthread_t recv_thrd, send_thrd;
 
+    thrd_arg arg = {
+      .chan = &chan,
+      .duration = CHAN_NO_TIMEOUT,
+      .expected_rv = CHAN_OK
+    };
+
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_recv_1, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     spin_wait_us( &chan.mtx, &chan.wait_cnt[0] );
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &chan_send_1, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
 
     // Create the sending thread first and ensure it's ready before creating
     // the receiving thread.
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &chan_send_1, &chan );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     spin_wait_us( &chan.mtx, &chan.wait_cnt[1] );
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_recv_1, &chan );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
     PTHREAD_JOIN( send_thrd, NULL );
 
