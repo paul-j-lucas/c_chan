@@ -578,18 +578,10 @@ static chan_rv chan_wait( struct channel *chan, chan_dir dir,
     rv = CHAN_TIMEDOUT;
   }
   else {
-    rv = CHAN_OK;
     ++chan->wait_cnt[ dir ];
-    switch ( pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
-                                        &chan->mtx, abs_time ) ) {
-      case 0:
-        break;
-      case ETIMEDOUT:
-        rv = CHAN_TIMEDOUT;
-        break;
-      default:
-        unreachable();
-    } // switch
+    rv = pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
+                                    &chan->mtx, abs_time ) == ETIMEDOUT ?
+      CHAN_TIMEDOUT : CHAN_OK;
     --chan->wait_cnt[ dir ];
   }
 
@@ -828,59 +820,58 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
       select_len = maybe_ready_len;     // ... and select only from those
     }
 
-    if ( select_len > 0 ) {
-      chan_rv rv = CHAN_OK;
+    chan_rv rv = CHAN_OK;
 
-      if ( maybe_ready_len == 0 && wait ) {
-        PTHREAD_MUTEX_LOCK( &select_mtx );
-        if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
-                                        abs_time ) == ETIMEDOUT ) {
-          rv = CHAN_TIMEDOUT;
-          done = true;
-        }
-        PTHREAD_MUTEX_UNLOCK( &select_mtx );
-
-        if ( rv == CHAN_OK ) {
-          for ( unsigned i = 0; i < select_len; ++i ) {
-            if ( select_obs.chan == ref[i].chan ) {
-              selected_ref = &ref[i];
-              break;
-            }
-          } // for
-          assert( selected_ref != NULL );
-        }
+    if ( maybe_ready_len == 0 && wait ) {
+      // none of the channels may be ready and we should wait -- so wait
+      PTHREAD_MUTEX_LOCK( &select_mtx );
+      if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
+                                      abs_time ) == ETIMEDOUT ) {
+        rv = CHAN_TIMEDOUT;
+        done = true;
       }
       else {
-        PTHREAD_ONCE( &srand_once, &srand_init );
-        selected_ref = &ref[ rand() % (int)select_len ];
+        // a channel became ready: find it in our list
+        for ( unsigned i = 0; i < select_len; ++i ) {
+          if ( select_obs.chan == ref[i].chan ) {
+            selected_ref = &ref[i];
+            break;
+          }
+        } // for
+        assert( selected_ref != NULL );
       }
-
-      if ( rv == CHAN_OK ) {
-        rv = selected_ref->dir == CHAN_RECV ?
-          chan_recv(
-            recv_chan[ selected_ref->param_idx ],
-            recv_buf[ selected_ref->param_idx ],
-            /*duration=*/NULL
-          ) :
-          chan_send(
-            send_chan[ selected_ref->param_idx ],
-            send_buf[ selected_ref->param_idx ],
-            /*duration=*/NULL
-          );
-      }
-
-      switch ( rv ) {
-        case CHAN_OK:
-          done = true;
-          break;
-        case CHAN_CLOSED:
-          if ( ref_len == 1 )           // last channel is closed
-            done = true;
-          break;
-        case CHAN_TIMEDOUT:
-          break;
-      } // switch
+      PTHREAD_MUTEX_UNLOCK( &select_mtx );
     }
+    else {
+      PTHREAD_ONCE( &srand_once, &srand_init );
+      selected_ref = &ref[ rand() % (int)select_len ];
+    }
+
+    if ( rv == CHAN_OK ) {
+      rv = selected_ref->dir == CHAN_RECV ?
+        chan_recv(
+          recv_chan[ selected_ref->param_idx ],
+          recv_buf[ selected_ref->param_idx ],
+          /*duration=*/NULL
+        ) :
+        chan_send(
+          send_chan[ selected_ref->param_idx ],
+          send_buf[ selected_ref->param_idx ],
+          /*duration=*/NULL
+        );
+    }
+
+    switch ( rv ) {
+      case CHAN_OK:
+        done = true;
+        break;
+      case CHAN_CLOSED:
+        if ( ref_len == 1 )           // last channel is closed
+          done = true;
+        break;
+      case CHAN_TIMEDOUT:
+        break;
+    } // switch
 
     if ( wait ) {
       obs_remove_all_chan( &select_obs, recv_len, recv_chan, CHAN_RECV );
