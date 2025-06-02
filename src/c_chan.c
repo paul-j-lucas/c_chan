@@ -775,18 +775,20 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
   assert( recv_len == 0 || (recv_chan != NULL && recv_buf != NULL) );
   assert( send_len == 0 || (send_chan != NULL && send_buf != NULL) );
 
-  unsigned const total_len = recv_len + send_len;
+  unsigned const total_channels = recv_len + send_len;
 
   chan_select_ref stack_ref[16];
-  chan_select_ref *const ref = total_len <= ARRAY_SIZE( stack_ref ) ?
-    stack_ref : malloc( total_len * sizeof( chan_select_ref ) );
+  chan_select_ref *const ref = total_channels <= ARRAY_SIZE( stack_ref ) ?
+    stack_ref : malloc( total_channels * sizeof( chan_select_ref ) );
 
-  struct timespec abs_ts;
-  struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
-  bool const wait = duration != NULL;
-
-  chan_obs_impl   select_obs;
-  pthread_mutex_t select_mtx;
+  struct timespec               abs_ts;
+  struct timespec const *const  abs_time = ts_dur_to_abs( duration, &abs_ts );
+  unsigned                      chans_open;   // number of open channels
+  chan_obs_impl                 select_obs;   // observer for this select
+  pthread_mutex_t               select_mtx;   // mutex for select_obs
+  chan_select_ref const        *selected_ref;
+  chan_rv                       rv;
+  bool const                    wait = duration != NULL;
 
   if ( wait ) {
     chan_obs_init( &select_obs, &select_mtx );
@@ -794,33 +796,34 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/0 );
   }
 
-  chan_select_ref const *selected_ref = NULL;
+  do {
+    chans_open = 0;
+    selected_ref = NULL;
 
-  for ( bool done = false; !done; ) {
-    unsigned ref_len = 0;               // number of open channels
-    unsigned const maybe_ready_len =    // number of those that may be ready
+    unsigned const maybe_ready_len =    // number of channels that may be ready
       chan_select_init(
-        ref, &ref_len, recv_len, recv_chan, CHAN_RECV, wait ? &select_obs : NULL
+        ref, &chans_open, recv_len, recv_chan, CHAN_RECV,
+        wait ? &select_obs : NULL
       ) +
       chan_select_init(
-        ref, &ref_len, send_len, send_chan, CHAN_SEND, wait ? &select_obs : NULL
+        ref, &chans_open, send_len, send_chan, CHAN_SEND,
+        wait ? &select_obs : NULL
       );
 
-    selected_ref = NULL;
-    if ( ref_len == 0 )
+    if ( chans_open == 0 )
       break;
 
-    unsigned select_len = ref_len;      // number of channels to select from
+    unsigned select_len = chans_open;   // number of channels to select from
 
-    if ( maybe_ready_len > 0 && maybe_ready_len < ref_len ) {
+    if ( maybe_ready_len > 0 && maybe_ready_len < chans_open ) {
       qsort(                            // sort maybe ready channels first ...
-        ref, ref_len, sizeof( chan_select_ref ),
+        ref, chans_open, sizeof( chan_select_ref ),
         (qsort_cmp_fn)&chan_select_ref_cmp
       );
       select_len = maybe_ready_len;     // ... and select only from those
     }
 
-    chan_rv rv = CHAN_OK;
+    rv = CHAN_OK;
 
     if ( maybe_ready_len == 0 && wait ) {
       // none of the channels may be ready and we should wait -- so wait
@@ -828,7 +831,6 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
       if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
                                       abs_time ) == ETIMEDOUT ) {
         rv = CHAN_TIMEDOUT;
-        done = true;
       }
       else {
         // a channel became ready: find it in our list
@@ -861,23 +863,21 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
         );
     }
 
-    switch ( rv ) {
-      case CHAN_CLOSED:
-        if ( ref_len > 1 )              // another channel may be open
-          break;
-        FALLTHROUGH;                    // the only channel closed
-      case CHAN_OK:
-        done = true;
-        break;
-      case CHAN_TIMEDOUT:
-        break;
-    } // switch
-
     if ( wait ) {
       obs_remove_all_chan( &select_obs, recv_len, recv_chan, CHAN_RECV );
       obs_remove_all_chan( &select_obs, send_len, send_chan, CHAN_SEND );
     }
-  } // for
+
+    // If rv is:
+    //
+    //  + CHAN_OK: we received from or sent to the selected channel.
+    //  + CHAN_TIMEOUT: we timed out.
+    //
+    // For either of those, we're done; for CHAN_CLOSED, the selected channel
+    // was closed between when we called chan_select_init() an when we called
+    // either chan_recv() or chan_send().  However, if there's at least one
+    // other channel that may still be open, try again.
+  } while ( rv == CHAN_CLOSED && chans_open > 1 );
 
   if ( ref != stack_ref )
     free( ref );
