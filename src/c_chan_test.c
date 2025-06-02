@@ -38,10 +38,24 @@
 #define PTHREAD_JOIN(THR,VALUE) \
   PERROR_EXIT_IF( pthread_join( (THR), (VALUE) ) != 0, EX_IOERR )
 
+/**
+ * Argument passed to a thread's start function.
+ */
 struct thrd_arg {
-  struct channel         *chan;
   struct timespec const  *duration;
-  chan_rv                 expected_rv;
+  union {
+    struct {                            // chan_recv(), chan_send() only
+      struct channel     *chan;
+      chan_rv             expected_rv;
+    };
+    struct {                            // chan_select() only
+      unsigned            recv_len, send_len;
+      struct channel    **recv_chan, **send_chan;
+      void              **recv_buf;
+      void const        **send_buf;
+      int                 expected_select_rv;
+    };
+  };
 };
 typedef struct thrd_arg thrd_arg;
 
@@ -80,21 +94,14 @@ static void spin_wait_us( pthread_mutex_t *mtx, unsigned short *pus ) {
 
 ////////// test helper functions //////////////////////////////////////////////
 
-static void* chan_select_recv_nowait_0( void *thrd_arg ) {
-  struct channel *const chan = thrd_arg;
-
-  struct channel *r_chan[] = { chan };
-  int data = 0;
+static void* thrd_chan_select( void *p ) {
+  thrd_arg const *const arg = p;
   int const cs_rv = chan_select(
-    /*recv_len=*/ARRAY_SIZE( r_chan ),
-    /*recv_chan=*/r_chan,
-    /*recv_buf=*/(void*[]){ &data },
-    /*send_len=*/0,
-    /*send_chan=*/NULL,
-    /*send_buf=*/NULL,
-    /*duration=*/NULL
+    arg->recv_len, arg->recv_chan, arg->recv_buf,
+    arg->send_len, arg->send_chan, arg->send_buf,
+    arg->duration
   );
-  TEST( cs_rv == -1 );
+  TEST( cs_rv == arg->expected_select_rv );
   return NULL;
 }
 
@@ -129,7 +136,7 @@ static bool test_buf_chan( void ) {
       .chan = &chan,
       .duration = NULL,
       .expected_rv = CHAN_TIMEDOUT
-    }));
+    }) );
     PTHREAD_JOIN( recv_thrd, NULL );
 
     thrd_arg arg = {
@@ -165,7 +172,17 @@ static bool test_buf_select_recv_0_nowait( void ) {
   if ( TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
     pthread_t recv_thrd;
 
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_select_recv_nowait_0, &chan );
+    int data = 0;
+    thrd_arg arg = {
+      .recv_len = 1,
+      .recv_chan = (struct channel*[]){ &chan },
+      .recv_buf = (void*[]){ &data },
+      .duration = NULL,
+      .expected_select_rv = -1
+    };
+
+    // Create a receiving thread that won't wait and no sender.
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_select, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
 
     chan_close( &chan );
