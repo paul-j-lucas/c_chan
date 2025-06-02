@@ -81,6 +81,13 @@ static void* chan_recv_1( void *thrd_arg ) {
   return NULL;
 }
 
+static void* chan_recv_nowait_0( void *thrd_arg ) {
+  struct channel *const chan = thrd_arg;
+  int data = 0;
+  TEST( chan_recv( chan, &data, /*duration=*/NULL ) == CHAN_TIMEDOUT );
+  return NULL;
+}
+
 static void* chan_select_recv_nowait_0( void *thrd_arg ) {
   struct channel *const chan = thrd_arg;
 
@@ -113,6 +120,10 @@ static bool test_buf_chan( void ) {
   struct channel chan;
   if ( TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
     pthread_t recv_thrd, send_thrd;
+
+    // Create a receiving thread that won't wait and no sender.
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &chan_recv_nowait_0, &chan );
+    PTHREAD_JOIN( recv_thrd, NULL );
 
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
