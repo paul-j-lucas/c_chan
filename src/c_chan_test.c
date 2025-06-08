@@ -260,6 +260,16 @@ static bool test_unbuf_chan( void ) {
     PTHREAD_JOIN( send_thrd, NULL );
 
     chan_close( &chan );
+
+    // Check that you can't send to a closed channel.
+    arg.expected_rv = CHAN_CLOSED;
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
+    PTHREAD_JOIN( send_thrd, NULL );
+
+    // Check chat you can't receive from a closed and empty channel.
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
+    PTHREAD_JOIN( recv_thrd, NULL );
+
     chan_cleanup( &chan, /*free_fn=*/NULL );
   }
 
