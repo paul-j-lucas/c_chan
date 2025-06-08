@@ -39,8 +39,8 @@
 /// Otherwise Doxygen generates two entries.
 
 // extern variables
-char const       *me;
-unsigned _Atomic  test_failures;
+unsigned    test_fail_cnt;
+char const *test_prog_name;
 
 /// @endcond
 
@@ -62,8 +62,8 @@ unsigned _Atomic  test_failures;
  */
 _Noreturn
 static void test_prog_exit( void ) {
-  printf( "%u failures\n", test_failures );
-  _Exit( test_failures > 0 ? EX_SOFTWARE : EX_OK );
+  printf( "%u failures\n", test_fail_cnt );
+  _Exit( test_fail_cnt > 0 ? EX_SOFTWARE : EX_OK );
 }
 
 /**
@@ -72,7 +72,7 @@ static void test_prog_exit( void ) {
 _Noreturn
 static void test_prog_usage( void ) {
   // LCOV_EXCL_START
-  EPRINTF( "usage: %s\n", me );
+  EPRINTF( "usage: %s\n", test_prog_name );
   exit( EX_USAGE );
   // LCOV_EXCL_STOP
 }
@@ -81,7 +81,7 @@ static void test_prog_usage( void ) {
 
 void test_prog_init( int argc, char const *const argv[] ) {
   ASSERT_RUN_ONCE();
-  me = base_name( argv[0] );
+  test_prog_name = base_name( argv[0] );
   if ( --argc != 0 )
     test_prog_usage();                  // LCOV_EXCL_LINE
   ATEXIT( &test_prog_exit );

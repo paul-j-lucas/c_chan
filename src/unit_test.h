@@ -21,9 +21,7 @@
 #ifndef c_chan_unit_test_H
 #define c_chan_unit_test_H
 
-#ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wunused-value"
-#endif /* __GNUC__ */
 
 /**
  * @defgroup unit-test-group Unit Tests
@@ -34,48 +32,23 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * Tests \a EXPR and prints that it failed only if it failed.
+ * Tests \a EXPR: only if it fails, evaluates \a INC_FAIL_CNT and prints that
+ * it failed.
  *
  * @param EXPR The expression to evaluate.
+ * @param INC_FAIL_CNT The expression to evaluate only if \a EXPR is false.
  * @return Returns `true` only if \a EXPR is non-zero; `false` only if zero.
  */
-#define TEST(EXPR)                ( !!(EXPR) || TEST_FAILED( #EXPR ) )
-
-/**
- * Prints that \a EXPR failed and increments the test failure count.
- *
- * @param EXPR The stringified expression that failed.
- * @return Always returns `false`.
- */
-#define TEST_FAILED(EXPR) \
-  ( EPRINTF( "%s:%d: " EXPR "\n", me, __LINE__ ), !++test_failures )
-
-/**
- * Begins a test function.
- *
- * @remarks This should be the first thing inside a test function that must be
- * declared to return `bool`.
- *
- * @sa #TEST_FUNC_END()
- */
-#define TEST_FUNC_BEGIN() \
-  unsigned const test_failures_start = test_failures
-
-/**
- * Ends a test function.
- *
- * @remarks This should be the last thing inside a test function.
- *
- * @sa #TEST_FUNC_BEGIN()
- */
-#define TEST_FUNC_END() \
-  return test_failures == test_failures_start
+#define TEST_INC(EXPR,INC_FAIL_CNT) \
+  ( !!(EXPR) ||                     \
+    ( (INC_FAIL_CNT),               \
+      EPRINTF( "%s:%d: " #EXPR "\n", test_prog_name, __LINE__ ) ) )
 
 ///////////////////////////////////////////////////////////////////////////////
 
 // extern variables
-extern char const      *me;             ///< Program name.
-extern unsigned _Atomic test_failures;  ///< Test failure count.
+extern unsigned     test_fail_cnt;      ///< Test failure count.
+extern char const  *test_prog_name;     ///< Program name.
 
 /**
  * Initializes a unit-test program.
