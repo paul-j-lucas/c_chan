@@ -180,13 +180,10 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
   chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
-  while ( rv == CHAN_OK ) {
-    if ( chan->is_closed )
-      rv = CHAN_CLOSED;
-    else if ( chan->buf.ring_len > 0 )
-      break;
-    else                                // channel is empty
-      rv = chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
+  while ( rv == CHAN_OK && chan->buf.ring_len == 0 ) {
+    rv = chan->is_closed ?
+      CHAN_CLOSED :
+      chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } // while
 
   if ( rv == CHAN_OK ) {
