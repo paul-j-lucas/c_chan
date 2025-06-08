@@ -49,6 +49,8 @@ typedef unsigned _Atomic test_fail_cnt_t;
  */
 struct thrd_arg {
   struct timespec const  *duration;
+  test_fail_cnt_t        *fail_cnt;
+
   union {
     struct {                            // chan_recv(), chan_send() only
       struct channel     *chan;
@@ -62,7 +64,6 @@ struct thrd_arg {
       int                 expected_select_rv;
     };
   };
-  test_fail_cnt_t        *fail_cnt;
 };
 typedef struct thrd_arg thrd_arg;
 
