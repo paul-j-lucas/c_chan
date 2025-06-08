@@ -201,7 +201,7 @@ static bool test_buf_select_recv_0_nowait( void ) {
   test_fail_cnt_t fn_fail_cnt = 0;
 
   if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
-    pthread_t recv_thrd;
+    pthread_t recv_thrd, send_thrd;
 
     int data = 0;
     thrd_arg arg = {
@@ -216,6 +216,19 @@ static bool test_buf_select_recv_0_nowait( void ) {
     // Create a receiving thread that won't wait and no sender.
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_select, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
+
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, (&(thrd_arg){
+      .chan = &chan,
+      .duration = CHAN_NO_TIMEOUT,
+      .fail_cnt = &fn_fail_cnt
+    }) );
+    PTHREAD_JOIN( send_thrd, NULL );
+
+    // Test that we receive from a ready channel.
+    arg.expected_select_rv = CHAN_SELECT_RECV(0);
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_select, &arg );
+    PTHREAD_JOIN( recv_thrd, NULL );
+    FN_TEST( data == 42 );
 
     chan_close( &chan );
     chan_cleanup( &chan, /*free_fn=*/NULL );
