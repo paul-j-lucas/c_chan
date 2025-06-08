@@ -132,6 +132,11 @@ static void* thrd_chan_send( void *p ) {
 
 ////////// test functions /////////////////////////////////////////////////////
 
+/**
+ * Tests that buffered channels work.
+ *
+ * @return Returns `true` only if all tests passed.
+ */
 static bool test_buf_chan( void ) {
   struct channel  chan;
   test_fail_cnt_t fn_fail_cnt = 0;
@@ -205,6 +210,11 @@ static bool test_buf_select_recv_0_nowait( void ) {
   return fn_fail_cnt == 0;
 }
 
+/**
+ * Tests that unbuffered channels work.
+ *
+ * @return Returns `true` only if all tests passed.
+ */
 static bool test_unbuf_chan( void ) {
   struct channel  chan;
   test_fail_cnt_t fn_fail_cnt = 0;
