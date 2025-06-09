@@ -40,6 +40,8 @@
 
 #define FN_TEST(EXPR)             TEST_INC(EXPR, ++fn_fail_cnt)
 
+#define THRD_ARG(...)             (&(thrd_arg){ __VA_ARGS__ })
+
 #define THRD_TEST(EXPR)           TEST_INC(EXPR, ++*arg->fail_cnt)
 
 typedef unsigned _Atomic test_fail_cnt_t;
@@ -146,11 +148,13 @@ static bool test_buf_chan( void ) {
     pthread_t recv_thrd, send_thrd;
 
     // Create a receiving thread that won't wait and no sender.
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, (&(thrd_arg){
-      .chan = &chan,
-      .expected_rv = CHAN_TIMEDOUT,
-      .fail_cnt = &fn_fail_cnt
-    }) );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv,
+      THRD_ARG(
+        .chan = &chan,
+        .expected_rv = CHAN_TIMEDOUT,
+        .fail_cnt = &fn_fail_cnt
+      )
+    );
     PTHREAD_JOIN( recv_thrd, NULL );
 
     thrd_arg arg = {
@@ -174,7 +178,7 @@ static bool test_buf_chan( void ) {
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
 
-    // Check chat you can still receive from a closed but non-empty channel.
+    // Check that you can still receive from a closed but non-empty channel.
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( send_thrd, NULL );
     chan_close( &chan );
@@ -186,7 +190,7 @@ static bool test_buf_chan( void ) {
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( send_thrd, NULL );
 
-    // Check chat you can't receive from a closed and empty channel.
+    // Check that you can't receive from a closed and empty channel.
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
 
@@ -197,44 +201,123 @@ static bool test_buf_chan( void ) {
   return fn_fail_cnt == 0;
 }
 
-static bool test_buf_select_recv_0_nowait( void ) {
+/**
+ * Tests that selecting from a buffered channel that isn't ready and not
+ * waiting works.
+ *
+ * @return Returns `true` only if all tests passed.
+ */
+static bool test_buf_select_recv_nowait( void ) {
   struct channel  chan;
   test_fail_cnt_t fn_fail_cnt = 0;
 
   if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
-    pthread_t recv_thrd, send_thrd;
-
     int data = 0;
-    thrd_arg arg = {
-      .recv_len = 1,
-      .recv_chan = (struct channel*[]){ &chan },
-      .recv_buf = (void*[]){ &data },
-      .duration = NULL,
-      .expected_select_rv = -1,
-      .fail_cnt = &fn_fail_cnt
-    };
+    pthread_t thrd;
 
-    // Create a receiving thread that won't wait and no sender.
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_select, &arg );
-    PTHREAD_JOIN( recv_thrd, NULL );
+    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select,
+      THRD_ARG(
+        .recv_len = 1,
+        .recv_chan = (struct channel*[]){ &chan },
+        .recv_buf = (void*[]){ &data },
+        .expected_select_rv = -1,
+        .fail_cnt = &fn_fail_cnt
+      )
+    );
+    PTHREAD_JOIN( thrd, NULL );
+  }
 
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, (&(thrd_arg){
-      .chan = &chan,
-      .duration = CHAN_NO_TIMEOUT,
-      .fail_cnt = &fn_fail_cnt
-    }) );
-    PTHREAD_JOIN( send_thrd, NULL );
+  test_fail_cnt += fn_fail_cnt;
+  return fn_fail_cnt == 0;
+}
 
-    // Test that we receive from a ready channel.
-    arg.expected_select_rv = CHAN_SELECT_RECV(0);
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_select, &arg );
-    PTHREAD_JOIN( recv_thrd, NULL );
+/**
+ * Tests that selecting from a ready buffered channel works.
+ *
+ * @return Returns `true` only if all tests passed.
+ */
+static bool test_buf_select_recv_1( void ) {
+  struct channel  chan;
+  test_fail_cnt_t fn_fail_cnt = 0;
+
+  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
+    int data = 0;
+    pthread_t thrd;
+
+    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send,
+      THRD_ARG(
+        .chan = &chan,
+        .fail_cnt = &fn_fail_cnt
+      )
+    );
+    PTHREAD_JOIN( thrd, NULL );
+
+    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select,
+      THRD_ARG(
+        .recv_len = 1,
+        .recv_chan = (struct channel*[]){ &chan },
+        .recv_buf = (void*[]){ &data },
+        .duration = CHAN_NO_TIMEOUT,
+        .expected_select_rv = CHAN_SELECT_RECV(0),
+        .fail_cnt = &fn_fail_cnt
+      )
+    );
+    PTHREAD_JOIN( thrd, NULL );
     FN_TEST( data == 42 );
 
     chan_close( &chan );
     chan_cleanup( &chan, /*free_fn=*/NULL );
   }
 
+  test_fail_cnt += fn_fail_cnt;
+  return fn_fail_cnt == 0;
+}
+
+/**
+ * Tests that selecting from a buffered channel works.
+ *
+ * @return Returns `true` only if all tests passed.
+ */
+static bool test_buf_select_recv_2( void ) {
+  struct channel  chan0, chan1;
+  test_fail_cnt_t fn_fail_cnt = 0;
+
+  if ( !FN_TEST( chan_init( &chan0, /*buf_cap=*/1, sizeof(int) ) ) )
+    goto error;
+  if ( !FN_TEST( chan_init( &chan1, /*buf_cap=*/1, sizeof(int) ) ) )
+    goto close0;
+
+  pthread_t thrd;
+  int data0 = 0, data1 = 0;
+
+  PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send,
+    THRD_ARG(
+      .chan = &chan1,
+      .fail_cnt = &fn_fail_cnt
+    )
+  );
+  PTHREAD_JOIN( thrd, NULL );
+
+  PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select,
+    THRD_ARG(
+      .recv_len = 2,
+      .recv_chan = (struct channel*[]){ &chan0, &chan1 },
+      .recv_buf = (void*[]){ &data0, &data1 },
+      .expected_select_rv = CHAN_SELECT_RECV(1),
+      .fail_cnt = &fn_fail_cnt
+    )
+  );
+  PTHREAD_JOIN( thrd, NULL );
+  FN_TEST( data1 == 42 );
+
+  chan_close( &chan1 );
+  chan_cleanup( &chan1, /*free_fn=*/NULL );
+
+close0:
+  chan_close( &chan0 );
+  chan_cleanup( &chan0, /*free_fn=*/NULL );
+
+error:
   test_fail_cnt += fn_fail_cnt;
   return fn_fail_cnt == 0;
 }
@@ -280,7 +363,7 @@ static bool test_unbuf_chan( void ) {
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( send_thrd, NULL );
 
-    // Check chat you can't receive from a closed and empty channel.
+    // Check that you can't receive from a closed and empty channel.
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
 
@@ -297,7 +380,8 @@ int main( int argc, char const *argv[] ) {
   test_prog_init( argc, argv );
 
   if ( test_buf_chan() && test_unbuf_chan() ) {
-    test_buf_select_recv_0_nowait();
+    test_buf_select_recv_nowait();
+    test_buf_select_recv_1() && test_buf_select_recv_2();
   }
 }
 
