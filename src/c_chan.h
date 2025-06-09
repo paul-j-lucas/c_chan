@@ -102,7 +102,7 @@ struct channel {
     } unbuf;
   };
 
-  chan_obs_impl       observer[2];      ///< Proceed: 0=receiver, 1=sender.
+  chan_obs_impl       observer[2];      ///< Receiver (0), Sender (1).
   unsigned short      wait_cnt[2];      ///< Waiting to receive (0) or send (1).
 
   pthread_mutex_t     mtx;              ///< Channel mutex.
