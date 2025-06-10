@@ -815,7 +815,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
   chan_obs_impl                 select_obs;   // observer for this select
   pthread_mutex_t               select_mtx;   // mutex for select_obs
   chan_select_ref const        *selected_ref;
-  chan_rv                       rv;
+  chan_rv                       rv = CHAN_OK;
   bool const                    wait = duration != NULL;
 
   if ( wait ) {
