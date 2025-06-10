@@ -167,7 +167,7 @@ static inline bool chan_is_buffered( struct channel const *chan ) {
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
- * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEOUT; if
+ * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEDOUT; if
  * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
@@ -202,7 +202,7 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
- * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEOUT; if
+ * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEDOUT; if
  * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
@@ -469,7 +469,7 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
- * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEOUT; if
+ * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEDOUT; if
  * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
@@ -517,7 +517,7 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
- * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEOUT; if
+ * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEDOUT; if
  * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
@@ -558,7 +558,7 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
  *
  * @param chan The \ref channel to wait for.
  * @param dir Whether to wait to receive or send.
- * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEOUT; if
+ * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEDOUT; if
  * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
@@ -613,7 +613,7 @@ static void obs_remove_all_chan( chan_obs_impl *remove_obs, unsigned chan_len,
  * Like **pthread_cond_wait**(3)** and **pthread_cond_timedwait**(3) except:
  *  + If \a abs_time is \ref CHAN_NO_TIMEOUT, waits indefinitely.
  *  + Checks the return value of **pthread_cond_timedwait**(3) for errors other
- *    than #ETIMEDOUT.
+ *    than `ETIMEDOUT`.
  *
  * @param cond The condition to wait for.
  * @param mtx The mutex to unlock temporarily.
@@ -868,7 +868,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     // If rv is:
     //
     //  + CHAN_OK: we received from or sent to the selected channel.
-    //  + CHAN_TIMEOUT: we timed out.
+    //  + CHAN_TIMEDOUT: we timed out.
     //
     // For either of those, we're done; for CHAN_CLOSED, the selected channel
     // was closed between when we called chan_select_init() an when we called

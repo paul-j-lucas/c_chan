@@ -27,8 +27,10 @@
 
 // standard
 #include <assert.h>
+#include <attribute.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sysexits.h>
 
 /// @endcond
@@ -50,6 +52,28 @@ char const *test_prog_name;
  */
 
 ////////// local functions ////////////////////////////////////////////////////
+
+/**
+ * Extracts the base portion of a path-name.
+ *
+ * @remarks Unlike **basename**(3):
+ *  + Trailing `/` characters are not deleted.
+ *  + \a path_name is never modified (hence can therefore be `const`).
+ *  + Returns a pointer within \a path_name (hence is multi-call safe).
+ *
+ * @param path_name The path-name to extract the base portion of.
+ * @return Returns a pointer to the last component of \a path_name.  If \a
+ * path_name consists entirely of `/` characters, a pointer to the string `/`
+ * is returned.
+ */
+NODISCARD
+char const* base_name( char const *path_name ) {
+  assert( path_name != NULL );
+  char const *const slash = strrchr( path_name, '/' );
+  if ( slash != NULL )
+    return slash[1] != '\0' ? slash + 1 : path_name;
+  return path_name;
+}
 
 /**
  * Called at unit-test program termination via **atexit**(3) to print the

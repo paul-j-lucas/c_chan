@@ -24,11 +24,22 @@
 // local
 #include "config.h"                     /* must go first */
 
+/// @cond DOXYGEN_IGNORE
+
 // standard
+#include <assert.h>
 #include <attribute.h>
 #include <pthread.h>
 #include <sysexits.h>
 #include <unistd.h>
+
+/// @endcond
+
+/**
+ * @defgroup util-group Utility Macros and Functions
+ * Utility macros and functions.
+ * @{
+ */
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -50,8 +61,6 @@
  *        ASSERT_RUN_ONCE();
  *        // ...
  *      }
- *
- * @sa #RUN_ONCE
  */
 #ifndef NDEBUG
 # define ASSERT_RUN_ONCE() BLOCK(       \
@@ -130,39 +139,147 @@
 #define NAME2_HELPER(A,B)         A ## B
 /// @endcond
 
+/**
+ * If \a EXPR is `true`, prints an error message for `errno` to standard error
+ * and exits with status \a STATUS.
+ *
+ * @param EXPR The expression.
+ * @param STATUS The exit status code.
+ *
+ * @sa perror_exit()
+ */
 #define PERROR_EXIT_IF(EXPR,STATUS) \
   BLOCK( if ( unlikely( (EXPR) ) ) perror_exit( (STATUS) ); )
 
+/**
+ * Calls **pthread_cond_broadcast**(3), checks for an error, and exits if there
+ * was one.
+ *
+ * @param COND The condition variable to broadcast.
+ *
+ * @sa #PTHREAD_COND_SIGNAL()
+ * @sa #PTHREAD_COND_TIMEDWAIT()
+ * @sa #PTHREAD_COND_WAIT()
+ */
 #define PTHREAD_COND_BROADCAST(COND) \
   PERROR_EXIT_IF( pthread_cond_broadcast( (COND) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_cond_destroy**(3), checks for an error, and exits if there
+ * was one.
+ *
+ * @param COND The condition variable to destroy.
+ *
+ * @sa #PTHREAD_COND_INIT()
+ */
 #define PTHREAD_COND_DESTROY(COND) \
   PERROR_EXIT_IF( pthread_cond_destroy( (COND) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_cond_init**(3), checks for an error, and exits if there was
+ * one.
+ *
+ * @param COND The condition variable to initialize.
+ * @param ATTR The attributes to use, if any.
+ *
+ * @sa #PTHREAD_COND_DESTROY()
+ */
 #define PTHREAD_COND_INIT(COND,ATTR) \
   PERROR_EXIT_IF( pthread_cond_init( (COND), (ATTR) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_cond_signal**(3), checks for an error, and exits if there
+ * was one.
+ *
+ * @param COND The condition variable to signal.
+ *
+ * @sa #PTHREAD_COND_BROADCAST()
+ * @sa #PTHREAD_COND_TIMEDWAIT()
+ * @sa #PTHREAD_COND_WAIT()
+ */
 #define PTHREAD_COND_SIGNAL(COND) \
   PERROR_EXIT_IF( pthread_cond_signal( (COND) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_cond_wait**(3), checks for an error, and exits if there was
+ * one.
+ *
+ * @param COND The condition variable to wait for.
+ * @param MTX The mutex to unlock temporarily.
+ *
+ * @sa #PTHREAD_COND_BROADCAST()
+ * @sa #PTHREAD_COND_SIGNAL()
+ * @sa #PTHREAD_COND_TIMEDWAIT()
+ */
 #define PTHREAD_COND_WAIT(COND,MTX) \
   PERROR_EXIT_IF( pthread_cond_wait( (COND), (MTX) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_cond_timedwait**(3), checks for an error, and exits if there
+ * was one.
+ *
+ * @param COND The condition variable to wait for.
+ * @param MTX The mutex to unlock temporarily.
+ * @param ABSTIME The absolute time to wait until.
+ *
+ * @sa #PTHREAD_COND_BROADCAST()
+ * @sa #PTHREAD_COND_SIGNAL()
+ * @sa #PTHREAD_COND_WAIT()
+ */
 #define PTHREAD_COND_TIMEDWAIT(COND,MTX,ABSTIME) \
   PERROR_EXIT_IF( pthread_cond_timedwait( (COND), (MTX), (ABSTIME) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_mutex_destroy**(3), checks for an error, and exits if there
+ * was one.
+ *
+ * @param MTX The mutex variable to destroy.
+ *
+ * @sa #PTHREAD_MUTEX_INIT()
+ */
 #define PTHREAD_MUTEX_DESTROY(MTX) \
   PERROR_EXIT_IF( pthread_mutex_destroy( (MTX) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_mutex_init**(3), checks for an error, and exits if there was
+ * one.
+ *
+ * @param MTX The mutex variable to initialize.
+ * @param ATTR The attributes to use, if any.
+ *
+ * @sa #PTHREAD_MUTEX_DESTROY()
+ */
 #define PTHREAD_MUTEX_INIT(MTX,ATTR) \
   PERROR_EXIT_IF( pthread_mutex_init( (MTX), (ATTR) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_mutex_lock**(3), checks for an error, and exits if there was
+ * one.
+ *
+ * @param MTX The mutex variable to lock.
+ *
+ * @sa #PTHREAD_MUTEX_UNLOCK()
+ */
 #define PTHREAD_MUTEX_LOCK(MTX) \
   PERROR_EXIT_IF( pthread_mutex_lock( (MTX) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_mutex_unlock**(3), checks for an error, and exits if there
+ * was one.
+ *
+ * @param MTX The mutex variable to unlock.
+ *
+ * @sa #PTHREAD_MUTEX_LOCK()
+ */
 #define PTHREAD_MUTEX_UNLOCK(MTX) \
   PERROR_EXIT_IF( pthread_mutex_unlock( (MTX) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_once**(3), checks for an error, and exits if there was one.
+ *
+ * @param ONCE The "once" variable to use.
+ * @param FN The pointer to the function to call once.
+ */
 #define PTHREAD_ONCE(ONCE,FN) \
   PERROR_EXIT_IF( pthread_once( (ONCE), (FN) ) != 0, EX_IOERR )
 
@@ -182,31 +299,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * Extracts the base portion of a path-name.
- *
- * @remarks Unlike **basename**(3):
- *  + Trailing `/` characters are not deleted.
- *  + \a path_name is never modified (hence can therefore be `const`).
- *  + Returns a pointer within \a path_name (hence is multi-call safe).
- *
- * @param path_name The path-name to extract the base portion of.
- * @return Returns a pointer to the last component of \a path_name.  If \a
- * path_name consists entirely of `/` characters, a pointer to the string `/`
- * is returned.
- */
-NODISCARD
-char const* base_name( char const *path_name );
-
-/**
  * Prints an error message for `errno` to standard error and exits.
  *
  * @param status The exit status code.
  *
- * @sa #INTERNAL_ERROR()
  * @sa #PERROR_EXIT_IF()
- * @sa #UNEXPECTED_INT_VALUE()
  */
 _Noreturn void perror_exit( int status );
 
 ///////////////////////////////////////////////////////////////////////////////
+
+/** @} */
+
 #endif /* C_CHAN_UTIL_H */

@@ -98,7 +98,7 @@ struct channel {
     } buf;
     struct {
       void           *recv_buf;         ///< Where to put a received message.
-      pthread_cond_t  recv_buf_is_null; ///< Is \ref recv_buf `NULL`?
+      pthread_cond_t  recv_buf_is_null; ///< Is `recv_buf` `NULL`?
     } unbuf;
   };
 
