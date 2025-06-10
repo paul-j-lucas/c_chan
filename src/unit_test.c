@@ -67,7 +67,7 @@ char const *test_prog_name;
  * is returned.
  */
 NODISCARD
-char const* base_name( char const *path_name ) {
+static char const* base_name( char const *path_name ) {
   assert( path_name != NULL );
   char const *const slash = strrchr( path_name, '/' );
   if ( slash != NULL )
