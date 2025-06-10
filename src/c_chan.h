@@ -200,14 +200,13 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size );
 /**
  * Receives data from a \ref channel.
  *
- * @remarks If the channel is closed, the receive is aborted.
- *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.  It must be at least \ref
  * channel::msg_size "msg_size" bytes.
- * @param duration The duration of time to wait. If `NULL`, does not wait; if
- * #CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns a \ref chan_rv.
+ * @param duration The duration of time to wait. If `NULL`, it's considered
+ * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
+ * @return Returns #CHAN_OK upon success, #CHAN_CLOSED if \a chan either is or
+ * becomes closed, or #CHAN_TIMEDOUT if \a duration expires.
  *
  * @sa chan_send()
  */
@@ -217,14 +216,13 @@ chan_rv chan_recv( struct channel *chan, void *recv_buf,
 /**
  * Sends data to a channel.
  *
- * @remarks If the channel is closed, the send is aborted.
- *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.  It must be at least \ref
  * channel::msg_size "msg_size" bytes.
- * @param duration The duration of time to wait. If `NULL`, does not wait; if
- * #CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns a \ref chan_rv.
+ * @param duration The duration of time to wait. If `NULL`, it's considered
+ * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
+ * @return Returns #CHAN_OK upon success, #CHAN_CLOSED if \a chan either is or
+ * becomes closed, or #CHAN_TIMEDOUT if \a duration expires.
  *
  * @sa chan_recv()
  */
@@ -272,10 +270,10 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
  * send_len is 0, may be `NULL`.
  * @param send_buf An array of zero or more buffers to send from corresponding
  * to \a send_chan.  If \a send_len is 0, may be `NULL`.
- * @param duration The duration of time to wait. If `NULL`, does not wait; if
- * #CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns an integer &ge; 0 for a selected channel or `-1` when no
- * channel was selected.
+ * @param duration The duration of time to wait. If `NULL`, it's considered
+ * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
+ * @return Returns an integer &ge; 0 for a selected channel or `-1` only if all
+ * channels are or became closed or \a duration expired.
  *
  * @warning No \ref channel may appear in both \a recv_chan and \a send_chan
  * nor more than once in either.

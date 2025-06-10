@@ -3,7 +3,11 @@
 ## Introduction
 
 **C Chan**
-is a library that implements Go-like channels in C.
+is a library that implements Go-like channels in C
+for an alternative way to share data
+among threads
+rather than using mutexes explicitly.
+
 As in Go,
 there are two types of channels:
 
@@ -23,6 +27,24 @@ non-blocking.
 Unlike Go,
 timeouts may optionally be specified
 for all operations.
+
+### Message Management
+
+**C Chan**
+treats messages as opaque
+chunks of memory
+of a pre-set,
+fixed
+size.
+Hence messages may be copies of your actual data
+(e.g., integers)
+or may be pointers to your data
+(i.e., `T*` for some type `T`).
+If pointers,
+both memory management
+and thread-safety
+of the pointed-to data
+is entirely left to you.
 
 ## Installation
 
