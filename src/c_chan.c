@@ -27,6 +27,8 @@
 #include "c_chan.h"
 #include "util.h"
 
+/// @cond DOXYGEN_IGNORE
+
 // standard
 #include <assert.h>
 #include <attribute.h>
@@ -35,6 +37,8 @@
 #include <string.h>                     /* for memcpy(3) */
 #include <sys/time.h>                   /* for gettimeofday(2) */
 #include <unistd.h>
+
+/// @endcond
 
 /**
  * @ingroup c-chan-implementation-group
@@ -79,8 +83,10 @@ enum chan_dir {
 
 ////////// typedefs ///////////////////////////////////////////////////////////
 
+/// @cond DOXYGEN_IGNORE
 typedef enum    chan_dir chan_dir;
 typedef struct  chan_select_ref     chan_select_ref;
+/// @endcond
 
 /**
  * The signature for a function passed to **qsort**(3).
@@ -138,8 +144,9 @@ static int      pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
                                            struct timespec const* );
 
 // local variables
+
+/// A variable to which \ref CHAN_NO_TIMEOUT can point.
 static struct timespec const  CHAN_NO_TIMEOUT_TIMESPEC;
-static pthread_once_t         srand_once = PTHREAD_ONCE_INIT;
 
 // extern variables
 struct timespec const *const CHAN_NO_TIMEOUT = &CHAN_NO_TIMEOUT_TIMESPEC;
@@ -176,9 +183,11 @@ static inline bool chan_is_buffered( struct channel const *chan ) {
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
- * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEDOUT; if
- * \ref CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns a \ref chan_rv.
+ * @param abs_time When to wait until. If `NULL`, it's considered zero (does
+ * not wait) and returns #CHAN_TIMEDOUT; if \ref CHAN_NO_TIMEOUT, waits
+ * indefinitely.
+ * @return Returns #CHAN_OK upon success, #CHAN_CLOSED if \a chan either is or
+ * becomes closed, or #CHAN_TIMEDOUT if it's now \a abs_time or later.
  *
  * @sa chan_buf_send()
  * @sa chan_unbuf_recv()
@@ -211,9 +220,11 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
- * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEDOUT; if
- * \ref CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns a \ref chan_rv.
+ * @param abs_time When to wait until. If `NULL`, it's considered zero (does
+ * not wait) and returns #CHAN_TIMEDOUT; if \ref CHAN_NO_TIMEOUT, waits
+ * indefinitely.
+ * @return Returns #CHAN_OK upon success, #CHAN_CLOSED if \a chan either is or
+ * becomes closed, or #CHAN_TIMEDOUT if it's now \a abs_time or later.
  *
  * @sa chan_buf_recv()
  * @sa chan_unbuf_send()
@@ -862,7 +873,8 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
     }
     else {                              // otherwise pick a channel at random
-      PTHREAD_ONCE( &srand_once, &srand_init );
+      static pthread_once_t once = PTHREAD_ONCE_INIT;
+      PTHREAD_ONCE( &once, &srand_init );
       selected_ref = &ref[ rand() % (int)select_len ];
     }
 
