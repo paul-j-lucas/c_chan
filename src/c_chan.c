@@ -588,6 +588,7 @@ NODISCARD
 static chan_rv chan_wait( struct channel *chan, chan_dir dir,
                           struct timespec const *abs_time ) {
   assert( chan != NULL );
+  assert( !chan->is_closed );
 
   chan_rv rv;
 
