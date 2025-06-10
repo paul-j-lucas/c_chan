@@ -172,11 +172,15 @@ void chan_close( struct channel *chan );
  * @remarks
  * There are two types of channels:
  *
- *  1. **Buffered**: the channel has a buffer of a fixed capacity.  New
- *     messages may be sent as long as the buffer is not full.  Once full,
- *     senders will wait (unless instructed not to).  Messages may be received
- *     as long as the buffer is not empty.  If empty, receivers will wait
- *     (unless instructed not to).
+ *  1. **Buffered**: the channel has a buffer of a fixed capacity.
+ *
+ *     + For senders, new messages may be sent as long as the buffer is not
+ *       full.  Once full, senders will wait (unless instructed not to) for it
+ *       to become not full.
+ *
+ *     + For receivers, messages may be received as long as the buffer is not
+ *       empty.  If empty, receivers will wait (unless instructed not to) for
+ *       it to become not empty.
  *
  *  2. **Unbuffered**: A sender and receiver will wait (unless instructed not
  *     to) until both are simultaneously ready.

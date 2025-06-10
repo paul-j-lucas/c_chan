@@ -4,6 +4,25 @@
 
 **C Chan**
 is a library that implements Go-like channels in C.
+As in Go,
+there are two types of channels:
+
+1. **Buffered**: the channel has a buffer of a fixed capacity.
+2. **Unbuffered**: A sender and receiver will wait until both are
+   simultaneously ready.
+
+In addition to
+`chan_send()`
+and
+`chan_recv()`,
+`chan_select()`
+can be either
+blocking
+or
+non-blocking.
+Unlike Go,
+timeouts may optionally be specified
+for all operations.
 
 ## Installation
 
