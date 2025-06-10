@@ -50,6 +50,7 @@ gl_INIT
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE
 AC_TYPE_SIZE_T
+PJL_COMPILE([__builtin_expect],[], [(void)__builtin_expect(1,1);])
 
 # Checks for library functions.
 AC_FUNC_REALLOC
