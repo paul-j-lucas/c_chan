@@ -148,8 +148,8 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
  * @warning A channel _must_ be closed before it's cleaned-up and no other
  * threads may be using it.  This function can not call chan_close()
  * automatically if it's open because that would result in a race condition
- * since the other threads may not finish interacting with it before it's
- * cleaned-up.
+ * since other threads may not finish interacting with it before it's cleaned-
+ * up.
  *
  * @sa chan_close()
  * @sa chan_init()
