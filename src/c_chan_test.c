@@ -292,7 +292,7 @@ static bool test_buf_select_recv_1( void ) {
 }
 
 /**
- * Tests that selecting from a buffered channel works.
+ * Tests that selecting from two buffered channels works.
  *
  * @return Returns `true` only if all tests passed.
  */
@@ -337,6 +337,52 @@ close0:
   chan_cleanup( &chan0, /*free_fn=*/NULL );
 
 error:
+  test_fail_cnt += fn_fail_cnt;
+  return fn_fail_cnt == 0;
+}
+
+/**
+ * Tests that selecting from a ready buffered channel works.
+ *
+ * @return Returns `true` only if all tests passed.
+ */
+static bool test_buf_select_send_1( void ) {
+  struct channel  chan;
+  test_fail_cnt_t fn_fail_cnt = 0;
+
+  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
+    int data = 42;
+    pthread_t recv_thrd, send_thrd;
+
+    // Create the receiving thread first and ensure it's ready before creating
+    // the sending thread.
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv,
+      THRD_ARG(
+        .chan = &chan,
+        .duration = CHAN_NO_TIMEOUT,
+        .recv_val = 42,
+        .fail_cnt = &fn_fail_cnt
+      )
+    );
+    spin_wait_us( &chan.mtx, &chan.wait_cnt[0] );
+
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_select,
+      THRD_ARG(
+        .send_len = 1,
+        .send_chan = (struct channel*[]){ &chan },
+        .send_buf = (void const*[]){ &data },
+        .duration = CHAN_NO_TIMEOUT,
+        .select_rv = CHAN_SELECT_SEND(0),
+        .fail_cnt = &fn_fail_cnt
+      )
+    );
+    PTHREAD_JOIN( send_thrd, NULL );
+    PTHREAD_JOIN( recv_thrd, NULL );
+
+    chan_close( &chan );
+    chan_cleanup( &chan, /*free_fn=*/NULL );
+  }
+
   test_fail_cnt += fn_fail_cnt;
   return fn_fail_cnt == 0;
 }
@@ -402,6 +448,7 @@ int main( int argc, char const *argv[] ) {
   if ( test_buf_chan() && test_unbuf_chan() ) {
     test_buf_select_recv_nowait();
     test_buf_select_recv_1() && test_buf_select_recv_2();
+    test_buf_select_send_1();
   }
 }
 
