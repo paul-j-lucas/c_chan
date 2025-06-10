@@ -110,17 +110,6 @@ static void spin_wait_us( pthread_mutex_t *mtx, unsigned short *pus ) {
 
 ////////// test helper functions //////////////////////////////////////////////
 
-static void* thrd_chan_select( void *p ) {
-  thrd_arg *const arg = p;
-  int const cs_rv = chan_select(
-    arg->recv_len, arg->recv_chan, arg->recv_buf,
-    arg->send_len, arg->send_chan, arg->send_buf,
-    arg->duration
-  );
-  THRD_TEST( cs_rv == arg->select_rv );
-  return NULL;
-}
-
 static void* thrd_chan_recv( void *p ) {
   thrd_arg *const arg = p;
   int data = 0;
@@ -129,6 +118,17 @@ static void* thrd_chan_recv( void *p ) {
        arg->fn_rv == CHAN_OK ) {
     THRD_TEST( data == arg->recv_val );
   }
+  return NULL;
+}
+
+static void* thrd_chan_select( void *p ) {
+  thrd_arg *const arg = p;
+  int const cs_rv = chan_select(
+    arg->recv_len, arg->recv_chan, arg->recv_buf,
+    arg->send_len, arg->send_chan, arg->send_buf,
+    arg->duration
+  );
+  THRD_TEST( cs_rv == arg->select_rv );
   return NULL;
 }
 
