@@ -129,11 +129,11 @@ static void     chan_notify( struct channel*, chan_dir,
                              int (*)( pthread_cond_t* ) );
 
 NODISCARD
-static bool     chan_unbuf_recv( struct channel*, void*,
+static chan_rv  chan_unbuf_recv( struct channel*, void*,
                                  struct timespec const* );
 
 NODISCARD
-static bool     chan_unbuf_send( struct channel*, void const*,
+static chan_rv  chan_unbuf_send( struct channel*, void const*,
                                  struct timespec const* );
 
 NODISCARD
@@ -497,8 +497,8 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
  * @sa chan_unbuf_send()
  */
 NODISCARD
-static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
-                             struct timespec const *abs_time ) {
+static chan_rv chan_unbuf_recv( struct channel *chan, void *recv_buf,
+                                struct timespec const *abs_time ) {
   chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
@@ -545,8 +545,8 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
  * @sa chan_unbuf_recv()
  */
 NODISCARD
-static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
-                             struct timespec const *abs_time ) {
+static chan_rv chan_unbuf_send( struct channel *chan, void const *send_buf,
+                                struct timespec const *abs_time ) {
   chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
