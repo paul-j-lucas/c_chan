@@ -235,14 +235,14 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
   chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
-  while ( rv == CHAN_OK ) {
+  do {
     if ( chan->is_closed )
       rv = CHAN_CLOSED;
     else if ( chan->buf.ring_len < chan->buf_cap )
       break;
     else                                // channel is full
       rv = chan_wait( chan, CHAN_BUF_NOT_FULL, abs_time );
-  } // while
+  } while ( rv == CHAN_OK );
 
   if ( rv == CHAN_OK ) {
     memcpy( chan_buf_at( chan, chan->buf.send_idx ), send_buf, chan->msg_size );
@@ -502,7 +502,7 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
   chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
-  while ( rv == CHAN_OK ) {
+  do {
     if ( chan->is_closed )
       rv = CHAN_CLOSED;
     else if ( chan->wait_cnt[ CHAN_SEND ] == 0 && abs_time == NULL )
@@ -515,7 +515,7 @@ static bool chan_unbuf_recv( struct channel *chan, void *recv_buf,
       // thread to reset recv_buf.
       PTHREAD_COND_WAIT( &chan->unbuf.recv_buf_is_null, &chan->mtx );
     }
-  } // while
+  } while ( rv == CHAN_OK );
 
   if ( rv == CHAN_OK ) {
     chan->unbuf.recv_buf = recv_buf;
@@ -550,7 +550,7 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
   chan_rv rv = CHAN_OK;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
-  while ( rv == CHAN_OK ) {
+  do {
     if ( chan->is_closed )
       rv = CHAN_CLOSED;
     else if ( chan->unbuf.recv_buf != NULL )
@@ -559,7 +559,7 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
       rv = CHAN_TIMEDOUT;               // no receiver and shouldn't wait
     else
       rv = chan_wait( chan, CHAN_UNBUF_RECV_WAIT, abs_time );
-  } // while
+  } while ( rv == CHAN_OK );
 
   if ( rv == CHAN_OK ) {
     if ( chan->msg_size > 0 )
