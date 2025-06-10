@@ -250,8 +250,8 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
                    struct timespec const *duration );
 
 /**
- * Selects at most one channel from either \a recv_chan or \a send_chan that
- * has either received or sent a message, respectively.
+ * Selects at most one \ref channel from either \a recv_chan or \a send_chan
+ * that has either received or sent a message, respectively.
  *
  * @remarks For example:
  *  ```c
@@ -285,29 +285,32 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
  *      // ...
  *  }
  *  ```
- * where #CHAN_SELECT_RECV(i) refers to the ith channel in `r_chan` and
- * #CHAN_SELECT_SEND(i) refers to the ith channel in `s_chan`.
+ * where #CHAN_SELECT_RECV(i) refers to the ith \ref channel in `r_chan` and
+ * #CHAN_SELECT_SEND(i) refers to the ith \ref channel in `s_chan`.
  * @par
- * When more than one channel is ready, one is selected randomly.
+ * When more than one \ref channel is ready, one is selected randomly.
  *
  * @param recv_len The length of \a recv_chan and \a recv_buf.
  * @param recv_chan An array of zero or more channels to read from.  If \a
- * recv_len is 0, may be `NULL`.
- * @param recv_buf An array of zero or more buffers to receive into
- * corresponding to \a recv_chan.  If \a recv_len is 0, may be `NULL`.
+ * recv_len is 0, may be `NULL`.  The same channel may not appear more than
+ * once in the array.
+ * @param recv_buf An array of zero or more pointers to buffers to receive into
+ * corresponding to \a recv_chan.  If \a recv_len is 0, may be `NULL`.  The
+ * same pointer may appear more than once in the array.
  * @param send_len The length of \a send_chan and \a send_buf.
  * @param send_chan An array of zero or more channels to send from.  If \a
- * send_len is 0, may be `NULL`.
- * @param send_buf An array of zero or more buffers to send from corresponding
- * to \a send_chan.  If \a send_len is 0, may be `NULL`.
+ * send_len is 0, may be `NULL`.  The same channel may not appear more than
+ * once in the array.
+ * @param send_buf An array of zero or more pointers to buffers to send from
+ * corresponding to \a send_chan.  If \a send_len is 0, may be `NULL`.  The
+ * same pointer may appear more than once in the array.
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns an integer &ge; 0 for a selected channel, #CHAN_CLOSED only
  * if all channels are or became closed, or #CHAN_TIMEDOUT if \a duration
  * expired.
  *
- * @warning No \ref channel may appear in both \a recv_chan and \a send_chan
- * nor more than once in either.
+ * @warning No \ref channel may appear in both \a recv_chan and \a send_chan.
  */
 int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
                  void *recv_buf[recv_len],
