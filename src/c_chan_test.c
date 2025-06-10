@@ -124,8 +124,8 @@ static void* thrd_chan_select( void *p ) {
 static void* thrd_chan_recv( void *p ) {
   thrd_arg *const arg = p;
   int data = 0;
-  if ( THRD_TEST( chan_recv( arg->chan, &data,
-                             arg->duration ) == arg->fn_rv ) &&
+  chan_rv const rv = chan_recv( arg->chan, &data, arg->duration );
+  if ( THRD_TEST( rv == arg->fn_rv ) &&
        arg->fn_rv == CHAN_OK ) {
     THRD_TEST( data == arg->recv_val );
   }
@@ -134,8 +134,8 @@ static void* thrd_chan_recv( void *p ) {
 
 static void* thrd_chan_send( void *p ) {
   thrd_arg *const arg = p;
-  THRD_TEST( chan_send( arg->chan, &arg->send_val,
-                        arg->duration ) == arg->fn_rv );
+  chan_rv const rv = chan_send( arg->chan, &arg->send_val, arg->duration );
+  THRD_TEST( rv == arg->fn_rv );
   return NULL;
 }
 
