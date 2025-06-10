@@ -37,6 +37,11 @@
 #include <unistd.h>
 
 /**
+ * @ingroup c-chan-implementation-group
+ * @{
+ */
+
+/**
  * For buffered channels, more mnemonic names for specifying which observer
  * (receive or send) is meant.
  *
@@ -682,6 +687,8 @@ static struct timespec const* ts_dur_to_abs( struct timespec const *duration,
 
   return abs_time;
 }
+
+/** @} */
 
 ////////// extern functions ///////////////////////////////////////////////////
 

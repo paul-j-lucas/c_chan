@@ -39,34 +39,21 @@
 #include <stddef.h>
 #include <time.h>                       /* for timespec */
 
-/**
- * Macros for use with cases of a `switch` statement on chan_select().
- * @{
- */
-#define CHAN_SELECT_RECV(IDX)     ((int)(IDX))
-#define CHAN_SELECT_SEND(IDX)     (1024 + (int)(IDX))
-/** @} */
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-///////////////////////////////////////////////////////////////////////////////
+struct channel;
+
+////////// implementation /////////////////////////////////////////////////////
 
 /**
- * Channel send/receive function return value.
- *
- * @sa chan_recv()
- * @sa chan_send()
+ * @defgroup c-chan-implementation-group Implementation API
+ * Declares types, macros, and functions for the implementation.
+ * @{
  */
-enum chan_rv {
-  CHAN_OK,                              ///< Channel operation succeeded.
-  CHAN_CLOSED,                          ///< Channel is closed.
-  CHAN_TIMEDOUT                         ///< Channel operation timed out.
-};
 
-typedef struct  chan_obs_impl chan_obs_impl;
-typedef enum    chan_rv       chan_rv;
+typedef struct chan_obs_impl chan_obs_impl;
 
 /**
  * An "observer" for a channel that is used to wait until it's ready.
@@ -80,6 +67,37 @@ struct chan_obs_impl {
   chan_obs_impl    *next;               ///< The next observer, if any.
   pthread_mutex_t  *pmtx;               ///< The mutex to use.
 };
+
+/** @} */
+
+////////// public /////////////////////////////////////////////////////////////
+
+/**
+ * @defgroup c-chan-public-api-group Public API
+ * Declares types and functions for public use.
+ * @{
+ */
+
+/**
+ * Macros for use with cases of a `switch` statement on chan_select().
+ * @{
+ */
+#define CHAN_SELECT_RECV(IDX)     ((int)(IDX))
+#define CHAN_SELECT_SEND(IDX)     (1024 + (int)(IDX))
+/** @} */
+
+/**
+ * Channel send/receive function return value.
+ *
+ * @sa chan_recv()
+ * @sa chan_send()
+ */
+enum chan_rv {
+  CHAN_OK,                              ///< Channel operation succeeded.
+  CHAN_CLOSED,                          ///< Channel is closed.
+  CHAN_TIMEDOUT                         ///< Channel operation timed out.
+};
+typedef enum chan_rv chan_rv;
 
 /**
  * A Go-like channel.
@@ -263,6 +281,8 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
                  unsigned send_len, struct channel *send_chan[send_len],
                  void const *send_buf[send_len],
                  struct timespec const *duration );
+
+/** @} */
 
 ///////////////////////////////////////////////////////////////////////////////
 
