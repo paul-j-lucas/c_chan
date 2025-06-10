@@ -183,8 +183,8 @@ static inline bool chan_is_buffered( struct channel const *chan ) {
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
- * @param abs_time When to wait until. If `NULL`, it's considered zero (does
- * not wait) and returns #CHAN_TIMEDOUT; if \ref CHAN_NO_TIMEOUT, waits
+ * @param abs_time When to wait until. If `NULL`, it's considered now (does not
+ * wait) and returns #CHAN_TIMEDOUT; if \ref CHAN_NO_TIMEOUT, waits
  * indefinitely.
  * @return Returns #CHAN_OK upon success, #CHAN_CLOSED if \a chan either is or
  * becomes closed, or #CHAN_TIMEDOUT if it's now \a abs_time or later.
@@ -220,8 +220,8 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
- * @param abs_time When to wait until. If `NULL`, it's considered zero (does
- * not wait) and returns #CHAN_TIMEDOUT; if \ref CHAN_NO_TIMEOUT, waits
+ * @param abs_time When to wait until. If `NULL`, it's considered now (does not
+ * wait) and returns #CHAN_TIMEDOUT; if \ref CHAN_NO_TIMEOUT, waits
  * indefinitely.
  * @return Returns #CHAN_OK upon success, #CHAN_CLOSED if \a chan either is or
  * becomes closed, or #CHAN_TIMEDOUT if it's now \a abs_time or later.
