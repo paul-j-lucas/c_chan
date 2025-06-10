@@ -79,12 +79,20 @@ struct chan_obs_impl {
  */
 
 /**
- * Macros for use with cases of a `switch` statement on chan_select().
- * @{
+ * For use with cases of a `switch` statement on chan_select() to specify the
+ * index of a receive channel.
+ *
+ * @sa #CHAN_SELECT_SEND
  */
 #define CHAN_SELECT_RECV(IDX)     ((int)(IDX))
+
+/**
+ * For use with cases of a `switch` statement on chan_select() to specify the
+ * index of a send channel.
+ *
+ * @sa #CHAN_SELECT_RECV
+ */
 #define CHAN_SELECT_SEND(IDX)     (1024 + (int)(IDX))
-/** @} */
 
 /**
  * Channel send/receive function return value.

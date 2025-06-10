@@ -42,26 +42,30 @@
  */
 
 /**
- * For buffered channels, more mnemonic names for specifying which observer
+ * For buffered channels, a more mnemonic name for specifying which observer
  * (receive or send) is meant.
  *
  * @sa chan_dir
- * @{
  */
 #define CHAN_BUF_NOT_EMPTY    CHAN_RECV
-#define CHAN_BUF_NOT_FULL     CHAN_SEND
-/** @} */
 
 /**
- * For unbuffered channels, more mnemonic names for specifying which observer
+ * @copydoc CHAN_BUF_NOT_EMPTY
+ */
+#define CHAN_BUF_NOT_FULL     CHAN_SEND
+
+/**
+ * For unbuffered channels, a more mnemonic name for specifying which observer
  * (receive or send) is meant.
  *
  * @sa chan_dir
- * @{
  */
 #define CHAN_UNBUF_SEND_DONE  CHAN_RECV
+
+/**
+ * @copydoc CHAN_UNBUF_SEND_DONE
+ */
 #define CHAN_UNBUF_RECV_WAIT  CHAN_SEND
-/** @} */
 
 ////////// enumerations ///////////////////////////////////////////////////////
 
