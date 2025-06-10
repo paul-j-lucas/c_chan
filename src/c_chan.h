@@ -33,11 +33,15 @@
 // local
 #include "config.h"                     /* must go first */
 
+/// @cond DOXYGEN_IGNORE
+
 // standard
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <time.h>                       /* for timespec */
+
+/// @endcond
 
 #ifdef __cplusplus
 extern "C" {
@@ -105,7 +109,9 @@ enum chan_rv {
   CHAN_CLOSED,                          ///< Channel is closed.
   CHAN_TIMEDOUT                         ///< Channel operation timed out.
 };
+/// @cond DOXYGEN_IGNORE
 typedef enum chan_rv chan_rv;
+/// @endcond
 
 /**
  * A Go-like channel.
@@ -247,32 +253,42 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
  * Selects at most one channel from either \a recv_chan or \a send_chan that
  * has either received or sent a message, respectively.
  *
+ * @remarks For example:
  *  ```c
- *  struct channel *const r_chan[] = { &r_chan1, &r_chan2 };
- *  int r1, r2;
- *  void *const r_buf[] = { &r1, &r2 };
+ *  struct channel r_chan0, r_chan1, s_chan0, s_chan1;
+ *  // ...
  *
- *  struct channel *const s_chan[] = { &s_chan1, &s_chan2 };
- *  int s1 = 1, s2 = 2;
- *  void *const s_buf[] = { &s1, &s2 };
+ *  struct channel *const r_chan[] = { &r_chan0, &r_chan1 };
+ *  int r0, r1;
+ *  void *const r_buf[] = { &r0, &r1 };
  *
- *  switch ( chan_select( 2, r_chan, r_buf, 2, s_chan, s_buf, duration ) ) {
- *    case CHAN_SELECT_RECV(0):
+ *  struct channel *const s_chan[] = { &s_chan0, &s_chan1 };
+ *  int s0 = 1, s1 = 2;
+ *  void const *const s_buf[] = { &s0, &s1 };
+ *
+ *  struct timespec const duration = { .tv_sec = 5 };
+ *
+ *  switch ( chan_select( 2, r_chan, r_buf, 2, s_chan, s_buf, &duration ) ) {
+ *    case CHAN_SELECT_RECV(0):   // r_chan0 selected
  *      // ...
  *      break;
- *    case CHAN_SELECT_RECV(1):
+ *    case CHAN_SELECT_RECV(1):   // r_chan1 selected
  *      // ...
  *      break;
- *    case CHAN_SELECT_SEND(0):
+ *    case CHAN_SELECT_SEND(0):   // s_chan0 selected
  *      // ...
  *      break;
- *    case CHAN_SELECT_SEND(1):
+ *    case CHAN_SELECT_SEND(1):   // s_chan1 selected
  *      // ...
  *      break;
- *    default:
+ *    default:                    // no channel selected
  *      // ...
  *  }
  *  ```
+ * where #CHAN_SELECT_RECV(i) refers to the ith channel in `r_chan` and
+ * #CHAN_SELECT_SEND(i) refers to the ith channel in `s_chan`.
+ * @par
+ * When more than one channel is ready, one is selected randomly.
  *
  * @param recv_len The length of \a recv_chan and \a recv_buf.
  * @param recv_chan An array of zero or more channels to read from.  If \a
