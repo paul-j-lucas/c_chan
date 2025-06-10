@@ -54,16 +54,22 @@ struct thrd_arg {
   test_fail_cnt_t        *fail_cnt;
 
   union {
-    struct {                            // chan_recv(), chan_send() only
+    struct {                            ///< For chan_recv(), chan_send() only.
       struct channel     *chan;
-      chan_rv             expected_rv;
+      chan_rv             fn_rv;        ///< Expected function return value.
+      union {
+        int               send_val;     ///< Value to send.
+        int               recv_val;     ///< Value expected to receive.
+      };
     };
-    struct {                            // chan_select() only
-      unsigned            recv_len, send_len;
-      struct channel    **recv_chan, **send_chan;
-      void              **recv_buf;
-      void const        **send_buf;
-      int                 expected_select_rv;
+    struct {                            ///< For chan_select() only.
+      unsigned            recv_len;     ///< Length of recv_chan, recv_buf.
+      struct channel    **recv_chan;    ///< Array of receive channels, if any.
+      void              **recv_buf;     ///< Array of receive buffers, if any.
+      unsigned            send_len;     ///< Length of send_chan, send_buf.
+      struct channel    **send_chan;    ///< Array of send channels, if any.
+      void const        **send_buf;     ///< Array of send buffers, if any.
+      int                 select_rv;    ///< Expected select return value.
     };
   };
 };
@@ -111,7 +117,7 @@ static void* thrd_chan_select( void *p ) {
     arg->send_len, arg->send_chan, arg->send_buf,
     arg->duration
   );
-  THRD_TEST( cs_rv == arg->expected_select_rv );
+  THRD_TEST( cs_rv == arg->select_rv );
   return NULL;
 }
 
@@ -119,17 +125,17 @@ static void* thrd_chan_recv( void *p ) {
   thrd_arg *const arg = p;
   int data = 0;
   if ( THRD_TEST( chan_recv( arg->chan, &data,
-                             arg->duration ) == arg->expected_rv ) &&
-       arg->expected_rv == CHAN_OK ) {
-    THRD_TEST( data == 42 );
+                             arg->duration ) == arg->fn_rv ) &&
+       arg->fn_rv == CHAN_OK ) {
+    THRD_TEST( data == arg->recv_val );
   }
   return NULL;
 }
 
 static void* thrd_chan_send( void *p ) {
   thrd_arg *const arg = p;
-  int data = 42;
-  THRD_TEST( chan_send( arg->chan, &data, arg->duration ) == arg->expected_rv );
+  THRD_TEST( chan_send( arg->chan, &arg->send_val,
+                        arg->duration ) == arg->fn_rv );
   return NULL;
 }
 
@@ -151,7 +157,7 @@ static bool test_buf_chan( void ) {
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv,
       THRD_ARG(
         .chan = &chan,
-        .expected_rv = CHAN_TIMEDOUT,
+        .fn_rv = CHAN_TIMEDOUT,
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -160,6 +166,7 @@ static bool test_buf_chan( void ) {
     thrd_arg arg = {
       .chan = &chan,
       .duration = CHAN_NO_TIMEOUT,
+      .send_val = 42,
       .fail_cnt = &fn_fail_cnt
     };
 
@@ -184,7 +191,7 @@ static bool test_buf_chan( void ) {
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send,
       THRD_ARG(
         .chan = &chan,
-        .expected_rv = CHAN_TIMEDOUT,
+        .fn_rv = CHAN_TIMEDOUT,
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -196,7 +203,7 @@ static bool test_buf_chan( void ) {
     PTHREAD_JOIN( recv_thrd, NULL );
 
     // Check that you can't send to a closed channel.
-    arg.expected_rv = CHAN_CLOSED;
+    arg.fn_rv = CHAN_CLOSED;
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( send_thrd, NULL );
 
@@ -230,7 +237,7 @@ static bool test_buf_select_recv_nowait( void ) {
         .recv_len = 1,
         .recv_chan = (struct channel*[]){ &chan },
         .recv_buf = (void*[]){ &data },
-        .expected_select_rv = -1,
+        .select_rv = -1,
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -257,6 +264,7 @@ static bool test_buf_select_recv_1( void ) {
     PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send,
       THRD_ARG(
         .chan = &chan,
+        .send_val = 42,
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -268,7 +276,7 @@ static bool test_buf_select_recv_1( void ) {
         .recv_chan = (struct channel*[]){ &chan },
         .recv_buf = (void*[]){ &data },
         .duration = CHAN_NO_TIMEOUT,
-        .expected_select_rv = CHAN_SELECT_RECV(0),
+        .select_rv = CHAN_SELECT_RECV(0),
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -303,6 +311,7 @@ static bool test_buf_select_recv_2( void ) {
   PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send,
     THRD_ARG(
       .chan = &chan1,
+      .send_val = 42,
       .fail_cnt = &fn_fail_cnt
     )
   );
@@ -313,7 +322,7 @@ static bool test_buf_select_recv_2( void ) {
       .recv_len = 2,
       .recv_chan = (struct channel*[]){ &chan0, &chan1 },
       .recv_buf = (void*[]){ &data0, &data1 },
-      .expected_select_rv = CHAN_SELECT_RECV(1),
+      .select_rv = CHAN_SELECT_RECV(1),
       .fail_cnt = &fn_fail_cnt
     )
   );
@@ -347,6 +356,7 @@ static bool test_unbuf_chan( void ) {
     thrd_arg arg = {
       .chan = &chan,
       .duration = CHAN_NO_TIMEOUT,
+      .send_val = 42,
       .fail_cnt = &fn_fail_cnt
     };
 
@@ -369,7 +379,7 @@ static bool test_unbuf_chan( void ) {
     chan_close( &chan );
 
     // Check that you can't send to a closed channel.
-    arg.expected_rv = CHAN_CLOSED;
+    arg.fn_rv = CHAN_CLOSED;
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( send_thrd, NULL );
 
