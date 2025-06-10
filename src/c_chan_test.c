@@ -178,9 +178,19 @@ static bool test_buf_chan( void ) {
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
 
-    // Check that you can still receive from a closed but non-empty channel.
+    // Check that you can't send to a full buffered channel.
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( send_thrd, NULL );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send,
+      THRD_ARG(
+        .chan = &chan,
+        .expected_rv = CHAN_TIMEDOUT,
+        .fail_cnt = &fn_fail_cnt
+      )
+    );
+    PTHREAD_JOIN( send_thrd, NULL );
+
+    // Check that you can still receive from a closed but non-empty channel.
     chan_close( &chan );
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
