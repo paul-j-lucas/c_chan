@@ -248,7 +248,7 @@ static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
  * @param pthread_cond_fn The `pthread_cond_t` function to call, either
  * **pthread_cond_signal**(3) or **pthread_cond_broadcast**(3).
  *
- * @warning \ref channel::mtx must be locked before calling this function.
+ * @warning \ref channel::mtx _must_ be locked before calling this function.
  */
 static void chan_notify( struct channel *chan, chan_dir dir,
                          int (*pthread_cond_fn)( pthread_cond_t* ) ) {
@@ -275,7 +275,7 @@ static void chan_notify( struct channel *chan, chan_dir dir,
  * @param dir The direction of \a chan.
  * @param add_obs The observer to add.
  *
- * @warning \ref channel::mtx must be locked before calling this function.
+ * @warning \ref channel::mtx _must_ be locked before calling this function.
  *
  * @sa chan_obs_remove()
  * @sa chan_select_init()
@@ -362,7 +362,7 @@ static void chan_obs_init_key( chan_obs_impl *obs ) {
  * @param dir The direction of \a chan.
  * @param remove_obs The observer to remove.
  *
- * @warning \ref channel::mtx must be locked before calling this function.
+ * @warning \ref channel::mtx _must_ be locked before calling this function.
  *
  * @sa chan_obs_add()
  * @sa obs_remove_all_chan()
@@ -567,7 +567,7 @@ static bool chan_unbuf_send( struct channel *chan, void const *send_buf,
  * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
- * @warning \ref channel::mtx must be locked before calling this function.
+ * @warning \ref channel::mtx _must_ be locked before calling this function.
  */
 NODISCARD
 static chan_rv chan_wait( struct channel *chan, chan_dir dir,
