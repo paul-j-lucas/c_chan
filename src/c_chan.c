@@ -815,7 +815,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
   chan_obs_impl                 select_obs;   // observer for this select
   pthread_mutex_t               select_mtx;   // mutex for select_obs
   chan_select_ref const        *selected_ref;
-  chan_rv                       rv = CHAN_OK;
+  chan_rv                       rv;
   bool const                    wait = duration != NULL;
 
   if ( wait ) {
@@ -826,6 +826,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
 
   do {
     chans_open = 0;
+    rv = CHAN_CLOSED;
     selected_ref = NULL;
 
     unsigned const maybe_ready_len =    // number of channels that may be ready
@@ -916,8 +917,9 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     PTHREAD_MUTEX_DESTROY( &select_mtx );
   }
 
-  if ( selected_ref == NULL )
-    return -1;
+  if ( rv != CHAN_OK )
+    return (int)rv;
+  assert( selected_ref != NULL );
   return selected_ref->dir == CHAN_RECV ?
     CHAN_SELECT_RECV( selected_ref->param_idx ) :
     CHAN_SELECT_SEND( selected_ref->param_idx );

@@ -106,8 +106,8 @@ struct chan_obs_impl {
  */
 enum chan_rv {
   CHAN_OK,                              ///< Channel operation succeeded.
-  CHAN_CLOSED,                          ///< Channel is closed.
-  CHAN_TIMEDOUT                         ///< Channel operation timed out.
+  CHAN_CLOSED   = -1,                   ///< Channel is closed.
+  CHAN_TIMEDOUT = -2                    ///< Channel operation timed out.
 };
 /// @cond DOXYGEN_IGNORE
 typedef enum chan_rv chan_rv;
@@ -302,8 +302,9 @@ chan_rv chan_send( struct channel *chan, void const *send_buf,
  * to \a send_chan.  If \a send_len is 0, may be `NULL`.
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns an integer &ge; 0 for a selected channel or `-1` only if all
- * channels are or became closed or \a duration expired.
+ * @return Returns an integer &ge; 0 for a selected channel, #CHAN_CLOSED only
+ * if all channels are or became closed, or #CHAN_TIMEDOUT if \a duration
+ * expired.
  *
  * @warning No \ref channel may appear in both \a recv_chan and \a send_chan
  * nor more than once in either.
