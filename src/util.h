@@ -30,6 +30,7 @@
 #include <assert.h>
 #include <attribute.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <sysexits.h>
 #include <unistd.h>
 
