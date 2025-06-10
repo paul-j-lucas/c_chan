@@ -119,7 +119,7 @@ static void* thrd_chan_recv( void *p ) {
   thrd_arg *const arg = p;
   int data = 0;
   if ( THRD_TEST( chan_recv( arg->chan, &data,
-                        arg->duration ) == arg->expected_rv ) &&
+                             arg->duration ) == arg->expected_rv ) &&
        arg->expected_rv == CHAN_OK ) {
     THRD_TEST( data == 42 );
   }
