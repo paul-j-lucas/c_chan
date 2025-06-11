@@ -196,11 +196,14 @@ static int chan_buf_recv( struct channel *chan, void *recv_buf,
   int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
-  while ( rv == 0 && chan->buf.ring_len == 0 ) {
-    rv = chan->is_closed ?
-      EPIPE :
-      chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
-  } // while
+  do {
+    if ( chan->buf.ring_len > 0 )
+      break;
+    else if ( chan->is_closed )
+      rv = EPIPE;
+    else
+      rv = chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
+  } while ( rv == 0 );
 
   if ( rv == 0 ) {
     memcpy( recv_buf, chan_buf_at( chan, chan->buf.recv_idx ), chan->msg_size );
