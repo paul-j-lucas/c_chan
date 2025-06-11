@@ -696,6 +696,7 @@ static void srand_init( void ) {
  * @return Returns \a duration if either `NULL` or \a CHAN_NO_TIMEOUT, or \a
  * abs_time otherwise.
  */
+NODISCARD
 static struct timespec const* ts_dur_to_abs( struct timespec const *duration,
                                              struct timespec *abs_time ) {
   assert( abs_time != NULL );
