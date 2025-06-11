@@ -197,20 +197,21 @@ static int chan_buf_recv( struct channel *chan, void *recv_buf,
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   do {
-    if ( chan->buf.ring_len > 0 )
+    if ( chan->buf.ring_len > 0 ) {
+      memcpy( recv_buf, chan_buf_at( chan, chan->buf.recv_idx ),
+              chan->msg_size );
+      chan->buf.recv_idx = (chan->buf.recv_idx + 1) % chan->buf_cap;
+      if ( chan->buf.ring_len-- == chan->buf_cap )
+        chan_notify( chan, CHAN_BUF_NOT_FULL, &pthread_cond_signal );
       break;
-    else if ( chan->is_closed )
+    }
+    // Since we can still read from a closed channel, this check is after the
+    // above.
+    if ( chan->is_closed )
       rv = EPIPE;
     else
       rv = chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } while ( rv == 0 );
-
-  if ( rv == 0 ) {
-    memcpy( recv_buf, chan_buf_at( chan, chan->buf.recv_idx ), chan->msg_size );
-    chan->buf.recv_idx = (chan->buf.recv_idx + 1) % chan->buf_cap;
-    if ( chan->buf.ring_len-- == chan->buf_cap )
-      chan_notify( chan, CHAN_BUF_NOT_FULL, &pthread_cond_signal );
-  }
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return rv;
@@ -236,20 +237,21 @@ static int chan_buf_send( struct channel *chan, void const *send_buf,
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   do {
-    if ( chan->is_closed )
+    if ( chan->is_closed ) {
       rv = EPIPE;
-    else if ( chan->buf.ring_len < chan->buf_cap )
+    }
+    else if ( chan->buf.ring_len < chan->buf_cap ) {
+      memcpy( chan_buf_at( chan, chan->buf.send_idx ), send_buf,
+              chan->msg_size );
+      chan->buf.send_idx = (chan->buf.send_idx + 1) % chan->buf_cap;
+      if ( ++chan->buf.ring_len == 1 )
+        chan_notify( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
       break;
-    else                                // channel is full
+    }
+    else {                              // channel is full
       rv = chan_wait( chan, CHAN_BUF_NOT_FULL, abs_time );
+    }
   } while ( rv == 0 );
-
-  if ( rv == 0 ) {
-    memcpy( chan_buf_at( chan, chan->buf.send_idx ), send_buf, chan->msg_size );
-    chan->buf.send_idx = (chan->buf.send_idx + 1) % chan->buf_cap;
-    if ( ++chan->buf.ring_len == 1 )
-      chan_notify( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
-  }
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return rv;
@@ -504,12 +506,23 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   do {
-    if ( chan->is_closed )
+    if ( chan->is_closed ) {
       rv = EPIPE;
-    else if ( chan->wait_cnt[ CHAN_SEND ] == 0 && abs_time == NULL )
-      rv = EPIPE;                       // no sender and shouldn't wait
-    else if ( chan->unbuf.recv_buf == NULL )
+    }
+    else if ( chan->wait_cnt[ CHAN_SEND ] == 0 && abs_time == NULL ) {
+      rv = ETIMEDOUT;                   // no sender and shouldn't wait
+    }
+    else if ( chan->unbuf.recv_buf == NULL ) {
+      chan->unbuf.recv_buf = recv_buf;
+      chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
+
+      // Wait for a sender to copy the data.
+      rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
+
+      chan->unbuf.recv_buf = NULL;
+      PTHREAD_COND_SIGNAL( &chan->unbuf.recv_buf_is_null );
       break;
+    }
     else {
       // Some other thread has called chan_unbuf_recv() that has already set
       // recv_buf and is waiting for a sender.  We must wait for that other
@@ -517,17 +530,6 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
       PTHREAD_COND_WAIT( &chan->unbuf.recv_buf_is_null, &chan->mtx );
     }
   } while ( rv == 0 );
-
-  if ( rv == 0 ) {
-    chan->unbuf.recv_buf = recv_buf;
-    chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
-
-    // Wait for a sender to copy the data.
-    rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
-
-    chan->unbuf.recv_buf = NULL;
-    PTHREAD_COND_SIGNAL( &chan->unbuf.recv_buf_is_null );
-  }
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return rv;
@@ -553,21 +555,22 @@ static int chan_unbuf_send( struct channel *chan, void const *send_buf,
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   do {
-    if ( chan->is_closed )
+    if ( chan->is_closed ) {
       rv = EPIPE;
-    else if ( chan->unbuf.recv_buf != NULL )
-      break;                            // there is a receiver
-    else if ( abs_time == NULL )
-      rv = EPIPE;                       // no receiver and shouldn't wait
-    else
+    }
+    else if ( chan->unbuf.recv_buf != NULL ) {  // there is a receiver
+      if ( chan->msg_size > 0 )
+        memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
+      chan_notify( chan, CHAN_UNBUF_SEND_DONE, &pthread_cond_broadcast );
+      break;
+    }
+    else if ( abs_time == NULL ) {
+      rv = ETIMEDOUT;                   // no receiver and shouldn't wait
+    }
+    else {
       rv = chan_wait( chan, CHAN_UNBUF_RECV_WAIT, abs_time );
+    }
   } while ( rv == 0 );
-
-  if ( rv == 0 ) {
-    if ( chan->msg_size > 0 )
-      memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
-    chan_notify( chan, CHAN_UNBUF_SEND_DONE, &pthread_cond_broadcast );
-  }
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return rv;
