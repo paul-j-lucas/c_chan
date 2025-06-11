@@ -205,8 +205,8 @@ static int chan_buf_recv( struct channel *chan, void *recv_buf,
         chan_notify( chan, CHAN_BUF_NOT_FULL, &pthread_cond_signal );
       break;
     }
-    // Since we can still read from a closed channel, this check is after the
-    // above.
+    // Since we can still read from a closed, non-empty, buffered channel, this
+    // check is after the above.
     if ( chan->is_closed )
       rv = EPIPE;
     else
@@ -277,11 +277,11 @@ static void chan_notify( struct channel *chan, chan_dir dir,
     PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->chan_ready ) != 0, EX_IOERR );
     next_obs = obs->next;
     if ( next_obs != NULL ) {
-      next_pmtx = next_obs->pmtx;
-      PTHREAD_MUTEX_LOCK( next_pmtx );
+      next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
+      PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ...
     }
     if ( pmtx != NULL )
-      PTHREAD_MUTEX_UNLOCK( pmtx );
+      PTHREAD_MUTEX_UNLOCK( pmtx );     // ... before unlocking previous.
   } // for
 }
 
@@ -311,17 +311,17 @@ static void chan_obs_add( struct channel *chan, chan_dir dir,
       obs->next = add_obs;
     }
     else {
-      next_pmtx = next_obs->pmtx;
-      PTHREAD_MUTEX_LOCK( next_pmtx );
+      next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
+      PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ... (1)
       if ( add_obs->key < next_obs->key ) {
         obs->next = add_obs;
         add_obs->next = next_obs;
         PTHREAD_MUTEX_UNLOCK( next_pmtx );
-        next_obs = NULL;                // will cause loop to exit ...
+        next_obs = NULL;                // Causes loop to exit ... (2)
       }
     }
-    if ( pmtx != NULL )                 // ... yet still run this code
-      PTHREAD_MUTEX_UNLOCK( pmtx );
+    if ( pmtx != NULL )                 // (2) ... yet still runs this code.
+      PTHREAD_MUTEX_UNLOCK( pmtx );     // (1) ... before unlocking previous.
   } // for
 
   ++chan->wait_cnt[ dir ];
@@ -348,11 +348,11 @@ static void chan_obs_init( chan_obs_impl *obs, pthread_mutex_t *pmtx ) {
 /**
  * Initializes a \ref chan_obs_impl key.
  *
- * @remarks An observer has a key so the linked list of a channel's observers
- * can be in ascending key order.  The linked list is traversed using hand-
- * over-hand locking.  Since an observer can be in multiple channels' lists,
- * the ordering ensures that pairs of mutexes are always locked in the same
- * order on every list to avoid deadlocks.
+ * @remarks An observer has an arbitrary, comparable key so the linked list of
+ * a channel's observers can be in ascending key order.  The linked list is
+ * traversed using hand-over-hand locking.  Since an observer can be in
+ * multiple channels' lists, the ordering ensures that pairs of mutexes are
+ * always locked in the same order on every list to avoid deadlocks.
  *
  * @param obs The \ref chan_obs_impl to initialize the key of.
  *
@@ -402,14 +402,14 @@ static void chan_obs_remove( struct channel *chan, chan_dir dir,
       // remove_obs is an observer in our caller's stack frame, i.e., this
       // thread, so there's no need to lock next_obs->pmtx.
       obs->next = next_obs->next;
-      next_obs = NULL;                  // will cause loop to exit ...
+      next_obs = NULL;                  // Causes loop to exit ... (1)
     }
     else if ( next_obs != NULL ) {
-      next_pmtx = next_obs->pmtx;
-      PTHREAD_MUTEX_LOCK( next_pmtx );
+      next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
+      PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ... (2)
     }
-    if ( pmtx != NULL )                 // ... yet still run this code
-      PTHREAD_MUTEX_UNLOCK( pmtx );
+    if ( pmtx != NULL )                 // (1) ... yet still runs this code.
+      PTHREAD_MUTEX_UNLOCK( pmtx );     // (2) ... before unlocking previous.
   } // for
 }
 
