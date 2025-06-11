@@ -579,7 +579,9 @@ static int chan_unbuf_send( struct channel *chan, void const *send_buf,
  * @param dir Whether to wait to receive or send.
  * @param abs_time When to wait until. If `NULL`, returns `ETIMEDOUT`; if
  * \ref CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns a \ref chan_rv.
+ * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
+ * closed, or `ETIMEDOUT` only if either \a abs_time is `NULL` or it's now \a
+ * abs_time or later.
  *
  * @warning \ref channel::mtx _must_ be locked before calling this function.
  */
