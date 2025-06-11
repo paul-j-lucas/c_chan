@@ -183,7 +183,7 @@ static inline bool chan_is_buffered( struct channel const *chan ) {
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait) and returns `ETIMEDOUT`; if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
  * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
  *
@@ -219,7 +219,7 @@ static int chan_buf_recv( struct channel *chan, void *recv_buf,
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait) and returns `ETIMEDOUT`; if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
  * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
  *
@@ -486,8 +486,8 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
- * @param abs_time When to wait until. If `NULL`, returns `ETIMEDOUT`; if \ref
- * CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If `NULL`, it's considered now (does not
+ * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
  * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
  *
@@ -535,8 +535,8 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
- * @param abs_time When to wait until. If `NULL`, returns `ETIMEDOUT`; if \ref
- * CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If `NULL`, it's considered now (does not
+ * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
  * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
  *
