@@ -99,21 +99,6 @@ struct chan_obs_impl {
 #define CHAN_SELECT_SEND(IDX)     (1024 + (int)(IDX))
 
 /**
- * Channel send/receive function return value.
- *
- * @sa chan_recv()
- * @sa chan_send()
- */
-enum chan_rv {
-  CHAN_OK,                              ///< Channel operation succeeded.
-  CHAN_CLOSED,                          ///< Channel is closed.
-  CHAN_TIMEDOUT                         ///< Channel operation timed out.
-};
-/// @cond DOXYGEN_IGNORE
-typedef enum chan_rv chan_rv;
-/// @endcond
-
-/**
  * A Go-like channel.
  *
  * @sa Hoare, C. A. R., "Communicating Sequential Processes," Communications of
@@ -225,13 +210,13 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size );
  * channel::msg_size "msg_size" bytes.
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns #CHAN_OK upon success, #CHAN_CLOSED if \a chan either is or
- * becomes closed, or #CHAN_TIMEDOUT if \a duration expires.
+ * @return Returns 0 upon success, `EPIPE` if \a chan either is or becomes
+ * closed, or `ETIMEDOUT` if \a duration expires.
  *
  * @sa chan_send()
  */
-chan_rv chan_recv( struct channel *chan, void *recv_buf,
-                   struct timespec const *duration );
+int chan_recv( struct channel *chan, void *recv_buf,
+               struct timespec const *duration );
 
 /**
  * Sends data to a channel.
@@ -241,13 +226,13 @@ chan_rv chan_recv( struct channel *chan, void *recv_buf,
  * channel::msg_size "msg_size" bytes.
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns #CHAN_OK upon success, #CHAN_CLOSED if \a chan either is or
- * becomes closed, or #CHAN_TIMEDOUT if \a duration expires.
+ * @return Returns 0 upon success, `EPIPE` if \a chan either is or becomes
+ * closed, or `ETIMEDOUT` if \a duration expires.
  *
  * @sa chan_recv()
  */
-chan_rv chan_send( struct channel *chan, void const *send_buf,
-                   struct timespec const *duration );
+int chan_send( struct channel *chan, void const *send_buf,
+               struct timespec const *duration );
 
 /**
  * Selects at most one \ref channel from either \a recv_chan or \a send_chan

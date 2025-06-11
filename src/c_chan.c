@@ -125,23 +125,22 @@ struct chan_select_ref {
 
 ////////// local functions ////////////////////////////////////////////////////
 
-static void     chan_notify( struct channel*, chan_dir,
-                             int (*)( pthread_cond_t* ) );
+static void chan_notify( struct channel*, chan_dir,
+                         int (*)( pthread_cond_t* ) );
 
 NODISCARD
-static chan_rv  chan_unbuf_recv( struct channel*, void*,
-                                 struct timespec const* );
+static int  chan_unbuf_recv( struct channel*, void*, struct timespec const* );
 
 NODISCARD
-static chan_rv  chan_unbuf_send( struct channel*, void const*,
-                                 struct timespec const* );
+static int  chan_unbuf_send( struct channel*, void const*,
+                             struct timespec const* );
 
 NODISCARD
-static chan_rv  chan_wait( struct channel*, chan_dir, struct timespec const* );
+static int  chan_wait( struct channel*, chan_dir, struct timespec const* );
 
 NODISCARD
-static int      pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
-                                           struct timespec const* );
+static int  pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
+                                       struct timespec const* );
 
 // local variables
 
@@ -184,27 +183,26 @@ static inline bool chan_is_buffered( struct channel const *chan ) {
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait) and returns #CHAN_TIMEDOUT; if \ref CHAN_NO_TIMEOUT, waits
- * indefinitely.
- * @return Returns #CHAN_OK upon success, #CHAN_CLOSED if \a chan either is or
- * becomes closed, or #CHAN_TIMEDOUT if it's now \a abs_time or later.
+ * wait) and returns `ETIMEDOUT`; if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
+ * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
  *
  * @sa chan_buf_send()
  * @sa chan_unbuf_recv()
  */
 NODISCARD
-static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
-                              struct timespec const *abs_time ) {
-  chan_rv rv = CHAN_OK;
+static int chan_buf_recv( struct channel *chan, void *recv_buf,
+                          struct timespec const *abs_time ) {
+  int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
-  while ( rv == CHAN_OK && chan->buf.ring_len == 0 ) {
+  while ( rv == 0 && chan->buf.ring_len == 0 ) {
     rv = chan->is_closed ?
-      CHAN_CLOSED :
+      EPIPE :
       chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } // while
 
-  if ( rv == CHAN_OK ) {
+  if ( rv == 0 ) {
     memcpy( recv_buf, chan_buf_at( chan, chan->buf.recv_idx ), chan->msg_size );
     chan->buf.recv_idx = (chan->buf.recv_idx + 1) % chan->buf_cap;
     if ( chan->buf.ring_len-- == chan->buf_cap )
@@ -221,30 +219,29 @@ static chan_rv chan_buf_recv( struct channel *chan, void *recv_buf,
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait) and returns #CHAN_TIMEDOUT; if \ref CHAN_NO_TIMEOUT, waits
- * indefinitely.
- * @return Returns #CHAN_OK upon success, #CHAN_CLOSED if \a chan either is or
- * becomes closed, or #CHAN_TIMEDOUT if it's now \a abs_time or later.
+ * wait) and returns `ETIMEDOUT`; if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
+ * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
  *
  * @sa chan_buf_recv()
  * @sa chan_unbuf_send()
  */
 NODISCARD
-static chan_rv chan_buf_send( struct channel *chan, void const *send_buf,
-                              struct timespec const *abs_time ) {
-  chan_rv rv = CHAN_OK;
+static int chan_buf_send( struct channel *chan, void const *send_buf,
+                          struct timespec const *abs_time ) {
+  int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   do {
     if ( chan->is_closed )
-      rv = CHAN_CLOSED;
+      rv = EPIPE;
     else if ( chan->buf.ring_len < chan->buf_cap )
       break;
     else                                // channel is full
       rv = chan_wait( chan, CHAN_BUF_NOT_FULL, abs_time );
-  } while ( rv == CHAN_OK );
+  } while ( rv == 0 );
 
-  if ( rv == CHAN_OK ) {
+  if ( rv == 0 ) {
     memcpy( chan_buf_at( chan, chan->buf.send_idx ), send_buf, chan->msg_size );
     chan->buf.send_idx = (chan->buf.send_idx + 1) % chan->buf_cap;
     if ( ++chan->buf.ring_len == 1 )
@@ -489,24 +486,25 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
- * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEDOUT; if
- * \ref CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns a \ref chan_rv.
+ * @param abs_time When to wait until. If `NULL`, returns `ETIMEDOUT`; if \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
+ * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
+ * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
  *
  * @sa chan_buf_recv()
  * @sa chan_unbuf_send()
  */
 NODISCARD
-static chan_rv chan_unbuf_recv( struct channel *chan, void *recv_buf,
-                                struct timespec const *abs_time ) {
-  chan_rv rv = CHAN_OK;
+static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
+                            struct timespec const *abs_time ) {
+  int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   do {
     if ( chan->is_closed )
-      rv = CHAN_CLOSED;
+      rv = EPIPE;
     else if ( chan->wait_cnt[ CHAN_SEND ] == 0 && abs_time == NULL )
-      rv = CHAN_TIMEDOUT;               // no sender and shouldn't wait
+      rv = EPIPE;                       // no sender and shouldn't wait
     else if ( chan->unbuf.recv_buf == NULL )
       break;
     else {
@@ -515,9 +513,9 @@ static chan_rv chan_unbuf_recv( struct channel *chan, void *recv_buf,
       // thread to reset recv_buf.
       PTHREAD_COND_WAIT( &chan->unbuf.recv_buf_is_null, &chan->mtx );
     }
-  } while ( rv == CHAN_OK );
+  } while ( rv == 0 );
 
-  if ( rv == CHAN_OK ) {
+  if ( rv == 0 ) {
     chan->unbuf.recv_buf = recv_buf;
     chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
 
@@ -537,31 +535,32 @@ static chan_rv chan_unbuf_recv( struct channel *chan, void *recv_buf,
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
- * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEDOUT; if
- * \ref CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns a \ref chan_rv.
+ * @param abs_time When to wait until. If `NULL`, returns `ETIMEDOUT`; if \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
+ * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
+ * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
  *
  * @sa chan_buf_send()
  * @sa chan_unbuf_recv()
  */
 NODISCARD
-static chan_rv chan_unbuf_send( struct channel *chan, void const *send_buf,
-                                struct timespec const *abs_time ) {
-  chan_rv rv = CHAN_OK;
+static int chan_unbuf_send( struct channel *chan, void const *send_buf,
+                            struct timespec const *abs_time ) {
+  int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   do {
     if ( chan->is_closed )
-      rv = CHAN_CLOSED;
+      rv = EPIPE;
     else if ( chan->unbuf.recv_buf != NULL )
       break;                            // there is a receiver
     else if ( abs_time == NULL )
-      rv = CHAN_TIMEDOUT;               // no receiver and shouldn't wait
+      rv = EPIPE;                       // no receiver and shouldn't wait
     else
       rv = chan_wait( chan, CHAN_UNBUF_RECV_WAIT, abs_time );
-  } while ( rv == CHAN_OK );
+  } while ( rv == 0 );
 
-  if ( rv == CHAN_OK ) {
+  if ( rv == 0 ) {
     if ( chan->msg_size > 0 )
       memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
     chan_notify( chan, CHAN_UNBUF_SEND_DONE, &pthread_cond_broadcast );
@@ -578,32 +577,32 @@ static chan_rv chan_unbuf_send( struct channel *chan, void const *send_buf,
  *
  * @param chan The \ref channel to wait for.
  * @param dir Whether to wait to receive or send.
- * @param abs_time When to wait until. If `NULL`, returns #CHAN_TIMEDOUT; if
+ * @param abs_time When to wait until. If `NULL`, returns `ETIMEDOUT`; if
  * \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns a \ref chan_rv.
  *
  * @warning \ref channel::mtx _must_ be locked before calling this function.
  */
 NODISCARD
-static chan_rv chan_wait( struct channel *chan, chan_dir dir,
-                          struct timespec const *abs_time ) {
+static int chan_wait( struct channel *chan, chan_dir dir,
+                      struct timespec const *abs_time ) {
   assert( chan != NULL );
   assert( !chan->is_closed );
 
-  chan_rv rv;
+  int rv;
 
   if ( abs_time == NULL ) {
-    rv = CHAN_TIMEDOUT;
+    rv = ETIMEDOUT;
   }
   else {
     ++chan->wait_cnt[ dir ];
     rv = pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
-                                    &chan->mtx, abs_time ) == ETIMEDOUT ?
-      CHAN_TIMEDOUT : CHAN_OK;
+                                    &chan->mtx,
+                                    abs_time ) == ETIMEDOUT ? EPIPE : 0;
     --chan->wait_cnt[ dir ];
   }
 
-  return chan->is_closed ? CHAN_CLOSED : rv;
+  return chan->is_closed ? EPIPE : rv;
 }
 
 /**
@@ -641,7 +640,7 @@ static void obs_remove_all_chan( chan_obs_impl *remove_obs, unsigned chan_len,
  * @param abs_time When to wait until.  If \ref CHAN_NO_TIMEOUT, waits
  * indefinitely.
  * @return Returns either 0 only if \a cond was signaled or `ETIMEDOUT` only if
- * \a abs_time has passed.
+ * it's now \a abs_time or later.
  */
 NODISCARD
 static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
@@ -783,8 +782,8 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
   return true;
 }
 
-chan_rv chan_recv( struct channel *chan, void *recv_buf,
-                   struct timespec const *duration ) {
+int chan_recv( struct channel *chan, void *recv_buf,
+               struct timespec const *duration ) {
   assert( chan != NULL );
   assert( recv_buf != NULL );
 
@@ -816,7 +815,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
   chan_obs_impl                 select_obs;   // observer for this select
   pthread_mutex_t               select_mtx;   // mutex for select_obs
   chan_select_ref const        *selected_ref;
-  chan_rv                       rv;
+  int                           rv;
   bool const                    wait = duration != NULL;
 
   if ( wait ) {
@@ -827,7 +826,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
 
   do {
     chans_open = 0;
-    rv = CHAN_OK;
+    rv = 0;
     selected_ref = NULL;
 
     unsigned const maybe_ready_len =    // number of channels that may be ready
@@ -858,7 +857,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
       PTHREAD_MUTEX_LOCK( &select_mtx );
       if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
                                       abs_time ) == ETIMEDOUT ) {
-        rv = CHAN_TIMEDOUT;
+        rv = ETIMEDOUT;
       }
       else {
         // a channel became ready: find it in our list
@@ -878,7 +877,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
       selected_ref = &ref[ rand() % (int)select_len ];
     }
 
-    if ( rv == CHAN_OK ) {
+    if ( rv == 0 ) {
       rv = selected_ref->dir == CHAN_RECV ?
         chan_recv(
           recv_chan[ selected_ref->param_idx ],
@@ -899,14 +898,14 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
 
     // If rv is:
     //
-    //  + CHAN_OK: we received from or sent to the selected channel.
-    //  + CHAN_TIMEDOUT: we timed out.
+    //  + 0: we received from or sent to the selected channel.
+    //  + EPIPE: we timed out.
     //
-    // For either of those, we're done; for CHAN_CLOSED, the selected channel
-    // was closed between when we called chan_select_init() an when we called
+    // For either of those, we're done; for EPIPE, the selected channel was
+    // closed between when we called chan_select_init() an when we called
     // either chan_recv() or chan_send().  However, if there's at least one
     // other channel that may still be open, try again.
-  } while ( rv == CHAN_CLOSED && chans_open > 1 );
+  } while ( rv == EPIPE && chans_open > 1 );
 
   if ( ref != stack_ref )
     free( ref );
@@ -923,8 +922,8 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     CHAN_SELECT_SEND( selected_ref->param_idx );
 }
 
-chan_rv chan_send( struct channel *chan, void const *send_buf,
-                   struct timespec const *duration ) {
+int chan_send( struct channel *chan, void const *send_buf,
+               struct timespec const *duration ) {
   assert( chan != NULL );
 
   struct timespec abs_ts;

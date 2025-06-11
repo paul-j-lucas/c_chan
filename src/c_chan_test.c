@@ -50,13 +50,13 @@ typedef unsigned _Atomic test_fail_cnt_t;
  * Argument passed to a thread's start function.
  */
 struct thrd_arg {
-  struct timespec const  *duration;
-  test_fail_cnt_t        *fail_cnt;
+  struct timespec const  *duration;     ///< Duration to wait, if any.
+  test_fail_cnt_t        *fail_cnt;     ///< Test failure count.
+  int                     rv;           ///< Expected function return value.
 
   union {
     struct {                            ///< For chan_recv(), chan_send() only.
-      struct channel     *chan;
-      chan_rv             fn_rv;        ///< Expected function return value.
+      struct channel     *chan;         ///< The channel to use.
       union {
         int               send_val;     ///< Value to send.
         int               recv_val;     ///< Value expected to receive.
@@ -69,7 +69,6 @@ struct thrd_arg {
       unsigned            send_len;     ///< Length of send_chan, send_buf.
       struct channel    **send_chan;    ///< Array of send channels, if any.
       void const        **send_buf;     ///< Array of send buffers, if any.
-      int                 select_rv;    ///< Expected select return value.
     };
   };
 };
@@ -113,9 +112,8 @@ static void spin_wait_us( pthread_mutex_t *mtx, unsigned short *pus ) {
 static void* thrd_chan_recv( void *p ) {
   thrd_arg *const arg = p;
   int data = 0;
-  chan_rv const rv = chan_recv( arg->chan, &data, arg->duration );
-  if ( THRD_TEST( rv == arg->fn_rv ) &&
-       arg->fn_rv == CHAN_OK ) {
+  int const rv = chan_recv( arg->chan, &data, arg->duration );
+  if ( THRD_TEST( rv == arg->rv ) && arg->rv == 0 ) {
     THRD_TEST( data == arg->recv_val );
   }
   return NULL;
@@ -128,14 +126,14 @@ static void* thrd_chan_select( void *p ) {
     arg->send_len, arg->send_chan, arg->send_buf,
     arg->duration
   );
-  THRD_TEST( rv == arg->select_rv );
+  THRD_TEST( rv == arg->rv );
   return NULL;
 }
 
 static void* thrd_chan_send( void *p ) {
   thrd_arg *const arg = p;
-  chan_rv const rv = chan_send( arg->chan, &arg->send_val, arg->duration );
-  THRD_TEST( rv == arg->fn_rv );
+  int const rv = chan_send( arg->chan, &arg->send_val, arg->duration );
+  THRD_TEST( rv == arg->rv );
   return NULL;
 }
 
@@ -157,7 +155,7 @@ static bool test_buf_chan( void ) {
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv,
       THRD_ARG(
         .chan = &chan,
-        .fn_rv = CHAN_TIMEDOUT,
+        .rv = ETIMEDOUT,
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -191,7 +189,7 @@ static bool test_buf_chan( void ) {
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send,
       THRD_ARG(
         .chan = &chan,
-        .fn_rv = CHAN_TIMEDOUT,
+        .rv = ETIMEDOUT,
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -203,7 +201,7 @@ static bool test_buf_chan( void ) {
     PTHREAD_JOIN( recv_thrd, NULL );
 
     // Check that you can't send to a closed channel.
-    arg.fn_rv = CHAN_CLOSED;
+    arg.rv = EPIPE;
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( send_thrd, NULL );
 
@@ -237,7 +235,7 @@ static bool test_buf_select_recv_nowait( void ) {
         .recv_len = 1,
         .recv_chan = (struct channel*[]){ &chan },
         .recv_buf = (void*[]){ &data },
-        .select_rv = -1,
+        .rv = -1,
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -276,7 +274,7 @@ static bool test_buf_select_recv_1( void ) {
         .recv_chan = (struct channel*[]){ &chan },
         .recv_buf = (void*[]){ &data },
         .duration = CHAN_NO_TIMEOUT,
-        .select_rv = CHAN_SELECT_RECV(0),
+        .rv = CHAN_SELECT_RECV(0),
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -322,7 +320,7 @@ static bool test_buf_select_recv_2( void ) {
       .recv_len = 2,
       .recv_chan = (struct channel*[]){ &chan0, &chan1 },
       .recv_buf = (void*[]){ &data0, &data1 },
-      .select_rv = CHAN_SELECT_RECV(1),
+      .rv = CHAN_SELECT_RECV(1),
       .fail_cnt = &fn_fail_cnt
     )
   );
@@ -372,7 +370,7 @@ static bool test_buf_select_send_1( void ) {
         .send_chan = (struct channel*[]){ &chan },
         .send_buf = (void const*[]){ &data },
         .duration = CHAN_NO_TIMEOUT,
-        .select_rv = CHAN_SELECT_SEND(0),
+        .rv = CHAN_SELECT_SEND(0),
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -425,7 +423,7 @@ static bool test_unbuf_chan( void ) {
     chan_close( &chan );
 
     // Check that you can't send to a closed channel.
-    arg.fn_rv = CHAN_CLOSED;
+    arg.rv = EPIPE;
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( send_thrd, NULL );
 
