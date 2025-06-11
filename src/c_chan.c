@@ -269,6 +269,9 @@ static int chan_buf_send( struct channel *chan, void const *send_buf,
  */
 static void chan_notify( struct channel *chan, chan_dir dir,
                          int (*pthread_cond_fn)( pthread_cond_t* ) ) {
+  if ( chan->wait_cnt[ dir ] == 0 )     // Nobody is waiting.
+    return;
+
   pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
   for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
