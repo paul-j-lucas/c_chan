@@ -158,11 +158,11 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) );
 /**
  * Closes a channel.
  *
- * @remarks Once a channel is closed, it can no longer be sent to.  Messages
- * may still be received from a buffered channel until it becomes empty.  If
- * already closed, does nothing.
+ * @remarks Once a channel is closed, it can no longer be sent to.  For a
+ * buffered channel only, queued messages may still be received; an unbuffered
+ * channel can no longer be received from.
  *
- * @param chan The \ref channel to close.
+ * @param chan The \ref channel to close.  If already closed, does nothing.
  *
  * @note A channel _must_ be cleaned-up eventually.
  *
