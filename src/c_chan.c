@@ -917,10 +917,12 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     //  + 0: we received from or sent to the selected channel.
     //  + ETIMEDOUT: we timed out.
     //
-    // For either of those, we're done; for EPIPE, the selected channel was
-    // closed between when we called chan_select_init() an when we called
-    // either chan_recv() or chan_send().  However, if there's at least one
-    // other channel that may still be open, try again.
+    // For either of those, we're done; if rv is:
+    //
+    //  + EPIPE: the selected channel was closed between when we called
+    //    chan_select_init() an when we called either chan_recv() or
+    //    chan_send().  However, if there's at least one other channel that may
+    //    still be open, try again.
   } while ( rv == EPIPE && chans_open > 1 );
 
   if ( ref != stack_ref )
