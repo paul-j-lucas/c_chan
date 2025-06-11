@@ -862,6 +862,10 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
       );
       select_len = maybe_ready_len;     // ... and select only from those.
     }
+    else {
+      // Otherwise, either no or all channels are ready, so there's no need to
+      // sort them.
+    }
 
     if ( maybe_ready_len == 0 && wait ) {
       // None of the channels may be ready and we should wait -- so wait.
@@ -871,7 +875,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
         rv = ETIMEDOUT;
       }
       else {
-        // a channel became ready: find it in our list
+        // A channel became ready: find it in our list.
         for ( unsigned i = 0; i < select_len; ++i ) {
           if ( select_obs.chan == ref[i].chan ) {
             selected_ref = &ref[i];
@@ -882,7 +886,8 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
       }
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
     }
-    else {                              // Otherwise pick a channel at random.
+    else {
+      // Some or all channels may be ready: pick one at random.
       static pthread_once_t once = PTHREAD_ONCE_INIT;
       PTHREAD_ONCE( &once, &srand_init );
       selected_ref = &ref[ rand() % (int)select_len ];
