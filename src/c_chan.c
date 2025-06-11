@@ -248,7 +248,7 @@ static int chan_buf_send( struct channel *chan, void const *send_buf,
         chan_notify( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
       break;
     }
-    else {                              // channel is full
+    else {                              // Channel is full.
       rv = chan_wait( chan, CHAN_BUF_NOT_FULL, abs_time );
     }
   } while ( rv == 0 );
@@ -310,7 +310,7 @@ static void chan_obs_add( struct channel *chan, chan_dir dir,
   for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
         obs = next_obs, pmtx = next_pmtx ) {
     next_obs = obs->next;
-    if ( next_obs == NULL ) {           // at end of list
+    if ( next_obs == NULL ) {           // At end of list.
       obs->next = add_obs;
     }
     else {
@@ -370,7 +370,7 @@ static void chan_obs_init_key( chan_obs_impl *obs ) {
 
   PTHREAD_MUTEX_LOCK( &next_key_mtx );
   obs->key = next_key++;
-  if ( next_key == 0 )                  // reserved for channel itself
+  if ( next_key == 0 )                  // Reserved for channel itself.
     ++next_key;
   PTHREAD_MUTEX_UNLOCK( &next_key_mtx );
 }
@@ -513,7 +513,7 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
       rv = EPIPE;
     }
     else if ( chan->wait_cnt[ CHAN_SEND ] == 0 && abs_time == NULL ) {
-      rv = ETIMEDOUT;                   // no sender and shouldn't wait
+      rv = ETIMEDOUT;                   // No sender and shouldn't wait.
     }
     else if ( chan->unbuf.recv_buf == NULL ) {
       chan->unbuf.recv_buf = recv_buf;
@@ -561,14 +561,14 @@ static int chan_unbuf_send( struct channel *chan, void const *send_buf,
     if ( chan->is_closed ) {
       rv = EPIPE;
     }
-    else if ( chan->unbuf.recv_buf != NULL ) {  // there is a receiver
+    else if ( chan->unbuf.recv_buf != NULL ) {  // There is a receiver.
       if ( chan->msg_size > 0 )
         memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
       chan_notify( chan, CHAN_UNBUF_SEND_DONE, &pthread_cond_broadcast );
       break;
     }
     else if ( abs_time == NULL ) {
-      rv = ETIMEDOUT;                   // no receiver and shouldn't wait
+      rv = ETIMEDOUT;                   // No receiver and shouldn't wait.
     }
     else {
       rv = chan_wait( chan, CHAN_UNBUF_RECV_WAIT, abs_time );
@@ -755,7 +755,7 @@ void chan_close( struct channel *chan ) {
   bool const was_already_closed = chan->is_closed;
   chan->is_closed = true;
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
-  if ( !was_already_closed ) {          // wake up all waiting threads, if any
+  if ( !was_already_closed ) {          // Wake up all waiting threads, if any.
     chan_notify( chan, CHAN_RECV, &pthread_cond_broadcast );
     chan_notify( chan, CHAN_SEND, &pthread_cond_broadcast );
     if ( !chan_is_buffered( chan ) )
@@ -856,15 +856,15 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     unsigned select_len = chans_open;   // number of channels to select from
 
     if ( maybe_ready_len > 0 && maybe_ready_len < chans_open ) {
-      qsort(                            // sort maybe ready channels first ...
+      qsort(                            // Sort maybe ready channels first ...
         ref, chans_open, sizeof( chan_select_ref ),
         (qsort_cmp_fn)&chan_select_ref_cmp
       );
-      select_len = maybe_ready_len;     // ... and select only from those
+      select_len = maybe_ready_len;     // ... and select only from those.
     }
 
     if ( maybe_ready_len == 0 && wait ) {
-      // none of the channels may be ready and we should wait -- so wait
+      // None of the channels may be ready and we should wait -- so wait.
       PTHREAD_MUTEX_LOCK( &select_mtx );
       if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
                                       abs_time ) == ETIMEDOUT ) {
@@ -882,7 +882,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
       }
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
     }
-    else {                              // otherwise pick a channel at random
+    else {                              // Otherwise pick a channel at random.
       static pthread_once_t once = PTHREAD_ONCE_INIT;
       PTHREAD_ONCE( &once, &srand_init );
       selected_ref = &ref[ rand() % (int)select_len ];
