@@ -37,7 +37,7 @@ of a pre-set,
 fixed
 size.
 Hence messages may be copies of your actual data
-(e.g., integers)
+(e.g., integers or structures)
 or may be pointers to your data
 (i.e., `T*` for some type `T`).
 If pointers,
