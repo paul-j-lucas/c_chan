@@ -827,7 +827,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
 
   do {
     chans_open = 0;
-    rv = CHAN_CLOSED;
+    rv = CHAN_OK;
     selected_ref = NULL;
 
     unsigned const maybe_ready_len =    // number of channels that may be ready
@@ -852,8 +852,6 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
       );
       select_len = maybe_ready_len;     // ... and select only from those
     }
-
-    rv = CHAN_OK;
 
     if ( maybe_ready_len == 0 && wait ) {
       // none of the channels may be ready and we should wait -- so wait
@@ -918,9 +916,8 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     PTHREAD_MUTEX_DESTROY( &select_mtx );
   }
 
-  if ( rv != CHAN_OK )
-    return (int)rv;
-  assert( selected_ref != NULL );
+  if ( selected_ref == NULL )
+    return -1;
   return selected_ref->dir == CHAN_RECV ?
     CHAN_SELECT_RECV( selected_ref->param_idx ) :
     CHAN_SELECT_SEND( selected_ref->param_idx );
