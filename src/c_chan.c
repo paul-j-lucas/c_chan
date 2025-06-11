@@ -682,7 +682,7 @@ static void srand_init( void ) {
  * @param duration The duration to convert.  May be `NULL` to mean do not wait
  * or \ref CHAN_NO_TIMEOUT to mean wait indefinitely.
  * @param abs_time A pointer to receive the absolute time, but only if \a
- * duration is neither `NULL` nor \a CHAN_NO_TIMEOUT.
+ * duration is neither `NULL` nor \ref CHAN_NO_TIMEOUT.
  * @return Returns \a duration if either `NULL` or \a CHAN_NO_TIMEOUT, or \a
  * abs_time otherwise.
  */
