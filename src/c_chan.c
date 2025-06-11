@@ -910,7 +910,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     // If rv is:
     //
     //  + 0: we received from or sent to the selected channel.
-    //  + EPIPE: we timed out.
+    //  + ETIMEDOUT: we timed out.
     //
     // For either of those, we're done; for EPIPE, the selected channel was
     // closed between when we called chan_select_init() an when we called
