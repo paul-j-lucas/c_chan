@@ -274,7 +274,7 @@ static bool test_buf_select_recv_1( void ) {
         .recv_chan = (struct channel*[]){ &chan },
         .recv_buf = (void*[]){ &data },
         .duration = CHAN_NO_TIMEOUT,
-        .rv = CHAN_SELECT_RECV(0),
+        .rv = CHAN_RECV(0),
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -320,7 +320,7 @@ static bool test_buf_select_recv_2( void ) {
       .recv_len = 2,
       .recv_chan = (struct channel*[]){ &chan0, &chan1 },
       .recv_buf = (void*[]){ &data0, &data1 },
-      .rv = CHAN_SELECT_RECV(1),
+      .rv = CHAN_RECV(1),
       .fail_cnt = &fn_fail_cnt
     )
   );
@@ -370,7 +370,7 @@ static bool test_buf_select_send_1( void ) {
         .send_chan = (struct channel*[]){ &chan },
         .send_buf = (void const*[]){ &data },
         .duration = CHAN_NO_TIMEOUT,
-        .rv = CHAN_SELECT_SEND(0),
+        .rv = CHAN_SEND(0),
         .fail_cnt = &fn_fail_cnt
       )
     );

@@ -86,17 +86,17 @@ struct chan_obs_impl {
  * For use with cases of a `switch` statement on chan_select() to specify the
  * index of a receive channel.
  *
- * @sa #CHAN_SELECT_SEND
+ * @sa #CHAN_SEND
  */
-#define CHAN_SELECT_RECV(IDX)     ((int)(IDX))
+#define CHAN_RECV(IDX)            ((int)(IDX))
 
 /**
  * For use with cases of a `switch` statement on chan_select() to specify the
  * index of a send channel.
  *
- * @sa #CHAN_SELECT_RECV
+ * @sa #CHAN_RECV
  */
-#define CHAN_SELECT_SEND(IDX)     (1024 + (int)(IDX))
+#define CHAN_SEND(IDX)            (1024 + (int)(IDX))
 
 /**
  * A Go-like channel.
@@ -254,24 +254,24 @@ int chan_send( struct channel *chan, void const *send_buf,
  *  struct timespec const duration = { .tv_sec = 5 };
  *
  *  switch ( chan_select( 2, r_chan, r_buf, 2, s_chan, s_buf, &duration ) ) {
- *    case CHAN_SELECT_RECV(0):   // r_chan0 selected
+ *    case CHAN_RECV(0):          // r_chan0 selected
  *      // ...
  *      break;
- *    case CHAN_SELECT_RECV(1):   // r_chan1 selected
+ *    case CHAN_RECV(1):          // r_chan1 selected
  *      // ...
  *      break;
- *    case CHAN_SELECT_SEND(0):   // s_chan0 selected
+ *    case CHAN_SEND(0):          // s_chan0 selected
  *      // ...
  *      break;
- *    case CHAN_SELECT_SEND(1):   // s_chan1 selected
+ *    case CHAN_SEND(1):          // s_chan1 selected
  *      // ...
  *      break;
  *    default:                    // no channel selected
  *      // ...
  *  }
  *  ```
- * where #CHAN_SELECT_RECV(i) refers to the ith \ref channel in `r_chan` and
- * #CHAN_SELECT_SEND(i) refers to the ith \ref channel in `s_chan`.
+ * where #CHAN_RECV(i) refers to the ith \ref channel in `r_chan` and
+ * #CHAN_SEND(i) refers to the ith \ref channel in `s_chan`.
  * @par
  * When more than one \ref channel is ready, one is selected randomly.
  *
@@ -292,9 +292,9 @@ int chan_send( struct channel *chan, void const *send_buf,
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns an integer &ge; 0 to indicate a selected channel (to be used
- * with #CHAN_SELECT_RECV or #CHAN_SELECT_SEND) or -1 if no channel was
- * selected either because all channels are closed or none are ready because \a
- * duration expired.
+ * with #CHAN_RECV or #CHAN_SEND) or -1 if no channel was selected either
+ * because all channels are closed or none are ready because \a duration
+ * expired.
  *
  * @warning No \ref channel may appear in both \a recv_chan and \a send_chan.
  */

@@ -920,8 +920,8 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
   if ( selected_ref == NULL )
     return -1;
   return selected_ref->dir == CHAN_RECV ?
-    CHAN_SELECT_RECV( selected_ref->param_idx ) :
-    CHAN_SELECT_SEND( selected_ref->param_idx );
+    CHAN_RECV( selected_ref->param_idx ) :
+    CHAN_SEND( selected_ref->param_idx );
 }
 
 int chan_send( struct channel *chan, void const *send_buf,
