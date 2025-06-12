@@ -32,9 +32,27 @@
 #include <sysexits.h>
 #include <time.h>
 
+/**
+ * Calls **pthread_create**(3), checks for an error, and exits if there was
+ * one.
+ *
+ * @param THR The thread variable to create.
+ * @param ATTR The attributes to use, if any.
+ * @param START_FN The thread's start function.
+ * @param ARG The argument passed to \a START_FN.
+ *
+ * @sa #PTHREAD_COND_INIT()
+ */
 #define PTHREAD_CREATE(THR,ATTR,START_FN,ARG) \
   PERROR_EXIT_IF( pthread_create( (THR), (ATTR), (START_FN), (ARG) ) != 0, EX_IOERR )
 
+/**
+ * Calls **pthread_join**(3), checks for an error, and exits if there was
+ * one.
+ *
+ * @param THR The thread to join.
+ * @param VALUE A pointer to receive the start function's return value, if any.
+ */
 #define PTHREAD_JOIN(THR,VALUE) \
   PERROR_EXIT_IF( pthread_join( (THR), (VALUE) ) != 0, EX_IOERR )
 
