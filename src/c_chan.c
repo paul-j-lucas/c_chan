@@ -540,7 +540,7 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
       chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
 
       // Wait for a sender to copy the message.
-      rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, CHAN_NO_TIMEOUT );
+      rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
 
       chan->unbuf.recv_buf = NULL;
       PTHREAD_COND_SIGNAL( &chan->unbuf.recv_buf_is_null );
