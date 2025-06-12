@@ -84,8 +84,8 @@ enum chan_dir {
 ////////// typedefs ///////////////////////////////////////////////////////////
 
 /// @cond DOXYGEN_IGNORE
-typedef enum    chan_dir chan_dir;
-typedef struct  chan_select_ref     chan_select_ref;
+typedef enum    chan_dir        chan_dir;
+typedef struct  chan_select_ref chan_select_ref;
 /// @endcond
 
 /**
