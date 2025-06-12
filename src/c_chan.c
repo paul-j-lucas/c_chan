@@ -147,8 +147,12 @@ static int  pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
 /// A variable to which \ref CHAN_NO_TIMEOUT can point.
 static struct timespec const  CHAN_NO_TIMEOUT_TIMESPEC;
 
+/// @cond DOXYGEN_IGNORE
+
 // extern variables
 struct timespec const *const CHAN_NO_TIMEOUT = &CHAN_NO_TIMEOUT_TIMESPEC;
+
+/// @endcond
 
 ////////// inline functions ///////////////////////////////////////////////////
 
@@ -178,7 +182,7 @@ static inline bool chan_is_buffered( struct channel const *chan ) {
 ////////// local functions ////////////////////////////////////////////////////
 
 /**
- * Receives data from a buffered \ref channel.
+ * Receives a message from a buffered \ref channel.
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
@@ -221,7 +225,7 @@ static int chan_buf_recv( struct channel *chan, void *recv_buf,
 }
 
 /**
- * Sends data to a buffered \ref channel.
+ * Sends a message to a buffered \ref channel.
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.
@@ -496,7 +500,7 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
 }
 
 /**
- * Receives data from an unbuffered \ref channel.
+ * Receives a message from an unbuffered \ref channel.
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.
@@ -528,7 +532,7 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
       chan->unbuf.recv_buf = recv_buf;
       chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
 
-      // Wait for a sender to copy the data.
+      // Wait for a sender to copy the message..
       rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
 
       chan->unbuf.recv_buf = NULL;
@@ -548,7 +552,7 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
 }
 
 /**
- * Sends data to an unbuffered \ref channel.
+ * Sends a message to an unbuffered \ref channel.
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.

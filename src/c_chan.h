@@ -203,7 +203,7 @@ void chan_close( struct channel *chan );
 bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size );
 
 /**
- * Receives data from a \ref channel.
+ * Receives a message from a \ref channel.
  *
  * @param chan The \ref channel to receive from.
  * @param recv_buf The buffer to receive into.  It must be at least \ref
@@ -222,7 +222,7 @@ int chan_recv( struct channel *chan, void *recv_buf,
                struct timespec const *duration );
 
 /**
- * Sends data to a channel.
+ * Sends a message to a channel.
  *
  * @param chan The \ref channel to send to.
  * @param send_buf The buffer to send from.  It must be at least \ref
