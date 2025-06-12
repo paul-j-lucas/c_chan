@@ -216,6 +216,8 @@ static int chan_buf_recv( struct channel *chan, void *recv_buf,
     // check is after the above.
     if ( chan->is_closed )
       rv = EPIPE;
+    else if ( abs_time == NULL )
+      rv = EAGAIN;                      // No sender and shouldn't wait.
     else
       rv = chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } while ( rv == 0 );
@@ -258,7 +260,10 @@ static int chan_buf_send( struct channel *chan, void const *send_buf,
         chan_notify( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
       break;
     }
-    else {                              // Channel is full.
+    else if ( abs_time == NULL ) {
+      rv = EAGAIN;                      // Channel is full and shouldn't wait.
+    }
+    else {
       rv = chan_wait( chan, CHAN_BUF_NOT_FULL, abs_time );
     }
   } while ( rv == 0 );
@@ -526,7 +531,7 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
       rv = EPIPE;
     }
     else if ( chan->wait_cnt[ CHAN_SEND ] == 0 && abs_time == NULL ) {
-      rv = ETIMEDOUT;                   // No sender and shouldn't wait.
+      rv = EAGAIN;                      // No sender and shouldn't wait.
     }
     else if ( chan->unbuf.recv_buf == NULL ) {
       chan->unbuf.recv_buf = recv_buf;
@@ -584,7 +589,7 @@ static int chan_unbuf_send( struct channel *chan, void const *send_buf,
       break;
     }
     else if ( abs_time == NULL ) {
-      rv = ETIMEDOUT;                   // No receiver and shouldn't wait.
+      rv = EAGAIN;                      // No receiver and shouldn't wait.
     }
     else {
       rv = chan_wait( chan, CHAN_UNBUF_RECV_WAIT, abs_time );
@@ -602,11 +607,10 @@ static int chan_unbuf_send( struct channel *chan, void const *send_buf,
  *
  * @param chan The \ref channel to wait for.
  * @param dir Whether to wait to receive or send.
- * @param abs_time When to wait until. If `NULL`, returns `ETIMEDOUT`; if
- * \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If \ref CHAN_NO_TIMEOUT, waits
+ * indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if \a abs_time is `NULL`; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
  * @warning \ref channel::mtx _must_ be locked before calling this function.
@@ -616,19 +620,13 @@ static int chan_wait( struct channel *chan, chan_dir dir,
                       struct timespec const *abs_time ) {
   assert( chan != NULL );
   assert( !chan->is_closed );
+  assert( abs_time != NULL );
 
-  int rv;
-
-  if ( abs_time == NULL ) {
-    rv = EAGAIN;
-  }
-  else {
-    ++chan->wait_cnt[ dir ];
-    rv = pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
-                                    &chan->mtx,
-                                    abs_time ) == ETIMEDOUT ? EPIPE : 0;
-    --chan->wait_cnt[ dir ];
-  }
+  ++chan->wait_cnt[ dir ];
+  int const rv = pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
+                                            &chan->mtx,
+                                            abs_time ) == ETIMEDOUT ? EPIPE : 0;
+  --chan->wait_cnt[ dir ];
 
   return chan->is_closed ? EPIPE : rv;
 }
