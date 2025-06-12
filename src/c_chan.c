@@ -216,8 +216,8 @@ static int chan_buf_recv( struct channel *chan, void *recv_buf,
     // check is after the above.
     if ( chan->is_closed )
       rv = EPIPE;
-    else if ( abs_time == NULL )
-      rv = EAGAIN;                      // No sender and shouldn't wait.
+    else if ( abs_time == NULL )        // No sender and shouldn't wait.
+      rv = EAGAIN;
     else
       rv = chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } while ( rv == 0 );
@@ -260,8 +260,8 @@ static int chan_buf_send( struct channel *chan, void const *send_buf,
         chan_notify( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
       break;
     }
-    else if ( abs_time == NULL ) {
-      rv = EAGAIN;                      // Channel is full and shouldn't wait.
+    else if ( abs_time == NULL ) {      // Channel is full and shouldn't wait.
+      rv = EAGAIN;
     }
     else {
       rv = chan_wait( chan, CHAN_BUF_NOT_FULL, abs_time );
@@ -537,7 +537,7 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
       chan->unbuf.recv_buf = recv_buf;
       chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
 
-      // Wait for a sender to copy the message..
+      // Wait for a sender to copy the message.
       rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
 
       chan->unbuf.recv_buf = NULL;
@@ -588,8 +588,8 @@ static int chan_unbuf_send( struct channel *chan, void const *send_buf,
       chan_notify( chan, CHAN_UNBUF_SEND_DONE, &pthread_cond_broadcast );
       break;
     }
-    else if ( abs_time == NULL ) {
-      rv = EAGAIN;                      // No receiver and shouldn't wait.
+    else if ( abs_time == NULL ) {      // No receiver and shouldn't wait.
+      rv = EAGAIN;
     }
     else {
       rv = chan_wait( chan, CHAN_UNBUF_RECV_WAIT, abs_time );
