@@ -533,6 +533,9 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
     else if ( abs_time == NULL &&
               (chan->wait_cnt[ CHAN_SEND ] == 0 ||
                chan->unbuf.recv_buf != NULL) ) {
+      // We shouldn't wait and there is either no sender or some other thread
+      // has called chan_unbuf_recv() that has already set recv_buf and is
+      // waiting for a sender.
       rv = EAGAIN;
     }
     else if ( chan->unbuf.recv_buf == NULL ) {
