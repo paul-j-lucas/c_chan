@@ -530,15 +530,17 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
     if ( chan->is_closed ) {
       rv = EPIPE;
     }
-    else if ( chan->wait_cnt[ CHAN_SEND ] == 0 && abs_time == NULL ) {
-      rv = EAGAIN;                      // No sender and shouldn't wait.
+    else if ( abs_time == NULL &&
+              (chan->wait_cnt[ CHAN_SEND ] == 0 ||
+               chan->unbuf.recv_buf != NULL) ) {
+      rv = EAGAIN;
     }
     else if ( chan->unbuf.recv_buf == NULL ) {
       chan->unbuf.recv_buf = recv_buf;
       chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
 
       // Wait for a sender to copy the message.
-      rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
+      rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, CHAN_NO_TIMEOUT );
 
       chan->unbuf.recv_buf = NULL;
       PTHREAD_COND_SIGNAL( &chan->unbuf.recv_buf_is_null );
@@ -548,7 +550,8 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
       // Some other thread has called chan_unbuf_recv() that has already set
       // recv_buf and is waiting for a sender.  We must wait for that other
       // thread to reset recv_buf.
-      PTHREAD_COND_WAIT( &chan->unbuf.recv_buf_is_null, &chan->mtx );
+      rv = pthread_cond_wait_wrapper( &chan->unbuf.recv_buf_is_null,
+                                      &chan->mtx, abs_time );
     }
   } while ( rv == 0 );
 
