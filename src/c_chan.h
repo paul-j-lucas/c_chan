@@ -210,8 +210,11 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size );
  * channel::msg_size "msg_size" bytes.
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns 0 upon success, `EPIPE` if \a chan either is or becomes
- * closed, or `ETIMEDOUT` if \a duration expires.
+ * @return
+ *  + 0 upon success; or:
+ *  + `EPIPE` if \a chan is closed; or:
+ *  + `EAGAIN` if no message is available and \a duration is `NULL`; or:
+ *  + `ETIMEDOUT` if \a duration expired.
  *
  * @sa chan_send()
  */
@@ -226,8 +229,11 @@ int chan_recv( struct channel *chan, void *recv_buf,
  * channel::msg_size "msg_size" bytes.
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns 0 upon success, `EPIPE` if \a chan either is or becomes
- * closed, or `ETIMEDOUT` if \a duration expires.
+ * @return
+ *  + 0 upon success; or:
+ *  + `EPIPE` if \a chan is closed; or:
+ *  + `EAGAIN` if no message can be sent and \a duration is `NULL`; or:
+ *  + `ETIMEDOUT` if \a duration expired.
  *
  * @sa chan_recv()
  */
@@ -293,8 +299,8 @@ int chan_send( struct channel *chan, void const *send_buf,
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns an integer &ge; 0 to indicate a selected channel (to be used
  * with #CHAN_RECV or #CHAN_SEND) or -1 if no channel was selected either
- * because all channels are closed or none are ready because \a duration
- * expired.
+ * because all channels are closed or none are ready \a duration is `NULL` or
+ * it expired.
  *
  * @warning No \ref channel may appear in both \a recv_chan and \a send_chan.
  */

@@ -184,8 +184,11 @@ static inline bool chan_is_buffered( struct channel const *chan ) {
  * @param recv_buf The buffer to receive into.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
  * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
- * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
+ * @return
+ *  + 0 upon success; or:
+ *  + `EPIPE` if \a chan is closed; or:
+ *  + `EAGAIN` if no message is available and \a abs_time is `NULL`; or:
+ *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
  * @sa chan_buf_send()
  * @sa chan_unbuf_recv()
@@ -224,8 +227,11 @@ static int chan_buf_recv( struct channel *chan, void *recv_buf,
  * @param send_buf The buffer to send from.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
  * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
- * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
+ * @return
+ *  + 0 upon success; or:
+ *  + `EPIPE` if \a chan is closed; or:
+ *  + `EAGAIN` if no message can be sent and \a abs_time is `NULL`; or:
+ *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
  * @sa chan_buf_recv()
  * @sa chan_unbuf_send()
@@ -496,8 +502,11 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
  * @param recv_buf The buffer to receive into.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
  * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
- * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
+ * @return
+ *  + 0 upon success; or:
+ *  + `EPIPE` if \a chan is closed; or:
+ *  + `EAGAIN` if no message is available and \a abs_time is `NULL`; or:
+ *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
  * @sa chan_buf_recv()
  * @sa chan_unbuf_send()
@@ -545,8 +554,11 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
  * @param send_buf The buffer to send from.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
  * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
- * closed, or `ETIMEDOUT` only if it's now \a abs_time or later.
+ * @return
+ *  + 0 upon success; or:
+ *  + `EPIPE` if \a chan is closed; or:
+ *  + `EAGAIN` if no message can be sent and \a abs_time is `NULL`; or:
+ *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
  * @sa chan_buf_send()
  * @sa chan_unbuf_recv()
@@ -588,9 +600,10 @@ static int chan_unbuf_send( struct channel *chan, void const *send_buf,
  * @param dir Whether to wait to receive or send.
  * @param abs_time When to wait until. If `NULL`, returns `ETIMEDOUT`; if
  * \ref CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns 0 upon success, `EPIPE` only if \a chan either is or becomes
- * closed, or `ETIMEDOUT` only if either \a abs_time is `NULL` or it's now \a
- * abs_time or later.
+ * @return
+ *  + 0 upon success; or:
+ *  + `EAGAIN` if \a abs_time is `NULL`; or:
+ *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
  * @warning \ref channel::mtx _must_ be locked before calling this function.
  */
@@ -603,7 +616,7 @@ static int chan_wait( struct channel *chan, chan_dir dir,
   int rv;
 
   if ( abs_time == NULL ) {
-    rv = ETIMEDOUT;
+    rv = EAGAIN;
   }
   else {
     ++chan->wait_cnt[ dir ];
@@ -916,15 +929,18 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     // If rv is:
     //
     //  + 0: we received from or sent to the selected channel.
+    //
     //  + ETIMEDOUT: we timed out.
     //
     // For either of those, we're done; if rv is:
+    //
+    //  + EAGAIN: the selected channel wasn't ready: try again.
     //
     //  + EPIPE: the selected channel was closed between when we called
     //    chan_select_init() an when we called either chan_recv() or
     //    chan_send().  However, if there's at least one other channel that may
     //    still be open, try again.
-  } while ( rv == EPIPE && chans_open > 1 );
+  } while ( rv == EAGAIN || (rv == EPIPE && chans_open > 1) );
 
   if ( ref != stack_ref )
     free( ref );

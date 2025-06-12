@@ -155,7 +155,7 @@ static bool test_buf_chan( void ) {
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv,
       THRD_ARG(
         .chan = &chan,
-        .rv = ETIMEDOUT,
+        .rv = EAGAIN,
         .fail_cnt = &fn_fail_cnt
       )
     );
@@ -189,7 +189,7 @@ static bool test_buf_chan( void ) {
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send,
       THRD_ARG(
         .chan = &chan,
-        .rv = ETIMEDOUT,
+        .rv = EAGAIN,
         .fail_cnt = &fn_fail_cnt
       )
     );
