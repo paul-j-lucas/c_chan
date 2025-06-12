@@ -142,9 +142,8 @@ static void* thrd_chan_recv( void *p ) {
   thrd_arg *const arg = p;
   int data = 0;
   int const rv = chan_recv( arg->chan, &data, arg->duration );
-  if ( THRD_TEST( rv == arg->rv ) && arg->rv == 0 ) {
+  if ( THRD_TEST( rv == arg->rv ) && rv == 0 )
     THRD_TEST( data == arg->recv_val );
-  }
   return NULL;
 }
 
