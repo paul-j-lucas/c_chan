@@ -27,7 +27,7 @@
  *
  * @sa Hoare, C. A. R., "Communicating Sequential Processes," Communications of
  * the ACM, 21(8), 1978, pp. 666–677,
- * [doi:10.1145/359576.359585](https://doi.org/10.1145/359576.35958).
+ * [doi:10.1145/359576.359585](https://doi.org/10.1145%2F359576.359585).
  */
 
 // local
