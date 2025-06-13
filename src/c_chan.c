@@ -831,9 +831,9 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   bool const                    wait = duration != NULL;
 
   if ( wait ) {
+    PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/0 );
     chan_obs_init( &select_obs, &select_mtx );
     chan_obs_init_key( &select_obs );
-    PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/0 );
   }
 
   do {
