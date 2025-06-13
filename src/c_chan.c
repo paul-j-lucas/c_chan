@@ -159,12 +159,12 @@ struct timespec const *const CHAN_NO_TIMEOUT = &CHAN_NO_TIMEOUT_TIMESPEC;
  * Gets a pointer to the ith message in the buffered \a chan.
  *
  * @param chan The buffered channel to get a pointer to the ith message of.
- * @param i The index of the message.
+ * @param abs_idx The absolute index of the message within the ring buffer.
  * @return Returns a pointer to the ith message in buffered \a chan.
  */
 NODISCARD
-static inline void* chan_buf_at( struct chan *chan, unsigned i ) {
-  return (char*)chan->buf.ring_buf + i * chan->msg_size;
+static inline void* chan_buf_at( struct chan *chan, unsigned abs_idx ) {
+  return (char*)chan->buf.ring_buf + abs_idx * chan->msg_size;
 }
 
 /**
