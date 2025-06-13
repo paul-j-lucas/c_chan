@@ -47,8 +47,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-struct chan;
-
 ////////// implementation /////////////////////////////////////////////////////
 
 /**
