@@ -123,7 +123,7 @@ struct chan {
   unsigned short      wait_cnt[2];      ///< Waiting to receive (0) or send (1).
 
   pthread_mutex_t     mtx;              ///< Channel mutex.
-  size_t              msg_size;         ///< Size of a message.
+  size_t              msg_size;         ///< Message size.
   unsigned            buf_cap;          ///< Channel capacity; 0 = unbuffered.
   bool                is_closed;        ///< Is channel closed?
 };
