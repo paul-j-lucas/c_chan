@@ -767,8 +767,6 @@ void chan_close( struct chan *chan ) {
 bool chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   assert( chan != NULL );
 
-  chan->buf_cap = buf_cap;
-
   if ( buf_cap > 0 ) {
     assert( msg_size > 0 );
     chan->buf.ring_buf = malloc( buf_cap * msg_size );
@@ -782,6 +780,7 @@ bool chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
     PTHREAD_COND_INIT( &chan->unbuf.recv_buf_is_null, /*attr=*/NULL );
   }
 
+  chan->buf_cap = buf_cap;
   chan->msg_size = msg_size;
   chan->is_closed = false;
 
@@ -802,9 +801,13 @@ int chan_recv( struct chan *chan, void *recv_buf,
   struct timespec abs_ts;
   struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
 
-  return chan->buf_cap > 0 ?
-    chan_buf_recv( chan, recv_buf, abs_time ) :
-    chan_unbuf_recv( chan, recv_buf, abs_time );
+  if ( chan->buf_cap > 0 ) {
+    assert( recv_buf != NULL );
+    return chan_buf_recv( chan, recv_buf, abs_time );
+  }
+
+  assert( chan->msg_size == 0 || recv_buf != NULL );
+  return chan_unbuf_recv( chan, recv_buf, abs_time );
 }
 
 int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
@@ -956,6 +959,7 @@ int chan_send( struct chan *chan, void const *send_buf,
     return chan_buf_send( chan, send_buf, abs_time );
   }
 
+  assert( chan->msg_size == 0 || send_buf != NULL );
   return chan_unbuf_send( chan, send_buf, abs_time );
 }
 
