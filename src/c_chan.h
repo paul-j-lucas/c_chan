@@ -47,7 +47,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-struct channel;
+struct chan;
 
 ////////// implementation /////////////////////////////////////////////////////
 
@@ -65,7 +65,7 @@ typedef struct chan_obs_impl chan_obs_impl;
  * @note This is an implementation detail not part of the public API.
  */
 struct chan_obs_impl {
-  struct channel   *chan;               ///< The channel being observed.
+  struct chan      *chan;               ///< The channel being observed.
   pthread_cond_t    chan_ready;         ///< Is \ref chan ready?
   unsigned          key;                ///< A fairly unique key.
   chan_obs_impl    *next;               ///< The next observer, if any.
@@ -105,7 +105,7 @@ struct chan_obs_impl {
  * the ACM, 21(8), 1978, pp. 666–677,
  * [doi:10.1145/359576.359585](https://doi.org/10.1145/359576.35958).
  */
-struct channel {
+struct chan {
   union {
     struct {
       void           *ring_buf;         ///< Message ring buffer.
@@ -138,9 +138,9 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
 ////////// extern functions ///////////////////////////////////////////////////
 
 /**
- * Cleans-up a \ref channel.
+ * Cleans-up a \ref chan.
  *
- * @param chan The \ref channel to clean-up.  If `NULL`, does nothing.
+ * @param chan The \ref chan to clean-up.  If `NULL`, does nothing.
  * @param free_fn For buffered channels only, the function to free unreceived
  * messages, if any.
  *
@@ -153,7 +153,7 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
  * @sa chan_close()
  * @sa chan_init()
  */
-void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) );
+void chan_cleanup( struct chan *chan, void (*free_fn)( void* ) );
 
 /**
  * Closes a channel.
@@ -162,14 +162,14 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) );
  * buffered channel only, queued messages may still be received; an unbuffered
  * channel can no longer be received from.
  *
- * @param chan The \ref channel to close.  If already closed, does nothing.
+ * @param chan The \ref chan to close.  If already closed, does nothing.
  *
  * @note A channel _must_ be cleaned-up eventually.
  *
  * @sa chan_cleanup()
  * @sa chan_init()
  */
-void chan_close( struct channel *chan );
+void chan_close( struct chan *chan );
 
 /**
  * Initializes a channel.
@@ -190,7 +190,7 @@ void chan_close( struct channel *chan );
  *  2. **Unbuffered**: A sender and receiver will wait (unless instructed not
  *     to) until both are simultaneously ready.
  *
- * @param chan The \ref channel to initialize.
+ * @param chan The \ref chan to initialize.
  * @param buf_cap The buffer capacity.  If zero, the channel is unbuffered.
  * @param msg_size The size of a message.  It must be &gt; 0 only if \a buf_cap
  * is &gt; 0.
@@ -200,14 +200,14 @@ void chan_close( struct channel *chan );
  * @sa chan_cleanup()
  * @sa chan_close()
  */
-bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size );
+bool chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size );
 
 /**
- * Receives a message from a \ref channel.
+ * Receives a message from a \ref chan.
  *
- * @param chan The \ref channel to receive from.
+ * @param chan The \ref chan to receive from.
  * @param recv_buf The buffer to receive into.  It must be at least \ref
- * channel::msg_size "msg_size" bytes.
+ * chan::msg_size "msg_size" bytes.
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
@@ -218,15 +218,15 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size );
  *
  * @sa chan_send()
  */
-int chan_recv( struct channel *chan, void *recv_buf,
+int chan_recv( struct chan *chan, void *recv_buf,
                struct timespec const *duration );
 
 /**
  * Sends a message to a channel.
  *
- * @param chan The \ref channel to send to.
+ * @param chan The \ref chan to send to.
  * @param send_buf The buffer to send from.  It must be at least \ref
- * channel::msg_size "msg_size" bytes.
+ * chan::msg_size "msg_size" bytes.
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
@@ -237,23 +237,23 @@ int chan_recv( struct channel *chan, void *recv_buf,
  *
  * @sa chan_recv()
  */
-int chan_send( struct channel *chan, void const *send_buf,
+int chan_send( struct chan *chan, void const *send_buf,
                struct timespec const *duration );
 
 /**
- * Selects at most one \ref channel from either \a recv_chan or \a send_chan
- * that has either received or sent a message, respectively.
+ * Selects at most one \ref chan from either \a recv_chan or \a send_chan that
+ * has either received or sent a message, respectively.
  *
  * @remarks For example:
  *  ```c
- *  struct channel r_chan0, r_chan1, s_chan0, s_chan1;
+ *  struct chan r_chan0, r_chan1, s_chan0, s_chan1;
  *  // ...
  *
- *  struct channel *const r_chan[] = { &r_chan0, &r_chan1 };
+ *  struct chan *const r_chan[] = { &r_chan0, &r_chan1 };
  *  int r0, r1;
  *  void *const r_buf[] = { &r0, &r1 };
  *
- *  struct channel *const s_chan[] = { &s_chan0, &s_chan1 };
+ *  struct chan *const s_chan[] = { &s_chan0, &s_chan1 };
  *  int s0 = 1, s1 = 2;
  *  void const *const s_buf[] = { &s0, &s1 };
  *
@@ -276,10 +276,10 @@ int chan_send( struct channel *chan, void const *send_buf,
  *      // ...
  *  }
  *  ```
- * where #CHAN_RECV(i) refers to the ith \ref channel in `r_chan` and
- * #CHAN_SEND(i) refers to the ith \ref channel in `s_chan`.
+ * where #CHAN_RECV(i) refers to the ith \ref chan in `r_chan` and
+ * #CHAN_SEND(i) refers to the ith \ref chan in `s_chan`.
  * @par
- * When more than one \ref channel is ready, one is selected randomly.
+ * When more than one \ref chan is ready, one is selected randomly.
  *
  * @param recv_len The length of \a recv_chan and \a recv_buf.
  * @param recv_chan An array of zero or more channels to read from.  If \a
@@ -302,11 +302,11 @@ int chan_send( struct channel *chan, void const *send_buf,
  * because all channels are closed or none are ready \a duration is `NULL` or
  * it expired.
  *
- * @warning No \ref channel may appear in both \a recv_chan and \a send_chan.
+ * @warning No \ref chan may appear in both \a recv_chan and \a send_chan.
  */
-int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
+int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
                  void *recv_buf[recv_len],
-                 unsigned send_len, struct channel *send_chan[send_len],
+                 unsigned send_len, struct chan *send_chan[send_len],
                  void const *send_buf[send_len],
                  struct timespec const *duration );
 

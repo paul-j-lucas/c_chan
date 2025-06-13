@@ -106,7 +106,7 @@ typedef int (*qsort_cmp_fn)( void const *i_data, void const *j_data );
  * channels is created.
  */
 struct chan_select_ref {
-  struct channel *chan;                 ///< The \ref channel referred to.
+  struct chan    *chan;                 ///< The \ref chan referred to.
 
   /**
    * Index into either \p recv_chan and \p recv_buf, or \p send_chan and \p
@@ -125,18 +125,17 @@ struct chan_select_ref {
 
 ////////// local functions ////////////////////////////////////////////////////
 
-static void chan_notify( struct channel*, chan_dir,
-                         int (*)( pthread_cond_t* ) );
+static void chan_notify( struct chan*, chan_dir, int (*)( pthread_cond_t* ) );
 
 NODISCARD
-static int  chan_unbuf_recv( struct channel*, void*, struct timespec const* );
+static int  chan_unbuf_recv( struct chan*, void*, struct timespec const* );
 
 NODISCARD
-static int  chan_unbuf_send( struct channel*, void const*,
+static int  chan_unbuf_send( struct chan*, void const*,
                              struct timespec const* );
 
 NODISCARD
-static int  chan_wait( struct channel*, chan_dir, struct timespec const* );
+static int  chan_wait( struct chan*, chan_dir, struct timespec const* );
 
 NODISCARD
 static int  pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
@@ -164,27 +163,27 @@ struct timespec const *const CHAN_NO_TIMEOUT = &CHAN_NO_TIMEOUT_TIMESPEC;
  * @return Returns a pointer to the ith message in buffered \a chan.
  */
 NODISCARD
-static inline void* chan_buf_at( struct channel *chan, unsigned i ) {
+static inline void* chan_buf_at( struct chan *chan, unsigned i ) {
   return (char*)chan->buf.ring_buf + i * chan->msg_size;
 }
 
 /**
  * Gets whether \a chan is buffered.
  *
- * @param chan The \ref channel to check.
+ * @param chan The \ref chan to check.
  * @return Returns `true` only if \a chan is buffered.
  */
 NODISCARD
-static inline bool chan_is_buffered( struct channel const *chan ) {
+static inline bool chan_is_buffered( struct chan const *chan ) {
   return chan->buf_cap > 0;
 }
 
 ////////// local functions ////////////////////////////////////////////////////
 
 /**
- * Receives a message from a buffered \ref channel.
+ * Receives a message from a buffered \ref chan.
  *
- * @param chan The \ref channel to receive from.
+ * @param chan The \ref chan to receive from.
  * @param recv_buf The buffer to receive into.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
  * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
@@ -198,7 +197,7 @@ static inline bool chan_is_buffered( struct channel const *chan ) {
  * @sa chan_unbuf_recv()
  */
 NODISCARD
-static int chan_buf_recv( struct channel *chan, void *recv_buf,
+static int chan_buf_recv( struct chan *chan, void *recv_buf,
                           struct timespec const *abs_time ) {
   int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
@@ -227,9 +226,9 @@ static int chan_buf_recv( struct channel *chan, void *recv_buf,
 }
 
 /**
- * Sends a message to a buffered \ref channel.
+ * Sends a message to a buffered \ref chan.
  *
- * @param chan The \ref channel to send to.
+ * @param chan The \ref chan to send to.
  * @param send_buf The buffer to send from.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
  * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
@@ -243,7 +242,7 @@ static int chan_buf_recv( struct channel *chan, void *recv_buf,
  * @sa chan_unbuf_send()
  */
 NODISCARD
-static int chan_buf_send( struct channel *chan, void const *send_buf,
+static int chan_buf_send( struct chan *chan, void const *send_buf,
                           struct timespec const *abs_time ) {
   int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
@@ -275,14 +274,14 @@ static int chan_buf_send( struct channel *chan, void const *send_buf,
 /**
  * Signals all of a channel's observers' conditions.
  *
- * @param chan The \ref channel to notify about.
+ * @param chan The \ref chan to notify about.
  * @param dir Whether to notify about a receive or send condition.
  * @param pthread_cond_fn The `pthread_cond_t` function to call, either
  * **pthread_cond_signal**(3) or **pthread_cond_broadcast**(3).
  *
- * @warning \ref channel::mtx _must_ be locked before calling this function.
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
  */
-static void chan_notify( struct channel *chan, chan_dir dir,
+static void chan_notify( struct chan *chan, chan_dir dir,
                          int (*pthread_cond_fn)( pthread_cond_t* ) ) {
   if ( chan->wait_cnt[ dir ] == 0 )     // Nobody is waiting.
     return;
@@ -306,16 +305,16 @@ static void chan_notify( struct channel *chan, chan_dir dir,
 /**
  * Adds \a add_obs as an observer of \a chan.
  *
- * @param chan Then \ref channel to add \a add_obs to.
+ * @param chan Then \ref chan to add \a add_obs to.
  * @param dir The direction of \a chan.
  * @param add_obs The observer to add.
  *
- * @warning \ref channel::mtx _must_ be locked before calling this function.
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
  *
  * @sa chan_obs_remove()
  * @sa chan_select_init()
  */
-static void chan_obs_add( struct channel *chan, chan_dir dir,
+static void chan_obs_add( struct chan *chan, chan_dir dir,
                           chan_obs_impl *add_obs ) {
   assert( chan != NULL );
   assert( add_obs != NULL );
@@ -393,16 +392,16 @@ static void chan_obs_init_key( chan_obs_impl *obs ) {
 /**
  * Removes \a remove_obs as an observer from \a chan.
  *
- * @param chan Then \ref channel to remove \a remove_obs from.
+ * @param chan Then \ref chan to remove \a remove_obs from.
  * @param dir The direction of \a chan.
  * @param remove_obs The observer to remove.
  *
- * @warning \ref channel::mtx _must_ be locked before calling this function.
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
  *
  * @sa chan_obs_add()
  * @sa obs_remove_all_chan()
  */
-static void chan_obs_remove( struct channel *chan, chan_dir dir,
+static void chan_obs_remove( struct chan *chan, chan_dir dir,
                              chan_obs_impl *remove_obs ) {
   assert( chan != NULL );
   assert( remove_obs != NULL );
@@ -447,7 +446,7 @@ static void chan_obs_remove( struct channel *chan, chan_dir dir,
 NODISCARD
 static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
                                   unsigned chan_len,
-                                  struct channel *chan[chan_len], chan_dir dir,
+                                  struct chan *chan[chan_len], chan_dir dir,
                                   chan_obs_impl *add_obs ) {
   assert( ref != NULL );
   assert( pref_len != NULL );
@@ -505,9 +504,9 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
 }
 
 /**
- * Receives a message from an unbuffered \ref channel.
+ * Receives a message from an unbuffered \ref chan.
  *
- * @param chan The \ref channel to receive from.
+ * @param chan The \ref chan to receive from.
  * @param recv_buf The buffer to receive into.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
  * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
@@ -521,7 +520,7 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
  * @sa chan_unbuf_send()
  */
 NODISCARD
-static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
+static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
                             struct timespec const *abs_time ) {
   int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
@@ -563,9 +562,9 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
 }
 
 /**
- * Sends a message to an unbuffered \ref channel.
+ * Sends a message to an unbuffered \ref chan.
  *
- * @param chan The \ref channel to send to.
+ * @param chan The \ref chan to send to.
  * @param send_buf The buffer to send from.
  * @param abs_time When to wait until. If `NULL`, it's considered now (does not
  * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
@@ -579,7 +578,7 @@ static int chan_unbuf_recv( struct channel *chan, void *recv_buf,
  * @sa chan_unbuf_recv()
  */
 NODISCARD
-static int chan_unbuf_send( struct channel *chan, void const *send_buf,
+static int chan_unbuf_send( struct chan *chan, void const *send_buf,
                             struct timespec const *abs_time ) {
   int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
@@ -611,7 +610,7 @@ static int chan_unbuf_send( struct channel *chan, void const *send_buf,
  *  + If \a abs_time is `NULL`, does not wait.
  *  + If \a abs_time is \ref CHAN_NO_TIMEOUT, waits indefinitely.
  *
- * @param chan The \ref channel to wait for.
+ * @param chan The \ref chan to wait for.
  * @param dir Whether to wait to receive or send.
  * @param abs_time When to wait until. If \ref CHAN_NO_TIMEOUT, waits
  * indefinitely.
@@ -619,10 +618,10 @@ static int chan_unbuf_send( struct channel *chan, void const *send_buf,
  *  + 0 upon success; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
- * @warning \ref channel::mtx _must_ be locked before calling this function.
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
  */
 NODISCARD
-static int chan_wait( struct channel *chan, chan_dir dir,
+static int chan_wait( struct chan *chan, chan_dir dir,
                       struct timespec const *abs_time ) {
   assert( chan != NULL );
   assert( !chan->is_closed );
@@ -649,8 +648,7 @@ static int chan_wait( struct channel *chan, chan_dir dir,
  * @sa chan_obs_remove()
  */
 static void obs_remove_all_chan( chan_obs_impl *remove_obs, unsigned chan_len,
-                                 struct channel *chan[chan_len],
-                                 chan_dir dir ) {
+                                 struct chan *chan[chan_len], chan_dir dir ) {
   assert( remove_obs != NULL );
   assert( chan_len == 0 || chan != NULL );
 
@@ -740,7 +738,7 @@ static struct timespec const* ts_dur_to_abs( struct timespec const *duration,
 
 ////////// extern functions ///////////////////////////////////////////////////
 
-void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) ) {
+void chan_cleanup( struct chan *chan, void (*free_fn)( void* ) ) {
   if ( chan == NULL )
     return;
 
@@ -771,7 +769,7 @@ void chan_cleanup( struct channel *chan, void (*free_fn)( void* ) ) {
   PTHREAD_MUTEX_DESTROY( &chan->mtx );
 }
 
-void chan_close( struct channel *chan ) {
+void chan_close( struct chan *chan ) {
   assert( chan != NULL );
   PTHREAD_MUTEX_LOCK( &chan->mtx );
   bool const was_already_closed = chan->is_closed;
@@ -785,7 +783,7 @@ void chan_close( struct channel *chan ) {
   }
 }
 
-bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
+bool chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   assert( chan != NULL );
 
   chan->buf_cap = buf_cap;
@@ -815,7 +813,7 @@ bool chan_init( struct channel *chan, unsigned buf_cap, size_t msg_size ) {
   return true;
 }
 
-int chan_recv( struct channel *chan, void *recv_buf,
+int chan_recv( struct chan *chan, void *recv_buf,
                struct timespec const *duration ) {
   assert( chan != NULL );
   assert( recv_buf != NULL );
@@ -828,9 +826,9 @@ int chan_recv( struct channel *chan, void *recv_buf,
     chan_unbuf_recv( chan, recv_buf, abs_time );
 }
 
-int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
+int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
                  void *recv_buf[recv_len],
-                 unsigned send_len, struct channel *send_chan[send_len],
+                 unsigned send_len, struct chan *send_chan[send_len],
                  void const *send_buf[send_len],
                  struct timespec const *duration ) {
   assert( recv_len == 0 || (recv_chan != NULL && recv_buf != NULL) );
@@ -965,7 +963,7 @@ int chan_select( unsigned recv_len, struct channel *recv_chan[recv_len],
     CHAN_SEND( selected_ref->param_idx );
 }
 
-int chan_send( struct channel *chan, void const *send_buf,
+int chan_send( struct chan *chan, void const *send_buf,
                struct timespec const *duration ) {
   assert( chan != NULL );
 

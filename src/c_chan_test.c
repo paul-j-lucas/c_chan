@@ -82,7 +82,7 @@ struct thrd_arg {
 
     /// For chan_recv(), chan_send() only.
     struct {
-      struct channel     *chan;         ///< The channel to use.
+      struct chan        *chan;         ///< The channel to use.
       union {
         int               send_val;     ///< Value to send.
         int               recv_val;     ///< Value expected to receive.
@@ -92,10 +92,10 @@ struct thrd_arg {
     /// For chan_select() only.
     struct {
       unsigned            recv_len;     ///< Length of recv_chan, recv_buf.
-      struct channel    **recv_chan;    ///< Array of receive channels, if any.
+      struct chan       **recv_chan;    ///< Array of receive channels, if any.
       void              **recv_buf;     ///< Array of receive buffers, if any.
       unsigned            send_len;     ///< Length of send_chan, send_buf.
-      struct channel    **send_chan;    ///< Array of send channels, if any.
+      struct chan       **send_chan;    ///< Array of send channels, if any.
       void const        **send_buf;     ///< Array of send buffers, if any.
     };
 
@@ -175,7 +175,7 @@ static void* thrd_chan_send( void *p ) {
 static bool test_buf_chan( void ) {
   TEST_FN_BEGIN();
 
-  struct channel chan;
+  struct chan chan;
   if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
     pthread_t recv_thrd, send_thrd;
 
@@ -249,7 +249,7 @@ static bool test_buf_chan( void ) {
 static bool test_buf_select_recv_nowait( void ) {
   TEST_FN_BEGIN();
 
-  struct channel chan;
+  struct chan chan;
   if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
     int data = 0;
     pthread_t thrd;
@@ -257,7 +257,7 @@ static bool test_buf_select_recv_nowait( void ) {
     PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select,
       &TEST_THRD_ARG(
         .recv_len = 1,
-        .recv_chan = (struct channel*[]){ &chan },
+        .recv_chan = (struct chan*[]){ &chan },
         .recv_buf = (void*[]){ &data },
         .rv = -1
       )
@@ -276,7 +276,7 @@ static bool test_buf_select_recv_nowait( void ) {
 static bool test_buf_select_recv_1( void ) {
   TEST_FN_BEGIN();
 
-  struct channel chan;
+  struct chan chan;
   if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
     int data = 0;
     pthread_t thrd;
@@ -292,7 +292,7 @@ static bool test_buf_select_recv_1( void ) {
     PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select,
       &TEST_THRD_ARG(
         .recv_len = 1,
-        .recv_chan = (struct channel*[]){ &chan },
+        .recv_chan = (struct chan*[]){ &chan },
         .recv_buf = (void*[]){ &data },
         .duration = CHAN_NO_TIMEOUT,
         .rv = CHAN_RECV(0)
@@ -316,7 +316,7 @@ static bool test_buf_select_recv_1( void ) {
 static bool test_buf_select_recv_2( void ) {
   TEST_FN_BEGIN();
 
-  struct channel chan0, chan1;
+  struct chan chan0, chan1;
   if ( !FN_TEST( chan_init( &chan0, /*buf_cap=*/1, sizeof(int) ) ) )
     goto error;
   if ( !FN_TEST( chan_init( &chan1, /*buf_cap=*/1, sizeof(int) ) ) )
@@ -336,7 +336,7 @@ static bool test_buf_select_recv_2( void ) {
   PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select,
     &TEST_THRD_ARG(
       .recv_len = 2,
-      .recv_chan = (struct channel*[]){ &chan0, &chan1 },
+      .recv_chan = (struct chan*[]){ &chan0, &chan1 },
       .recv_buf = (void*[]){ &data0, &data1 },
       .rv = CHAN_RECV(1)
     )
@@ -363,7 +363,7 @@ error:
 static bool test_buf_select_send_1( void ) {
   TEST_FN_BEGIN();
 
-  struct channel chan;
+  struct chan chan;
   if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
     int data = 42;
     pthread_t recv_thrd, send_thrd;
@@ -382,7 +382,7 @@ static bool test_buf_select_send_1( void ) {
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_select,
       &TEST_THRD_ARG(
         .send_len = 1,
-        .send_chan = (struct channel*[]){ &chan },
+        .send_chan = (struct chan*[]){ &chan },
         .send_buf = (void const*[]){ &data },
         .duration = CHAN_NO_TIMEOUT,
         .rv = CHAN_SEND(0)
@@ -406,7 +406,7 @@ static bool test_buf_select_send_1( void ) {
 static bool test_unbuf_chan( void ) {
   TEST_FN_BEGIN();
 
-  struct channel chan;
+  struct chan chan;
   if ( FN_TEST( chan_init( &chan, /*buf_cap=*/0, sizeof(int) ) ) ) {
     pthread_t recv_thrd, send_thrd;
 
