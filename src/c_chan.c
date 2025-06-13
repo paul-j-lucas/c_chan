@@ -727,15 +727,15 @@ static struct timespec const* ts_dur_to_abs( struct timespec const *duration,
 
 ////////// extern functions ///////////////////////////////////////////////////
 
-void chan_cleanup( struct chan *chan, void (*free_fn)( void* ) ) {
+void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
   if ( chan == NULL )
     return;
 
   if ( chan->buf_cap > 0 ) {
-    if ( chan->buf.ring_len > 0 && free_fn != NULL ) {
+    if ( chan->buf.ring_len > 0 && msg_cleanup_fn != NULL ) {
       unsigned idx = chan->buf.recv_idx;
       for ( unsigned i = 0; i < chan->buf.ring_len; ++i ) {
-        (*free_fn)( chan_buf_at( chan, idx ) );
+        (*msg_cleanup_fn)( chan_buf_at( chan, idx ) );
         idx = (idx + 1) % chan->buf_cap;
       }
     }
