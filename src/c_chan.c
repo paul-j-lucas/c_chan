@@ -742,14 +742,6 @@ void chan_cleanup( struct chan *chan, void (*free_fn)( void* ) ) {
   if ( chan == NULL )
     return;
 
-  PTHREAD_MUTEX_LOCK( &chan->mtx );
-  bool const is_closed = chan->is_closed;
-  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
-  if ( !is_closed ) {
-    EPRINTF( PACKAGE ": %s called on open channel\n", __func__ );
-    abort();
-  }
-
   if ( chan_is_buffered( chan ) ) {
     if ( chan->buf.ring_len > 0 && free_fn != NULL ) {
       unsigned idx = chan->buf.recv_idx;

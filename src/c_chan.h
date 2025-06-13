@@ -144,11 +144,12 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
  * @param free_fn For buffered channels only, the function to free unreceived
  * messages, if any.
  *
- * @warning A channel _must_ be closed before it's cleaned-up and no other
- * threads may be using it.  This function can not call chan_close()
- * automatically if it's open because that would result in a race condition
- * since other threads may not finish interacting with it before it's cleaned-
- * up.
+ * @warning No threads may be using the channel when it is cleaned-up.  To help
+ * ensure that, the channel may be closed first.
+ * @par
+ * This function can not call chan_close() automatically because that would
+ * result in a race condition since other threads may not finish interacting
+ * with it before it's cleaned-up.
  *
  * @sa chan_close()
  * @sa chan_init()
@@ -156,11 +157,13 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
 void chan_cleanup( struct chan *chan, void (*free_fn)( void* ) );
 
 /**
- * Closes a channel.
+ * Closes a channel to indicate to receivers that no more messages will be
+ * coming.
  *
- * @remarks Once a channel is closed, it can no longer be sent to.  For a
- * buffered channel only, queued messages may still be received; an unbuffered
- * channel can no longer be received from.
+ * @remarks Closing a channel is optional, but encouraged.  Once a channel is
+ * closed, it can no longer be sent to.  For a buffered channel only, queued
+ * messages may still be received; an unbuffered channel can no longer be
+ * received from.
  *
  * @param chan The \ref chan to close.  If already closed, does nothing.
  *
