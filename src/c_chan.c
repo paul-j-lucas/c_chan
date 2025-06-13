@@ -345,7 +345,7 @@ static void chan_obs_init( chan_obs_impl *obs, pthread_mutex_t *pmtx ) {
   assert( obs != NULL );
 
   obs->chan = NULL;
-  PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/0 );
+  PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/NULL );
   obs->key  = 0;
   obs->next = NULL;
   obs->pmtx = pmtx;
@@ -779,13 +779,13 @@ bool chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   }
   else {
     chan->unbuf.recv_buf = NULL;
-    PTHREAD_COND_INIT( &chan->unbuf.recv_buf_is_null, /*attr=*/0 );
+    PTHREAD_COND_INIT( &chan->unbuf.recv_buf_is_null, /*attr=*/NULL );
   }
 
   chan->msg_size = msg_size;
   chan->is_closed = false;
 
-  PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/0 );
+  PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/NULL );
   chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
 
   chan_obs_init( &chan->observer[ CHAN_RECV ], /*pmtx=*/NULL );
@@ -831,7 +831,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   bool const                    wait = duration != NULL;
 
   if ( wait ) {
-    PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/0 );
+    PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/NULL );
     chan_obs_init( &select_obs, &select_mtx );
     chan_obs_init_key( &select_obs );
   }
