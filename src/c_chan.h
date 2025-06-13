@@ -142,7 +142,7 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
  *
  * @param chan The \ref chan to clean-up.  If `NULL`, does nothing.
  * @param msg_cleanup_fn For buffered channels only, the function to clean-up
- * unreceived messages, if any.
+ * each unreceived message, if any.
  *
  * @warning No threads may be using the channel when it is cleaned-up.  To help
  * ensure that, the channel may be closed first.
