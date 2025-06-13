@@ -167,17 +167,6 @@ static inline void* chan_buf_at( struct chan *chan, unsigned abs_idx ) {
   return (char*)chan->buf.ring_buf + abs_idx * chan->msg_size;
 }
 
-/**
- * Gets whether \a chan is buffered.
- *
- * @param chan The \ref chan to check.
- * @return Returns `true` only if \a chan is buffered.
- */
-NODISCARD
-static inline bool chan_is_buffered( struct chan const *chan ) {
-  return chan->buf_cap > 0;
-}
-
 ////////// local functions ////////////////////////////////////////////////////
 
 /**
@@ -460,7 +449,7 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
       PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
 
       if ( !chan[i]->is_closed ) {
-        is_ready = chan_is_buffered( chan[i] ) ?
+        is_ready = chan[i]->buf_cap > 0 ?
           (dir == CHAN_RECV ?
             chan[i]->buf.ring_len > 0 :
             chan[i]->buf.ring_len < chan[i]->buf_cap) :
@@ -742,7 +731,7 @@ void chan_cleanup( struct chan *chan, void (*free_fn)( void* ) ) {
   if ( chan == NULL )
     return;
 
-  if ( chan_is_buffered( chan ) ) {
+  if ( chan->buf_cap > 0 ) {
     if ( chan->buf.ring_len > 0 && free_fn != NULL ) {
       unsigned idx = chan->buf.recv_idx;
       for ( unsigned i = 0; i < chan->buf.ring_len; ++i ) {
@@ -770,7 +759,7 @@ void chan_close( struct chan *chan ) {
   if ( !was_already_closed ) {          // Wake up all waiting threads, if any.
     chan_notify( chan, CHAN_RECV, &pthread_cond_broadcast );
     chan_notify( chan, CHAN_SEND, &pthread_cond_broadcast );
-    if ( !chan_is_buffered( chan ) )
+    if ( chan->buf_cap == 0 )
       PTHREAD_COND_BROADCAST( &chan->unbuf.recv_buf_is_null );
   }
 }
@@ -780,7 +769,7 @@ bool chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
 
   chan->buf_cap = buf_cap;
 
-  if ( chan_is_buffered( chan ) ) {
+  if ( buf_cap > 0 ) {
     assert( msg_size > 0 );
     chan->buf.ring_buf = malloc( buf_cap * msg_size );
     if ( chan->buf.ring_buf == NULL )
@@ -813,7 +802,7 @@ int chan_recv( struct chan *chan, void *recv_buf,
   struct timespec abs_ts;
   struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
 
-  return chan_is_buffered( chan ) ?
+  return chan->buf_cap > 0 ?
     chan_buf_recv( chan, recv_buf, abs_time ) :
     chan_unbuf_recv( chan, recv_buf, abs_time );
 }
@@ -962,7 +951,7 @@ int chan_send( struct chan *chan, void const *send_buf,
   struct timespec abs_ts;
   struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
 
-  if ( chan_is_buffered( chan ) ) {
+  if ( chan->buf_cap > 0 ) {
     assert( send_buf != NULL );
     return chan_buf_send( chan, send_buf, abs_time );
   }
