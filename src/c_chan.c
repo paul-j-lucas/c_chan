@@ -398,17 +398,18 @@ static void chan_obs_remove( struct chan *chan, chan_dir dir,
   // Whether the channel is closed now doesn't matter since it may have been
   // open when the observer was added.
 
+  bool removed = false;
   pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
   for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
         obs = next_obs, pmtx = next_pmtx ) {
     next_obs = obs->next;
     if ( next_obs == remove_obs ) {
-      --chan->wait_cnt[ dir ];
       // remove_obs is an observer in our caller's stack frame, i.e., this
       // thread, so there's no need to lock next_obs->pmtx.
       obs->next = next_obs->next;
       next_obs = NULL;                  // Causes loop to exit ... (1)
+      removed = true;
     }
     else if ( next_obs != NULL ) {
       next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
@@ -417,6 +418,9 @@ static void chan_obs_remove( struct chan *chan, chan_dir dir,
     if ( pmtx != NULL )                 // (1) ... yet still runs this code.
       PTHREAD_MUTEX_UNLOCK( pmtx );     // (2) ... before unlocking previous.
   } // for
+
+  assert( removed );
+  --chan->wait_cnt[ dir ];
 }
 
 /**
