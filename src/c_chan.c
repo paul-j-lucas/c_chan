@@ -625,8 +625,7 @@ static int chan_wait( struct chan *chan, chan_dir dir,
 
   ++chan->wait_cnt[ dir ];
   int const rv = pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
-                                            &chan->mtx,
-                                            abs_time ) == ETIMEDOUT ? EPIPE : 0;
+                                            &chan->mtx, abs_time );
   --chan->wait_cnt[ dir ];
 
   return chan->is_closed ? EPIPE : rv;
