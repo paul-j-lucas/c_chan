@@ -325,6 +325,9 @@ static void chan_obs_add( struct chan *chan, chan_dir dir,
         PTHREAD_MUTEX_UNLOCK( next_pmtx );
         next_obs = NULL;                // Causes loop to exit ... (2)
       }
+      else {
+        assert( add_obs->key != next_obs->key );
+      }
     }
     if ( pmtx != NULL )                 // (2) ... yet still runs this code.
       PTHREAD_MUTEX_UNLOCK( pmtx );     // (1) ... before unlocking previous.
