@@ -764,14 +764,15 @@ void chan_close( struct chan *chan ) {
   }
 }
 
-bool chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
+int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   assert( chan != NULL );
 
   if ( buf_cap > 0 ) {
-    assert( msg_size > 0 );
+    if ( unlikely( msg_size == 0 ) )
+      return EINVAL;
     chan->buf.ring_buf = malloc( buf_cap * msg_size );
     if ( chan->buf.ring_buf == NULL )
-      return false;
+      return ENOMEM;
     chan->buf.recv_idx = chan->buf.send_idx = 0;
     chan->buf.ring_len = 0;
   }
@@ -790,23 +791,24 @@ bool chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   chan_obs_init( &chan->observer[ CHAN_RECV ], /*pmtx=*/NULL );
   chan_obs_init( &chan->observer[ CHAN_SEND ], /*pmtx=*/NULL );
 
-  return true;
+  return 0;
 }
 
 int chan_recv( struct chan *chan, void *recv_buf,
                struct timespec const *duration ) {
   assert( chan != NULL );
-  assert( recv_buf != NULL );
 
   struct timespec abs_ts;
   struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
 
   if ( chan->buf_cap > 0 ) {
-    assert( recv_buf != NULL );
+    if ( unlikely( recv_buf == NULL ) )
+      return EINVAL;
     return chan_buf_recv( chan, recv_buf, abs_time );
   }
 
-  assert( chan->msg_size == 0 || recv_buf != NULL );
+  if ( unlikely( chan->msg_size > 0 && recv_buf == NULL ) )
+    return EINVAL;
   return chan_unbuf_recv( chan, recv_buf, abs_time );
 }
 
@@ -815,8 +817,11 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
                  unsigned send_len, struct chan *send_chan[send_len],
                  void const *send_buf[send_len],
                  struct timespec const *duration ) {
-  assert( recv_len == 0 || (recv_chan != NULL && recv_buf != NULL) );
-  assert( send_len == 0 || (send_chan != NULL && send_buf != NULL) );
+  if ( unlikely( recv_len > 0 && (recv_chan == NULL || recv_buf == NULL) ) ||
+       unlikely( send_len > 0 && (send_chan == NULL || send_buf == NULL) ) ) {
+    errno = EINVAL;
+    return -1;
+  }
 
   unsigned const total_channels = recv_len + send_len;
 
@@ -940,8 +945,11 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     PTHREAD_MUTEX_DESTROY( &select_mtx );
   }
 
-  if ( selected_ref == NULL )
+  if ( selected_ref == NULL ) {
+    if ( rv != 0 )
+      errno = rv;
     return -1;
+  }
   return selected_ref->dir == CHAN_RECV ?
     CHAN_RECV( selected_ref->param_idx ) :
     CHAN_SEND( selected_ref->param_idx );
@@ -955,11 +963,13 @@ int chan_send( struct chan *chan, void const *send_buf,
   struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
 
   if ( chan->buf_cap > 0 ) {
-    assert( send_buf != NULL );
+    if ( unlikely( send_buf == NULL ) )
+      return EINVAL;
     return chan_buf_send( chan, send_buf, abs_time );
   }
 
-  assert( chan->msg_size == 0 || send_buf != NULL );
+  if ( unlikely( chan->msg_size > 0 && send_buf == NULL ) )
+    return EINVAL;
   return chan_unbuf_send( chan, send_buf, abs_time );
 }
 

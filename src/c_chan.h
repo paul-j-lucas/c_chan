@@ -195,13 +195,15 @@ void chan_close( struct chan *chan );
  * @param buf_cap The buffer capacity.  If zero, the channel is unbuffered.
  * @param msg_size The size of a message.  It must be &gt; 0 only if \a buf_cap
  * is &gt; 0.
- * @return Returns `true` only if initialization succeeded; `false` only if
- * memory allocation for a buffered channel fails.
+ * @return
+ *  + 0 upon success; or:
+ *  + `EINVAL` only for an invalid argument; or:
+ *  + `ENOMEM` only if memory allocation for a buffered channel fails.
  *
  * @sa chan_cleanup()
  * @sa chan_close()
  */
-bool chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size );
+int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size );
 
 /**
  * Receives a message from a \ref chan.
@@ -213,6 +215,7 @@ bool chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size );
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
+ *  + `EINVAL` only for an invalid argument; or:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `EAGAIN` if no message is available and \a duration is `NULL`; or:
  *  + `ETIMEDOUT` if \a duration expired.
@@ -232,6 +235,7 @@ int chan_recv( struct chan *chan, void *recv_buf,
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
+ *  + `EINVAL` only for an invalid argument; or:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `EAGAIN` if no message can be sent and \a duration is `NULL`; or:
  *  + `ETIMEDOUT` if \a duration expired.
@@ -299,9 +303,11 @@ int chan_send( struct chan *chan, void const *send_buf,
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns an integer &ge; 0 to indicate a selected channel (to be used
- * with #CHAN_RECV or #CHAN_SEND) or -1 if no channel was selected either
- * because all channels are closed or none are ready \a duration is `NULL` or
- * it expired.
+ * with #CHAN_RECV or #CHAN_SEND) or -1 if no channel was selected because:
+ *  + All channels are closed; or:
+ *  + None are ready and \a duration is `NULL`; or:
+ *  + \a duration expired; or:
+ *  + An invalid argument was given (in which case `errno` is set to `EINVAL`).
  *
  * @warning No \ref chan may appear in both \a recv_chan and \a send_chan.
  */

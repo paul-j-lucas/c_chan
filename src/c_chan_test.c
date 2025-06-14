@@ -176,7 +176,7 @@ static bool test_buf_chan( void ) {
   TEST_FN_BEGIN();
 
   struct chan chan;
-  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
+  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) == 0 ) ) {
     pthread_t recv_thrd, send_thrd;
 
     // Create a receiving thread that won't wait and no sender.
@@ -250,7 +250,7 @@ static bool test_buf_select_recv_nowait( void ) {
   TEST_FN_BEGIN();
 
   struct chan chan;
-  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
+  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) == 0 ) ) {
     int data = 0;
     pthread_t thrd;
 
@@ -277,7 +277,7 @@ static bool test_buf_select_recv_1( void ) {
   TEST_FN_BEGIN();
 
   struct chan chan;
-  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
+  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) == 0 ) ) {
     int data = 0;
     pthread_t thrd;
 
@@ -317,9 +317,9 @@ static bool test_buf_select_recv_2( void ) {
   TEST_FN_BEGIN();
 
   struct chan chan0, chan1;
-  if ( !FN_TEST( chan_init( &chan0, /*buf_cap=*/1, sizeof(int) ) ) )
+  if ( !FN_TEST( chan_init( &chan0, /*buf_cap=*/1, sizeof(int) ) == 0 ) )
     goto error;
-  if ( !FN_TEST( chan_init( &chan1, /*buf_cap=*/1, sizeof(int) ) ) )
+  if ( !FN_TEST( chan_init( &chan1, /*buf_cap=*/1, sizeof(int) ) == 0 ) )
     goto close0;
 
   pthread_t thrd;
@@ -364,7 +364,7 @@ static bool test_buf_select_send_1( void ) {
   TEST_FN_BEGIN();
 
   struct chan chan;
-  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) ) ) {
+  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) == 0 ) ) {
     int data = 42;
     pthread_t recv_thrd, send_thrd;
 
@@ -407,7 +407,7 @@ static bool test_unbuf_chan( void ) {
   TEST_FN_BEGIN();
 
   struct chan chan;
-  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/0, sizeof(int) ) ) ) {
+  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/0, sizeof(int) ) == 0 ) ) {
     pthread_t recv_thrd, send_thrd;
 
     thrd_arg arg = TEST_THRD_ARG(
