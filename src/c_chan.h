@@ -303,11 +303,12 @@ int chan_send( struct chan *chan, void const *send_buf,
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns an integer &ge; 0 to indicate a selected channel (to be used
- * with #CHAN_RECV or #CHAN_SEND) or -1 if no channel was selected because:
- *  + All channels are closed; or:
- *  + None are ready and \a duration is `NULL`; or:
- *  + \a duration expired; or:
- *  + An invalid argument was given (in which case `errno` is set to `EINVAL`).
+ * with #CHAN_RECV or #CHAN_SEND) or -1 if no channel was selected and `errno`
+ * is set to:
+ *  + `EINVAL` only if an invalid argument was given; or:
+ *  + `EPIPE` only if all channels are closed; or:
+ *  + `EAGAIN` only if \a duration is `NULL` and no channels are ready; or:
+ *  + `ETIMEDOUT` only if \a duration expired.
  *
  * @warning No \ref chan may appear in both \a recv_chan and \a send_chan.
  */
