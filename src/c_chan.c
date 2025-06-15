@@ -585,11 +585,8 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
       rv = EPIPE;
     }
     else if ( chan->unbuf.recv_cnt > 0 ) {  // There is a receiver.
-      if ( chan->msg_size > 0 ) {
-        assert( chan->unbuf.recv_buf != NULL );
-        assert( send_buf != NULL );
+      if ( chan->msg_size > 0 )
         memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
-      }
       chan_notify( chan, CHAN_UNBUF_SEND_DONE, &pthread_cond_broadcast );
       break;
     }
