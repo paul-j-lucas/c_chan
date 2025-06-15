@@ -128,13 +128,6 @@ struct chan_select_ref {
 static void chan_notify( struct chan*, chan_dir, int (*)( pthread_cond_t* ) );
 
 NODISCARD
-static int  chan_unbuf_recv( struct chan*, void*, struct timespec const* );
-
-NODISCARD
-static int  chan_unbuf_send( struct chan*, void const*,
-                             struct timespec const* );
-
-NODISCARD
 static int  chan_wait( struct chan*, chan_dir, struct timespec const* );
 
 NODISCARD
