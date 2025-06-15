@@ -142,7 +142,7 @@ static void* thrd_chan_recv( void *p ) {
   thrd_arg *const arg = p;
   int data = 0;
   int const rv = chan_recv( arg->chan, &data, arg->duration );
-  if ( THRD_TEST( rv == arg->rv ) && rv == 0 )
+  if ( THRD_TEST( rv == arg->rv ) && rv == 0 && arg->chan->msg_size > 0 )
     THRD_TEST( data == arg->recv_val );
   return NULL;
 }
@@ -399,15 +399,16 @@ static bool test_buf_select_send_1( void ) {
 }
 
 /**
- * Tests that unbuffered channels work.
+ * Tests that unbuffered channels size work.
  *
+ * @param msg_size The message size.
  * @return Returns `true` only if all tests passed.
  */
-static bool test_unbuf_chan( void ) {
+static bool test_unbuf_chan( size_t msg_size ) {
   TEST_FN_BEGIN();
 
   struct chan chan;
-  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/0, sizeof(int) ) == 0 ) ) {
+  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/0, msg_size ) == 0 ) ) {
     pthread_t recv_thrd, send_thrd;
 
     thrd_arg arg = TEST_THRD_ARG(
@@ -454,7 +455,8 @@ static bool test_unbuf_chan( void ) {
 int main( int argc, char const *argv[] ) {
   test_prog_init( argc, argv );
 
-  if ( test_buf_chan() && test_unbuf_chan() ) {
+  if ( test_buf_chan() &&
+       test_unbuf_chan( sizeof(int) ) && test_unbuf_chan( 0 ) ) {
     test_buf_select_recv_nowait();
     test_buf_select_recv_1() && test_buf_select_recv_2();
     test_buf_select_send_1();

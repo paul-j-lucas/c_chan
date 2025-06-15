@@ -527,29 +527,30 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
     }
     else if ( abs_time == NULL &&
               (chan->wait_cnt[ CHAN_SEND ] == 0 ||
-               chan->unbuf.recv_buf != NULL) ) {
+               chan->unbuf.recv_cnt > 0) ) {
       // We shouldn't wait and there is either no sender or some other thread
-      // has called chan_unbuf_recv() that has already set recv_buf and is
-      // waiting for a sender.
+      // called chan_unbuf_recv() and is already waiting for a sender.
       rv = EAGAIN;
     }
-    else if ( chan->unbuf.recv_buf == NULL ) {
-      chan->unbuf.recv_buf = recv_buf;
-      chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
-
-      // Wait for a sender to copy the message.
-      rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
-
-      chan->unbuf.recv_buf = NULL;
-      PTHREAD_COND_SIGNAL( &chan->unbuf.recv_buf_is_null );
-      break;
-    }
     else {
-      // Some other thread has called chan_unbuf_recv() that has already set
-      // recv_buf and is waiting for a sender.  We must wait for that other
-      // thread to reset recv_buf.
-      rv = pthread_cond_wait_wrapper( &chan->unbuf.recv_buf_is_null,
-                                      &chan->mtx, abs_time );
+      if ( ++chan->unbuf.recv_cnt == 1 ) {
+        chan->unbuf.recv_buf = recv_buf;
+        chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
+        // Wait for a sender to copy the message.
+        rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
+        chan->unbuf.recv_buf = NULL;
+        if ( --chan->unbuf.recv_cnt > 0 )   // Another thread is waiting.
+          PTHREAD_COND_SIGNAL( &chan->unbuf.recv_buf_is_free );
+        break;
+      }
+      else {
+        // Some other thread called chan_unbuf_recv() that already set recv_buf
+        // and is waiting for a sender.  We must wait for that other thread to
+        // reset recv_buf.
+        rv = pthread_cond_wait_wrapper( &chan->unbuf.recv_buf_is_free,
+                                        &chan->mtx, abs_time );
+        --chan->unbuf.recv_cnt;
+      }
     }
   } while ( rv == 0 );
 
@@ -583,9 +584,12 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
     if ( chan->is_closed ) {
       rv = EPIPE;
     }
-    else if ( chan->unbuf.recv_buf != NULL ) {  // There is a receiver.
-      if ( chan->msg_size > 0 )
+    else if ( chan->unbuf.recv_cnt > 0 ) {  // There is a receiver.
+      if ( chan->msg_size > 0 ) {
+        assert( chan->unbuf.recv_buf != NULL );
+        assert( send_buf != NULL );
         memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
+      }
       chan_notify( chan, CHAN_UNBUF_SEND_DONE, &pthread_cond_broadcast );
       break;
     }
@@ -748,7 +752,7 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
     free( chan->buf.ring_buf );
   }
   else {
-    PTHREAD_COND_DESTROY( &chan->unbuf.recv_buf_is_null );
+    PTHREAD_COND_DESTROY( &chan->unbuf.recv_buf_is_free );
   }
 
   PTHREAD_COND_DESTROY( &chan->observer[ CHAN_RECV ].chan_ready );
@@ -766,7 +770,7 @@ void chan_close( struct chan *chan ) {
     chan_notify( chan, CHAN_RECV, &pthread_cond_broadcast );
     chan_notify( chan, CHAN_SEND, &pthread_cond_broadcast );
     if ( chan->buf_cap == 0 )
-      PTHREAD_COND_BROADCAST( &chan->unbuf.recv_buf_is_null );
+      PTHREAD_COND_BROADCAST( &chan->unbuf.recv_buf_is_free );
   }
 }
 
@@ -784,7 +788,8 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   }
   else {
     chan->unbuf.recv_buf = NULL;
-    PTHREAD_COND_INIT( &chan->unbuf.recv_buf_is_null, /*attr=*/NULL );
+    PTHREAD_COND_INIT( &chan->unbuf.recv_buf_is_free, /*attr=*/NULL );
+    chan->unbuf.recv_cnt = 0;
   }
 
   chan->buf_cap = buf_cap;

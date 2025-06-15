@@ -113,7 +113,8 @@ struct chan {
     } buf;
     struct {
       void           *recv_buf;         ///< Where to put a received message.
-      pthread_cond_t  recv_buf_is_null; ///< Is `recv_buf` `NULL`?
+      pthread_cond_t  recv_buf_is_free; ///< Is `recv_buf` free to use?
+      unsigned short  recv_cnt;         ///< Number of receivers.
     } unbuf;
   };
 
