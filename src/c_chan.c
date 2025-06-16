@@ -908,13 +908,13 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     if ( rv == 0 ) {
       rv = selected_ref->dir == CHAN_RECV ?
         chan_recv(
-          recv_chan[ selected_ref->param_idx ],
-          recv_buf[ selected_ref->param_idx ],
+          selected_ref->chan,
+          recv_buf != NULL ? recv_buf[ selected_ref->param_idx ] : NULL,
           /*duration=*/NULL
         ) :
         chan_send(
-          send_chan[ selected_ref->param_idx ],
-          send_buf[ selected_ref->param_idx ],
+          selected_ref->chan,
+          send_buf != NULL ? send_buf[ selected_ref->param_idx ] : NULL,
           /*duration=*/NULL
         );
     }
@@ -940,22 +940,25 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     //    still be open, try again.
   } while ( rv == EAGAIN || (rv == EPIPE && chans_open > 1) );
 
-  if ( ref != stack_ref )
-    free( ref );
+  if ( selected_ref == NULL ) {
+    if ( rv != 0 )
+      errno = rv;
+    rv = -1;
+  }
+  else {
+    rv = selected_ref->dir == CHAN_RECV ?
+      CHAN_RECV( selected_ref->param_idx ) :
+      CHAN_SEND( selected_ref->param_idx );
+  }
 
   if ( wait ) {
     PTHREAD_COND_DESTROY( &select_obs.chan_ready );
     PTHREAD_MUTEX_DESTROY( &select_mtx );
   }
+  if ( ref != stack_ref )
+    free( ref );
 
-  if ( selected_ref == NULL ) {
-    if ( rv != 0 )
-      errno = rv;
-    return -1;
-  }
-  return selected_ref->dir == CHAN_RECV ?
-    CHAN_RECV( selected_ref->param_idx ) :
-    CHAN_SEND( selected_ref->param_idx );
+  return rv;
 }
 
 int chan_send( struct chan *chan, void const *send_buf,
