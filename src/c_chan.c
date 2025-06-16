@@ -615,7 +615,9 @@ static int chan_wait( struct chan *chan, chan_dir dir,
                       struct timespec const *abs_time ) {
   assert( chan != NULL );
   assert( !chan->is_closed );
-  assert( abs_time != NULL );
+
+  if ( abs_time == NULL )
+    return 0;
 
   ++chan->wait_cnt[ dir ];
   int const rv = pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
