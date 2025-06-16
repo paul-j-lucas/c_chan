@@ -178,17 +178,17 @@ static bool test_buf_chan( void ) {
   struct chan chan;
   if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) == 0 ) ) {
     pthread_t recv_thrd, send_thrd;
+    thrd_arg arg;
 
     // Create a receiving thread that won't wait and no sender.
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv,
-      &TEST_THRD_ARG(
-        .chan = &chan,
-        .rv = EAGAIN
-      )
+    arg = TEST_THRD_ARG(
+      .chan = &chan,
+      .rv = EAGAIN
     );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     PTHREAD_JOIN( recv_thrd, NULL );
 
-    thrd_arg arg = TEST_THRD_ARG(
+    arg = TEST_THRD_ARG(
       .chan = &chan,
       .duration = CHAN_NO_TIMEOUT,
       .send_val = 42
@@ -212,12 +212,11 @@ static bool test_buf_chan( void ) {
     // Check that you can't send to a full buffered channel.
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     PTHREAD_JOIN( send_thrd, NULL );
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send,
-      &TEST_THRD_ARG(
-        .chan = &chan,
-        .rv = EAGAIN
-      )
+    thrd_arg arg2 = TEST_THRD_ARG(
+      .chan = &chan,
+      .rv = EAGAIN
     );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg2 );
     PTHREAD_JOIN( send_thrd, NULL );
 
     // Check that you can still receive from a closed but non-empty channel.
@@ -254,14 +253,13 @@ static bool test_buf_select_recv_nowait( void ) {
     int data = 0;
     pthread_t thrd;
 
-    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select,
-      &TEST_THRD_ARG(
-        .recv_len = 1,
-        .recv_chan = (struct chan*[]){ &chan },
-        .recv_buf = (void*[]){ &data },
-        .rv = -1
-      )
+    thrd_arg select_arg = TEST_THRD_ARG(
+      .recv_len = 1,
+      .recv_chan = (struct chan*[]){ &chan },
+      .recv_buf = (void*[]){ &data },
+      .rv = -1
     );
+    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
     PTHREAD_JOIN( thrd, NULL );
   }
 
@@ -281,23 +279,21 @@ static bool test_buf_select_recv_1( void ) {
     int data = 0;
     pthread_t thrd;
 
-    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send,
-      &TEST_THRD_ARG(
-        .chan = &chan,
-        .send_val = 42
-      )
+    thrd_arg send_arg = TEST_THRD_ARG(
+      .chan = &chan,
+      .send_val = 42
     );
+    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send, &send_arg );
     PTHREAD_JOIN( thrd, NULL );
 
-    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select,
-      &TEST_THRD_ARG(
-        .recv_len = 1,
-        .recv_chan = (struct chan*[]){ &chan },
-        .recv_buf = (void*[]){ &data },
-        .duration = CHAN_NO_TIMEOUT,
-        .rv = CHAN_RECV(0)
-      )
+    thrd_arg select_arg = TEST_THRD_ARG(
+      .recv_len = 1,
+      .recv_chan = (struct chan*[]){ &chan },
+      .recv_buf = (void*[]){ &data },
+      .duration = CHAN_NO_TIMEOUT,
+      .rv = CHAN_RECV(0)
     );
+    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
     PTHREAD_JOIN( thrd, NULL );
     FN_TEST( data == 42 );
 
@@ -325,22 +321,20 @@ static bool test_buf_select_recv_2( void ) {
   pthread_t thrd;
   int data0 = 0, data1 = 0;
 
-  PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send,
-    &TEST_THRD_ARG(
-      .chan = &chan1,
-      .send_val = 42
-    )
+  thrd_arg send_arg = TEST_THRD_ARG(
+    .chan = &chan1,
+    .send_val = 42
   );
+  PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send, &send_arg );
   PTHREAD_JOIN( thrd, NULL );
 
-  PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select,
-    &TEST_THRD_ARG(
-      .recv_len = 2,
-      .recv_chan = (struct chan*[]){ &chan0, &chan1 },
-      .recv_buf = (void*[]){ &data0, &data1 },
-      .rv = CHAN_RECV(1)
-    )
+  thrd_arg select_arg = TEST_THRD_ARG(
+    .recv_len = 2,
+    .recv_chan = (struct chan*[]){ &chan0, &chan1 },
+    .recv_buf = (void*[]){ &data0, &data1 },
+    .rv = CHAN_RECV(1)
   );
+  PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
   PTHREAD_JOIN( thrd, NULL );
   FN_TEST( data1 == 42 );
 
@@ -370,24 +364,22 @@ static bool test_buf_select_send_1( void ) {
 
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
-    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv,
-      &TEST_THRD_ARG(
-        .chan = &chan,
-        .duration = CHAN_NO_TIMEOUT,
-        .recv_val = 42
-      )
+    thrd_arg recv_arg = TEST_THRD_ARG(
+      .chan = &chan,
+      .duration = CHAN_NO_TIMEOUT,
+      .recv_val = 42
     );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &recv_arg );
     spin_wait_us( &chan.mtx, &chan.wait_cnt[0] );
 
-    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_select,
-      &TEST_THRD_ARG(
-        .send_len = 1,
-        .send_chan = (struct chan*[]){ &chan },
-        .send_buf = (void const*[]){ &data },
-        .duration = CHAN_NO_TIMEOUT,
-        .rv = CHAN_SEND(0)
-      )
+    thrd_arg select_arg = TEST_THRD_ARG(
+      .send_len = 1,
+      .send_chan = (struct chan*[]){ &chan },
+      .send_buf = (void const*[]){ &data },
+      .duration = CHAN_NO_TIMEOUT,
+      .rv = CHAN_SEND(0)
     );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
     PTHREAD_JOIN( send_thrd, NULL );
     PTHREAD_JOIN( recv_thrd, NULL );
 
