@@ -908,13 +908,11 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     if ( rv == 0 ) {
       rv = selected_ref->dir == CHAN_RECV ?
         chan_recv(
-          selected_ref->chan,
-          recv_buf != NULL ? recv_buf[ selected_ref->param_idx ] : NULL,
+          selected_ref->chan, recv_buf[ selected_ref->param_idx ],
           /*duration=*/NULL
         ) :
         chan_send(
-          selected_ref->chan,
-          send_buf != NULL ? send_buf[ selected_ref->param_idx ] : NULL,
+          selected_ref->chan, send_buf[ selected_ref->param_idx ],
           /*duration=*/NULL
         );
     }
