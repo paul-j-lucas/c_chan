@@ -42,12 +42,11 @@ LDADD =		$(top_builddir)/lib/libgnu.a
 
 libc_chan_a_SOURCES = \
 		c_chan.c c_chan.h \
-		util.h
+		util.c util.h
 
 c_chan_test_SOURCES = \
-		$(c_chan_SOURCES) \
+		$(libc_chan_a_SOURCES) \
 		c_chan_test.c \
-		util.c util.h \
 		unit_test.c unit_test.h
 
 TESTS =		$(check_PROGRAMS)
