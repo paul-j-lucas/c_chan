@@ -113,13 +113,15 @@ struct chan {
     } buf;
     struct {
       void           *recv_buf;         ///< Where to put a received message.
-      pthread_cond_t  recv_buf_is_free; ///< Is `recv_buf` free to use?
-      unsigned short  recv_cnt;         ///< Number of receivers.
+      pthread_cond_t  is_free[2];       ///< Recv/0, send/1 now free.
+      pthread_cond_t  send_done;
+      bool            in_use[2];        ///< Recv/0, send/1 in use.
+      bool            memcpy_is_done;   ///< TODO.
     } unbuf;
   };
 
-  chan_obs_impl       observer[2];      ///< Receiver (0), Sender (1).
-  unsigned short      wait_cnt[2];      ///< Waiting to receive (0) or send (1).
+  chan_obs_impl       observer[2];      ///< Receivers/0, senders/1.
+  unsigned short      wait_cnt[2];      ///< Waiting to recv/0 or send/1.
 
   pthread_mutex_t     mtx;              ///< Channel mutex.
   size_t              msg_size;         ///< Message size.

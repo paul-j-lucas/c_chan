@@ -58,19 +58,6 @@
  */
 #define CHAN_BUF_NOT_FULL     CHAN_SEND
 
-/**
- * For unbuffered channels, a more mnemonic name for specifying which observer
- * (receive or send) is meant.
- *
- * @sa chan_dir
- */
-#define CHAN_UNBUF_SEND_DONE  CHAN_RECV
-
-/**
- * @copydoc CHAN_UNBUF_SEND_DONE
- */
-#define CHAN_UNBUF_RECV_WAIT  CHAN_SEND
-
 ////////// enumerations ///////////////////////////////////////////////////////
 
 /**
@@ -126,6 +113,7 @@ struct chan_select_ref {
 ////////// local functions ////////////////////////////////////////////////////
 
 static void chan_notify( struct chan*, chan_dir, int (*)( pthread_cond_t* ) );
+static void chan_unbuf_release( struct chan*, chan_dir );
 
 NODISCARD
 static int  chan_wait( struct chan*, chan_dir, struct timespec const* );
@@ -197,8 +185,6 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
     // check is after the above.
     if ( chan->is_closed )
       rv = EPIPE;
-    else if ( abs_time == NULL )        // No sender and shouldn't wait.
-      rv = EAGAIN;
     else
       rv = chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } while ( rv == 0 );
@@ -240,9 +226,6 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
       if ( ++chan->buf.ring_len == 1 )
         chan_notify( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
       break;
-    }
-    else if ( abs_time == NULL ) {      // Channel is full and shouldn't wait.
-      rv = EAGAIN;
     }
     else {
       rv = chan_wait( chan, CHAN_BUF_NOT_FULL, abs_time );
@@ -493,6 +476,35 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
 }
 
 /**
+ * Acquires exclusive \a dir access of an unbuffered channel.
+ *
+ * @param chan The unbuffered \ref chan to acquire.
+ * @param dir The direction of \a chan.
+ * @param abs_time When to wait until. If `NULL`, it's considered now (does not
+ * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ *
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
+ *
+ * @sa chan_unbuf_release()
+ */
+NODISCARD
+static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
+                               struct timespec const *abs_time ) {
+  int rv = 0;
+  while ( chan->unbuf.in_use[ dir ] && rv == 0 ) {
+    if ( chan->is_closed )
+      return EPIPE;
+    if ( abs_time == NULL )
+      return EAGAIN;
+    rv = pthread_cond_wait_wrapper( &chan->unbuf.is_free[ dir ], &chan->mtx,
+                                    abs_time );
+  } // while
+  if ( rv == 0 )
+    chan->unbuf.in_use[ dir ] = true;
+  return rv;
+}
+
+/**
  * Receives a message from an unbuffered \ref chan.
  *
  * @param chan The \ref chan to receive from.
@@ -511,44 +523,54 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
 NODISCARD
 static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
                             struct timespec const *abs_time ) {
-  int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
-  do {
-    if ( chan->is_closed ) {
-      rv = EPIPE;
-    }
-    else if ( abs_time == NULL &&
-              (chan->wait_cnt[ CHAN_SEND ] == 0 ||
-               chan->unbuf.recv_cnt > 0) ) {
-      // We shouldn't wait and there is either no sender or some other thread
-      // called chan_unbuf_recv() and is already waiting for a sender.
-      rv = EAGAIN;
-    }
-    else {
-      if ( ++chan->unbuf.recv_cnt == 1 ) {
-        chan->unbuf.recv_buf = recv_buf;
-        chan_notify( chan, CHAN_UNBUF_RECV_WAIT, &pthread_cond_signal );
+  int rv = chan_unbuf_acquire( chan, CHAN_RECV, abs_time );
+  if ( rv == 0 ) {
+    chan->unbuf.recv_buf = recv_buf;
+    chan_notify( chan, CHAN_SEND, &pthread_cond_signal );
+
+    do {
+      if ( chan->unbuf.memcpy_is_done )
+        break;
+      if ( chan->is_closed ) {
+        rv = EPIPE;
+      }
+      else if ( chan->unbuf.in_use[ CHAN_SEND ] ) {
         // Wait for a sender to copy the message.
-        rv = chan_wait( chan, CHAN_UNBUF_SEND_DONE, abs_time );
-        chan->unbuf.recv_buf = NULL;
-        if ( --chan->unbuf.recv_cnt > 0 )   // Another thread is waiting.
-          PTHREAD_COND_SIGNAL( &chan->unbuf.recv_buf_is_free );
+        while ( !chan->unbuf.memcpy_is_done && rv == 0 ) {
+          rv = pthread_cond_wait_wrapper( &chan->unbuf.send_done, &chan->mtx,
+                                          CHAN_NO_TIMEOUT );
+        }
         break;
       }
       else {
-        // Some other thread called chan_unbuf_recv() that already set recv_buf
-        // and is waiting for a sender.  We must wait for that other thread to
-        // reset recv_buf.
-        rv = pthread_cond_wait_wrapper( &chan->unbuf.recv_buf_is_free,
-                                        &chan->mtx, abs_time );
-        --chan->unbuf.recv_cnt;
+        rv = chan_wait( chan, CHAN_RECV, abs_time );
       }
-    }
-  } while ( rv == 0 );
+    } while ( rv == 0 );
+
+    chan->unbuf.recv_buf = NULL;
+    chan->unbuf.memcpy_is_done = false;
+    chan_unbuf_release( chan, CHAN_RECV );
+  }
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return rv;
+}
+
+/**
+ * Releases exclusive \a dir access of an unbuffered channel.
+ *
+ * @param chan The unbuffered \ref chan to release.
+ * @param dir The direction of \a chan.
+ *
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
+ *
+ * @sa chan_unbuf_acquire()
+ */
+static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
+  chan->unbuf.in_use[ dir ] = false;
+  PTHREAD_COND_SIGNAL( &chan->unbuf.is_free[ dir ] );
 }
 
 /**
@@ -570,26 +592,30 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
 NODISCARD
 static int chan_unbuf_send( struct chan *chan, void const *send_buf,
                             struct timespec const *abs_time ) {
-  int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
-  do {
-    if ( chan->is_closed ) {
-      rv = EPIPE;
-    }
-    else if ( chan->unbuf.recv_cnt > 0 ) {  // There is a receiver.
-      if ( chan->msg_size > 0 )
-        memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
-      chan_notify( chan, CHAN_UNBUF_SEND_DONE, &pthread_cond_broadcast );
-      break;
-    }
-    else if ( abs_time == NULL ) {      // No receiver and shouldn't wait.
-      rv = EAGAIN;
-    }
-    else {
-      rv = chan_wait( chan, CHAN_UNBUF_RECV_WAIT, abs_time );
-    }
-  } while ( rv == 0 );
+  int rv = chan_unbuf_acquire( chan, CHAN_SEND, abs_time );
+  if ( rv == 0 ) {
+    chan_notify( chan, CHAN_RECV, &pthread_cond_signal );
+
+    do {
+      if ( chan->is_closed ) {
+        rv = EPIPE;
+      }
+      else if ( chan->unbuf.in_use[ CHAN_RECV ] ) {
+        if ( chan->msg_size > 0 )
+          memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
+        chan->unbuf.memcpy_is_done = true;
+        PTHREAD_COND_SIGNAL( &chan->unbuf.send_done );
+        break;
+      }
+      else {
+        rv = chan_wait( chan, CHAN_SEND, abs_time );
+      }
+    } while ( rv == 0 );
+
+    chan_unbuf_release( chan, CHAN_SEND );
+  }
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return rv;
@@ -602,10 +628,11 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
  *
  * @param chan The \ref chan to wait for.
  * @param dir Whether to wait to receive or send.
- * @param abs_time When to wait until. If \ref CHAN_NO_TIMEOUT, waits
- * indefinitely.
+ * @param abs_time When to wait until. If `NULL`, it's considered now (does not
+ * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
+ *  + `EAGAIN` if \a abs_time is `NULL`; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
  * @warning \ref chan::mtx _must_ be locked before calling this function.
@@ -617,7 +644,7 @@ static int chan_wait( struct chan *chan, chan_dir dir,
   assert( !chan->is_closed );
 
   if ( abs_time == NULL )
-    return 0;
+    return EAGAIN;
 
   ++chan->wait_cnt[ dir ];
   int const rv = pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
@@ -744,7 +771,9 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
     free( chan->buf.ring_buf );
   }
   else {
-    PTHREAD_COND_DESTROY( &chan->unbuf.recv_buf_is_free );
+    PTHREAD_COND_DESTROY( &chan->unbuf.is_free[ CHAN_RECV ] );
+    PTHREAD_COND_DESTROY( &chan->unbuf.is_free[ CHAN_SEND ] );
+    PTHREAD_COND_DESTROY( &chan->unbuf.send_done );
   }
 
   PTHREAD_COND_DESTROY( &chan->observer[ CHAN_RECV ].chan_ready );
@@ -761,8 +790,11 @@ void chan_close( struct chan *chan ) {
   if ( !was_already_closed ) {          // Wake up all waiting threads, if any.
     chan_notify( chan, CHAN_RECV, &pthread_cond_broadcast );
     chan_notify( chan, CHAN_SEND, &pthread_cond_broadcast );
-    if ( chan->buf_cap == 0 )
-      PTHREAD_COND_BROADCAST( &chan->unbuf.recv_buf_is_free );
+    if ( chan->buf_cap == 0 ) {
+      PTHREAD_COND_BROADCAST( &chan->unbuf.is_free[ CHAN_RECV ] );
+      PTHREAD_COND_BROADCAST( &chan->unbuf.is_free[ CHAN_SEND ] );
+      PTHREAD_COND_BROADCAST( &chan->unbuf.send_done );
+    }
   }
 }
 
@@ -780,8 +812,12 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   }
   else {
     chan->unbuf.recv_buf = NULL;
-    PTHREAD_COND_INIT( &chan->unbuf.recv_buf_is_free, /*attr=*/NULL );
-    chan->unbuf.recv_cnt = 0;
+    PTHREAD_COND_INIT( &chan->unbuf.is_free[ CHAN_RECV ], /*attr=*/NULL );
+    PTHREAD_COND_INIT( &chan->unbuf.is_free[ CHAN_SEND ], /*attr=*/NULL );
+    PTHREAD_COND_INIT( &chan->unbuf.send_done, /*attr=*/NULL );
+    chan->unbuf.in_use[ CHAN_RECV ] = false;
+    chan->unbuf.in_use[ CHAN_SEND ] = false;
+    chan->unbuf.memcpy_is_done = false;
   }
 
   chan->buf_cap = buf_cap;
