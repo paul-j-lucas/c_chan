@@ -183,10 +183,9 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
     }
     // Since we can still read from a closed, non-empty, buffered channel, this
     // check is after the above.
-    if ( chan->is_closed )
-      rv = EPIPE;
-    else
-      rv = chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
+    rv = chan->is_closed ?
+      EPIPE :
+      chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } while ( rv == 0 );
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
@@ -533,12 +532,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
     do {
       if ( chan->unbuf.send_is_done )
         break;
-      if ( chan->is_closed ) {
-        rv = EPIPE;
-      }
-      else {
-        rv = chan_wait( chan, CHAN_RECV, abs_time );
-      }
+      rv = chan->is_closed ? EPIPE : chan_wait( chan, CHAN_RECV, abs_time );
     } while ( rv == 0 );
 
     chan->unbuf.recv_buf = NULL;
