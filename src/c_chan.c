@@ -531,18 +531,10 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
     chan_notify( chan, CHAN_SEND, &pthread_cond_signal );
 
     do {
-      if ( chan->unbuf.memcpy_is_done )
+      if ( chan->unbuf.send_is_done )
         break;
       if ( chan->is_closed ) {
         rv = EPIPE;
-      }
-      else if ( chan->unbuf.in_use[ CHAN_SEND ] ) {
-        // Wait for a sender to copy the message.
-        while ( !chan->unbuf.memcpy_is_done && rv == 0 ) {
-          rv = pthread_cond_wait_wrapper( &chan->unbuf.send_done, &chan->mtx,
-                                          CHAN_NO_TIMEOUT );
-        }
-        break;
       }
       else {
         rv = chan_wait( chan, CHAN_RECV, abs_time );
@@ -550,7 +542,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
     } while ( rv == 0 );
 
     chan->unbuf.recv_buf = NULL;
-    chan->unbuf.memcpy_is_done = false;
+    chan->unbuf.send_is_done = false;
     chan_unbuf_release( chan, CHAN_RECV );
   }
 
@@ -596,8 +588,6 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
 
   int rv = chan_unbuf_acquire( chan, CHAN_SEND, abs_time );
   if ( rv == 0 ) {
-    chan_notify( chan, CHAN_RECV, &pthread_cond_signal );
-
     do {
       if ( chan->is_closed ) {
         rv = EPIPE;
@@ -605,8 +595,8 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
       else if ( chan->unbuf.in_use[ CHAN_RECV ] ) {
         if ( chan->msg_size > 0 )
           memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
-        chan->unbuf.memcpy_is_done = true;
-        PTHREAD_COND_SIGNAL( &chan->unbuf.send_done );
+        chan->unbuf.send_is_done = true;
+        chan_notify( chan, CHAN_RECV, &pthread_cond_signal );
         break;
       }
       else {
@@ -773,7 +763,6 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
   else {
     PTHREAD_COND_DESTROY( &chan->unbuf.is_free[ CHAN_RECV ] );
     PTHREAD_COND_DESTROY( &chan->unbuf.is_free[ CHAN_SEND ] );
-    PTHREAD_COND_DESTROY( &chan->unbuf.send_done );
   }
 
   PTHREAD_COND_DESTROY( &chan->observer[ CHAN_RECV ].chan_ready );
@@ -793,7 +782,6 @@ void chan_close( struct chan *chan ) {
     if ( chan->buf_cap == 0 ) {
       PTHREAD_COND_BROADCAST( &chan->unbuf.is_free[ CHAN_RECV ] );
       PTHREAD_COND_BROADCAST( &chan->unbuf.is_free[ CHAN_SEND ] );
-      PTHREAD_COND_BROADCAST( &chan->unbuf.send_done );
     }
   }
 }
@@ -814,10 +802,9 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
     chan->unbuf.recv_buf = NULL;
     PTHREAD_COND_INIT( &chan->unbuf.is_free[ CHAN_RECV ], /*attr=*/NULL );
     PTHREAD_COND_INIT( &chan->unbuf.is_free[ CHAN_SEND ], /*attr=*/NULL );
-    PTHREAD_COND_INIT( &chan->unbuf.send_done, /*attr=*/NULL );
     chan->unbuf.in_use[ CHAN_RECV ] = false;
     chan->unbuf.in_use[ CHAN_SEND ] = false;
-    chan->unbuf.memcpy_is_done = false;
+    chan->unbuf.send_is_done = false;
   }
 
   chan->buf_cap = buf_cap;
