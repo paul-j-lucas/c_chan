@@ -112,7 +112,9 @@ struct chan_select_ref {
 
 ////////// local functions ////////////////////////////////////////////////////
 
-static void chan_notify( struct chan*, chan_dir, int (*)( pthread_cond_t* ) );
+static void chan_signal_all_obs( struct chan*, chan_dir,
+                                 int (*)( pthread_cond_t* ) );
+
 static void chan_unbuf_release( struct chan*, chan_dir );
 
 NODISCARD
@@ -223,7 +225,7 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
               chan->msg_size );
       chan->buf.recv_idx = (chan->buf.recv_idx + 1) % chan->buf_cap;
       if ( chan->buf.ring_len-- == chan->buf_cap )
-        chan_notify( chan, CHAN_BUF_NOT_FULL, &pthread_cond_signal );
+        chan_signal_all_obs( chan, CHAN_BUF_NOT_FULL, &pthread_cond_signal );
       break;
     }
     // Since we can still read from a closed, non-empty, buffered channel, this
@@ -268,7 +270,7 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
               chan->msg_size );
       chan->buf.send_idx = (chan->buf.send_idx + 1) % chan->buf_cap;
       if ( ++chan->buf.ring_len == 1 )
-        chan_notify( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
+        chan_signal_all_obs( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
       break;
     }
     else {
@@ -278,37 +280,6 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return rv;
-}
-
-/**
- * Signals all of a channel's observers' conditions.
- *
- * @param chan The \ref chan to notify about.
- * @param dir Whether to notify about a receive or send condition.
- * @param pthread_cond_fn The `pthread_cond_t` function to call, either
- * **pthread_cond_signal**(3) or **pthread_cond_broadcast**(3).
- *
- * @warning \ref chan::mtx _must_ be locked before calling this function.
- */
-static void chan_notify( struct chan *chan, chan_dir dir,
-                         int (*pthread_cond_fn)( pthread_cond_t* ) ) {
-  if ( chan->wait_cnt[ dir ] == 0 )     // Nobody is waiting.
-    return;
-
-  pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
-
-  for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
-        obs = next_obs, pmtx = next_pmtx ) {
-    obs->chan = chan;
-    PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->chan_ready ) != 0, EX_IOERR );
-    next_obs = obs->next;
-    if ( next_obs != NULL ) {
-      next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
-      PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ...
-    }
-    if ( pmtx != NULL )
-      PTHREAD_MUTEX_UNLOCK( pmtx );     // ... before unlocking previous.
-  } // for
 }
 
 /**
@@ -475,6 +446,37 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
 }
 
 /**
+ * Signals all of a channel's observers' conditions.
+ *
+ * @param chan The \ref chan to notify about.
+ * @param dir Whether to notify about a receive or send condition.
+ * @param pthread_cond_fn The `pthread_cond_t` function to call, either
+ * **pthread_cond_signal**(3) or **pthread_cond_broadcast**(3).
+ *
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
+ */
+static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
+                                 int (*pthread_cond_fn)( pthread_cond_t* ) ) {
+  if ( chan->wait_cnt[ dir ] == 0 )     // Nobody is waiting.
+    return;
+
+  pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
+
+  for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
+        obs = next_obs, pmtx = next_pmtx ) {
+    obs->chan = chan;
+    PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->chan_ready ) != 0, EX_IOERR );
+    next_obs = obs->next;
+    if ( next_obs != NULL ) {
+      next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
+      PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ...
+    }
+    if ( pmtx != NULL )
+      PTHREAD_MUTEX_UNLOCK( pmtx );     // ... before unlocking previous.
+  } // for
+}
+
+/**
  * Acquires exclusive \a dir access of an unbuffered channel.
  *
  * @param chan The unbuffered \ref chan to acquire.
@@ -527,7 +529,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
   int rv = chan_unbuf_acquire( chan, CHAN_RECV, abs_time );
   if ( rv == 0 ) {
     chan->unbuf.recv_buf = recv_buf;
-    chan_notify( chan, CHAN_SEND, &pthread_cond_signal );
+    chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_signal );
 
     do {
       if ( chan->unbuf.send_is_done )
@@ -590,7 +592,7 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
         if ( chan->msg_size > 0 )
           memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
         chan->unbuf.send_is_done = true;
-        chan_notify( chan, CHAN_RECV, &pthread_cond_signal );
+        chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_signal );
         break;
       }
       else {
@@ -771,8 +773,8 @@ void chan_close( struct chan *chan ) {
   chan->is_closed = true;
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   if ( !was_already_closed ) {          // Wake up all waiting threads, if any.
-    chan_notify( chan, CHAN_RECV, &pthread_cond_broadcast );
-    chan_notify( chan, CHAN_SEND, &pthread_cond_broadcast );
+    chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_broadcast );
+    chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_broadcast );
     if ( chan->buf_cap == 0 ) {
       PTHREAD_COND_BROADCAST( &chan->unbuf.available[ CHAN_RECV ] );
       PTHREAD_COND_BROADCAST( &chan->unbuf.available[ CHAN_SEND ] );
