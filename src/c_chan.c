@@ -496,7 +496,7 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
       return EPIPE;
     if ( abs_time == NULL )
       return EAGAIN;
-    rv = pthread_cond_wait_wrapper( &chan->unbuf.is_free[ dir ], &chan->mtx,
+    rv = pthread_cond_wait_wrapper( &chan->unbuf.available[ dir ], &chan->mtx,
                                     abs_time );
   } // while
   if ( rv == 0 )
@@ -562,7 +562,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
  */
 static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
   chan->unbuf.in_use[ dir ] = false;
-  PTHREAD_COND_SIGNAL( &chan->unbuf.is_free[ dir ] );
+  PTHREAD_COND_SIGNAL( &chan->unbuf.available[ dir ] );
 }
 
 /**
@@ -761,8 +761,8 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
     free( chan->buf.ring_buf );
   }
   else {
-    PTHREAD_COND_DESTROY( &chan->unbuf.is_free[ CHAN_RECV ] );
-    PTHREAD_COND_DESTROY( &chan->unbuf.is_free[ CHAN_SEND ] );
+    PTHREAD_COND_DESTROY( &chan->unbuf.available[ CHAN_RECV ] );
+    PTHREAD_COND_DESTROY( &chan->unbuf.available[ CHAN_SEND ] );
   }
 
   PTHREAD_COND_DESTROY( &chan->observer[ CHAN_RECV ].chan_ready );
@@ -780,8 +780,8 @@ void chan_close( struct chan *chan ) {
     chan_notify( chan, CHAN_RECV, &pthread_cond_broadcast );
     chan_notify( chan, CHAN_SEND, &pthread_cond_broadcast );
     if ( chan->buf_cap == 0 ) {
-      PTHREAD_COND_BROADCAST( &chan->unbuf.is_free[ CHAN_RECV ] );
-      PTHREAD_COND_BROADCAST( &chan->unbuf.is_free[ CHAN_SEND ] );
+      PTHREAD_COND_BROADCAST( &chan->unbuf.available[ CHAN_RECV ] );
+      PTHREAD_COND_BROADCAST( &chan->unbuf.available[ CHAN_SEND ] );
     }
   }
 }
@@ -800,8 +800,8 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   }
   else {
     chan->unbuf.recv_buf = NULL;
-    PTHREAD_COND_INIT( &chan->unbuf.is_free[ CHAN_RECV ], /*attr=*/NULL );
-    PTHREAD_COND_INIT( &chan->unbuf.is_free[ CHAN_SEND ], /*attr=*/NULL );
+    PTHREAD_COND_INIT( &chan->unbuf.available[ CHAN_RECV ], /*attr=*/NULL );
+    PTHREAD_COND_INIT( &chan->unbuf.available[ CHAN_SEND ], /*attr=*/NULL );
     chan->unbuf.in_use[ CHAN_RECV ] = false;
     chan->unbuf.in_use[ CHAN_SEND ] = false;
     chan->unbuf.send_is_done = false;
