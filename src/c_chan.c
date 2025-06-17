@@ -151,6 +151,51 @@ static inline void* chan_buf_at( struct chan *chan, unsigned abs_idx ) {
 ////////// local functions ////////////////////////////////////////////////////
 
 /**
+ * Adds \a add_obs as an observer of \a chan.
+ *
+ * @param chan Then \ref chan to add \a add_obs to.
+ * @param dir The direction of \a chan.
+ * @param add_obs The observer to add.
+ *
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
+ *
+ * @sa chan_remove_obs()
+ * @sa chan_select_init()
+ */
+static void chan_add_obs( struct chan *chan, chan_dir dir,
+                          chan_obs_impl *add_obs ) {
+  assert( chan != NULL );
+  assert( add_obs != NULL );
+
+  pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
+
+  for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
+        obs = next_obs, pmtx = next_pmtx ) {
+    next_obs = obs->next;
+    if ( next_obs == NULL ) {           // At end of list.
+      obs->next = add_obs;
+    }
+    else {
+      next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
+      PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ... (1)
+      if ( add_obs->key < next_obs->key ) {
+        obs->next = add_obs;
+        add_obs->next = next_obs;
+        PTHREAD_MUTEX_UNLOCK( next_pmtx );
+        next_obs = NULL;                // Causes loop to exit ... (2)
+      }
+      else {
+        assert( add_obs->key != next_obs->key );
+      }
+    }
+    if ( pmtx != NULL )                 // (2) ... yet still runs this code.
+      PTHREAD_MUTEX_UNLOCK( pmtx );     // (1) ... before unlocking previous.
+  } // for
+
+  ++chan->wait_cnt[ dir ];
+}
+
+/**
  * Receives a message from a buffered \ref chan.
  *
  * @param chan The \ref chan to receive from.
@@ -267,51 +312,6 @@ static void chan_notify( struct chan *chan, chan_dir dir,
 }
 
 /**
- * Adds \a add_obs as an observer of \a chan.
- *
- * @param chan Then \ref chan to add \a add_obs to.
- * @param dir The direction of \a chan.
- * @param add_obs The observer to add.
- *
- * @warning \ref chan::mtx _must_ be locked before calling this function.
- *
- * @sa chan_obs_remove()
- * @sa chan_select_init()
- */
-static void chan_obs_add( struct chan *chan, chan_dir dir,
-                          chan_obs_impl *add_obs ) {
-  assert( chan != NULL );
-  assert( add_obs != NULL );
-
-  pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
-
-  for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
-        obs = next_obs, pmtx = next_pmtx ) {
-    next_obs = obs->next;
-    if ( next_obs == NULL ) {           // At end of list.
-      obs->next = add_obs;
-    }
-    else {
-      next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
-      PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ... (1)
-      if ( add_obs->key < next_obs->key ) {
-        obs->next = add_obs;
-        add_obs->next = next_obs;
-        PTHREAD_MUTEX_UNLOCK( next_pmtx );
-        next_obs = NULL;                // Causes loop to exit ... (2)
-      }
-      else {
-        assert( add_obs->key != next_obs->key );
-      }
-    }
-    if ( pmtx != NULL )                 // (2) ... yet still runs this code.
-      PTHREAD_MUTEX_UNLOCK( pmtx );     // (1) ... before unlocking previous.
-  } // for
-
-  ++chan->wait_cnt[ dir ];
-}
-
-/**
  * Initializes a \ref chan_obs_impl.
  *
  * @param obs The \ref chan_obs_impl to initialize.
@@ -365,10 +365,10 @@ static void chan_obs_init_key( chan_obs_impl *obs ) {
  *
  * @warning \ref chan::mtx _must_ be locked before calling this function.
  *
- * @sa chan_obs_add()
+ * @sa chan_add_obs()
  * @sa obs_remove_all_chan()
  */
-static void chan_obs_remove( struct chan *chan, chan_dir dir,
+static void chan_remove_obs( struct chan *chan, chan_dir dir,
                              chan_obs_impl *remove_obs ) {
   assert( chan != NULL );
   assert( remove_obs != NULL );
@@ -438,7 +438,7 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
           chan[i]->wait_cnt[ !dir ] > 0;
 
         if ( add_obs != NULL )
-          chan_obs_add( chan[i], dir, add_obs );
+          chan_add_obs( chan[i], dir, add_obs );
 
         if ( is_ready || add_obs != NULL ) {
           ref[ (*pref_len)++ ] = (chan_select_ref){
@@ -647,7 +647,7 @@ static int chan_wait( struct chan *chan, chan_dir dir,
  * chan_len is 0, may be `NULL`.
  * @param dir The common direction of \a chan.
  *
- * @sa chan_obs_remove()
+ * @sa chan_remove_obs()
  */
 static void obs_remove_all_chan( chan_obs_impl *remove_obs, unsigned chan_len,
                                  struct chan *chan[chan_len], chan_dir dir ) {
@@ -656,7 +656,7 @@ static void obs_remove_all_chan( chan_obs_impl *remove_obs, unsigned chan_len,
 
   for ( unsigned i = 0; i < chan_len; ++i ) {
     PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
-    chan_obs_remove( chan[i], dir, remove_obs );
+    chan_remove_obs( chan[i], dir, remove_obs );
     PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
   } // for
 }
