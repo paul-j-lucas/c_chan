@@ -112,7 +112,7 @@ struct chan {
       unsigned        send_idx;         ///< Ring buffer send index.
     } buf;
     struct {
-      void           *temp_buf;         ///< Temporary message buffer.
+      void           *recv_buf;         ///< Where to copy the message to.
       pthread_cond_t  available[2];     ///< Recv/0, send/1 now available.
       bool            in_use[2];        ///< Recv/0, send/1 in use.
       bool            send_is_done;     ///< Is the sender done?

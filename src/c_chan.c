@@ -528,20 +528,20 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
 
   int rv = chan_unbuf_acquire( chan, CHAN_RECV, abs_time );
   if ( rv == 0 ) {
+    chan->unbuf.recv_buf = recv_buf;
     chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_signal );
 
     do {
       if ( chan->unbuf.send_is_done ) {
         chan->unbuf.send_is_done = false;
-        if ( chan->msg_size > 0 ) {
-          memcpy( recv_buf, chan->unbuf.temp_buf, chan->msg_size );
+        if ( chan->msg_size > 0 )
           PTHREAD_COND_SIGNAL( &chan->observer[ CHAN_SEND ].chan_ready );
-        }
         break;
       }
       rv = chan->is_closed ? EPIPE : chan_wait( chan, CHAN_RECV, abs_time );
     } while ( rv == 0 );
 
+    chan->unbuf.recv_buf = NULL;
     chan_unbuf_release( chan, CHAN_RECV );
   }
 
@@ -587,13 +587,15 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
 
   int rv = chan_unbuf_acquire( chan, CHAN_SEND, abs_time );
   if ( rv == 0 ) {
+    chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_signal );
+
     do {
       if ( chan->is_closed ) {
         rv = EPIPE;
       }
       else if ( chan->unbuf.in_use[ CHAN_RECV ] ) {
         if ( chan->msg_size > 0 )
-          memcpy( chan->unbuf.temp_buf, send_buf, chan->msg_size );
+          memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
         chan->unbuf.send_is_done = true;
         PTHREAD_COND_SIGNAL( &chan->observer[ CHAN_RECV ].chan_ready );
         if ( chan->msg_size > 0 ) {
@@ -766,7 +768,6 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
   else {
     PTHREAD_COND_DESTROY( &chan->unbuf.available[ CHAN_RECV ] );
     PTHREAD_COND_DESTROY( &chan->unbuf.available[ CHAN_SEND ] );
-    free( chan->unbuf.temp_buf );
   }
 
   PTHREAD_COND_DESTROY( &chan->observer[ CHAN_RECV ].chan_ready );
@@ -803,14 +804,7 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
     chan->buf.ring_len = 0;
   }
   else {
-    if ( msg_size == 0 ) {
-      chan->unbuf.temp_buf = NULL;
-    }
-    else {
-      chan->unbuf.temp_buf = malloc( msg_size );
-      if ( unlikely( chan->unbuf.temp_buf == NULL ) )
-        return ENOMEM;
-    }
+    chan->unbuf.recv_buf = NULL;
     PTHREAD_COND_INIT( &chan->unbuf.available[ CHAN_RECV ], /*attr=*/NULL );
     PTHREAD_COND_INIT( &chan->unbuf.available[ CHAN_SEND ], /*attr=*/NULL );
     chan->unbuf.in_use[ CHAN_RECV ] = false;
