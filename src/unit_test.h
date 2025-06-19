@@ -32,16 +32,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * Tests \a EXPR: only if it fails, evaluates \a INC_FAIL_CNT and prints that
- * it failed.
+ * Tests \a EXPR: only if it fails, evaluates \a INC_FAIL_CNT_EXPR and prints
+ * that it failed.
  *
  * @param EXPR The expression to evaluate.
- * @param INC_FAIL_CNT The expression to evaluate only if \a EXPR is false.
+ * @param INC_FAIL_CNT_EXPR The expression to evaluate only if \a EXPR is
+ * false.
  * @return Returns `true` only if \a EXPR is non-zero; `false` only if zero.
  */
-#define TEST_INC(EXPR,INC_FAIL_CNT) \
-  ( !!(EXPR) ||                     \
-    ( (INC_FAIL_CNT),               \
+#define TEST_INC_FAIL_CNT(EXPR,INC_FAIL_CNT_EXPR) \
+  ( !!(EXPR) ||                                   \
+    ( (INC_FAIL_CNT_EXPR),                        \
       EPRINTF( "%s:%d: " #EXPR "\n", test_prog_name, __LINE__ ) ) )
 
 ///////////////////////////////////////////////////////////////////////////////
