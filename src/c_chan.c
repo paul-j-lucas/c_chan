@@ -165,13 +165,13 @@ static inline void* chan_buf_at( struct chan *chan, unsigned abs_idx ) {
  * @sa chan_select_init()
  */
 static void chan_add_obs( struct chan *chan, chan_dir dir,
-                          chan_obs_impl *add_obs ) {
+                          chan_impl_obs *add_obs ) {
   assert( chan != NULL );
   assert( add_obs != NULL );
 
   pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
-  for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
+  for ( chan_impl_obs *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
         obs = next_obs, pmtx = next_pmtx ) {
     next_obs = obs->next;
     if ( next_obs == NULL ) {           // At end of list.
@@ -283,14 +283,14 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
 }
 
 /**
- * Initializes a \ref chan_obs_impl.
+ * Initializes a \ref chan_impl_obs.
  *
- * @param obs The \ref chan_obs_impl to initialize.
+ * @param obs The \ref chan_impl_obs to initialize.
  * @param pmtx The mutex to use, if any.
  *
  * @sa chan_obs_init_key()
  */
-static void chan_obs_init( chan_obs_impl *obs, pthread_mutex_t *pmtx ) {
+static void chan_obs_init( chan_impl_obs *obs, pthread_mutex_t *pmtx ) {
   assert( obs != NULL );
 
   obs->chan = NULL;
@@ -301,7 +301,7 @@ static void chan_obs_init( chan_obs_impl *obs, pthread_mutex_t *pmtx ) {
 }
 
 /**
- * Initializes a \ref chan_obs_impl key.
+ * Initializes a \ref chan_impl_obs key.
  *
  * @remarks An observer has an arbitrary, comparable key so the linked list of
  * a channel's observers can be in ascending key order.  The linked list is
@@ -309,12 +309,12 @@ static void chan_obs_init( chan_obs_impl *obs, pthread_mutex_t *pmtx ) {
  * multiple channels' lists, the ordering ensures that pairs of mutexes are
  * always locked in the same order on every list to avoid deadlocks.
  *
- * @param obs The \ref chan_obs_impl to initialize the key of.
+ * @param obs The \ref chan_impl_obs to initialize the key of.
  *
  * @sa chan_obs_init()
  * @sa chan_select_init()
  */
-static void chan_obs_init_key( chan_obs_impl *obs ) {
+static void chan_obs_init_key( chan_impl_obs *obs ) {
   assert( obs != NULL );
 
   static unsigned         next_key      = 1;
@@ -340,7 +340,7 @@ static void chan_obs_init_key( chan_obs_impl *obs ) {
  * @sa obs_remove_all_chan()
  */
 static void chan_remove_obs( struct chan *chan, chan_dir dir,
-                             chan_obs_impl *remove_obs ) {
+                             chan_impl_obs *remove_obs ) {
   assert( chan != NULL );
   assert( remove_obs != NULL );
 
@@ -350,7 +350,7 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
   bool removed = false;
   pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
-  for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
+  for ( chan_impl_obs *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
         obs = next_obs, pmtx = next_pmtx ) {
     next_obs = obs->next;
     if ( next_obs == remove_obs ) {
@@ -389,7 +389,7 @@ NODISCARD
 static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
                                   unsigned chan_len,
                                   struct chan *chan[chan_len], chan_dir dir,
-                                  chan_obs_impl *add_obs ) {
+                                  chan_impl_obs *add_obs ) {
   assert( ref != NULL );
   assert( pref_len != NULL );
   assert( chan_len == 0 || chan != NULL );
@@ -462,7 +462,7 @@ static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
 
   pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
-  for ( chan_obs_impl *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
+  for ( chan_impl_obs *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
         obs = next_obs, pmtx = next_pmtx ) {
     obs->chan = chan;
     PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->chan_ready ) != 0, EX_IOERR );
@@ -660,7 +660,7 @@ static int chan_wait( struct chan *chan, chan_dir dir,
  *
  * @sa chan_remove_obs()
  */
-static void obs_remove_all_chan( chan_obs_impl *remove_obs, unsigned chan_len,
+static void obs_remove_all_chan( chan_impl_obs *remove_obs, unsigned chan_len,
                                  struct chan *chan[chan_len], chan_dir dir ) {
   assert( remove_obs != NULL );
   assert( chan_len == 0 || chan != NULL );
@@ -863,7 +863,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   struct timespec               abs_ts;
   struct timespec const *const  abs_time = ts_dur_to_abs( duration, &abs_ts );
   unsigned                      chans_open;   // number of open channels
-  chan_obs_impl                 select_obs;   // observer for this select
+  chan_impl_obs                 select_obs;   // observer for this select
   pthread_mutex_t               select_mtx;   // mutex for select_obs
   chan_select_ref const        *selected_ref;
   int                           rv;

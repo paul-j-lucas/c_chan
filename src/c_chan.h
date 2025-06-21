@@ -55,18 +55,18 @@ extern "C" {
  * @{
  */
 
-typedef struct chan_obs_impl chan_obs_impl;
+typedef struct chan_impl_obs chan_impl_obs;
 
 /**
  * An "observer" for a channel that is used to wait until it's ready.
  *
  * @note This is an implementation detail not part of the public API.
  */
-struct chan_obs_impl {
+struct chan_impl_obs {
   struct chan      *chan;               ///< The channel being observed.
   pthread_cond_t    chan_ready;         ///< Is \ref chan ready?
   unsigned          key;                ///< A fairly unique key.
-  chan_obs_impl    *next;               ///< The next observer, if any.
+  chan_impl_obs    *next;               ///< The next observer, if any.
   pthread_mutex_t  *pmtx;               ///< The mutex to use.
 };
 
@@ -119,7 +119,7 @@ struct chan {
     } unbuf;
   };
 
-  chan_obs_impl       observer[2];      ///< Receivers/0, senders/1.
+  chan_impl_obs       observer[2];      ///< Receivers/0, senders/1.
   unsigned short      wait_cnt[2];      ///< Waiting to recv/0 or send/1.
 
   pthread_mutex_t     mtx;              ///< Channel mutex.
