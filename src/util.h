@@ -84,8 +84,24 @@
  * Embeds the given statements into a compound statement block.
  *
  * @param ... The statement(s) to embed.
+ *
+ * @sa #DEBUG_BLOCK()
  */
 #define BLOCK(...)                do { __VA_ARGS__ } while (0)
+
+/**
+ * Embeds the given statements into a compound statement block, but only if
+ * `NDEBUG` is _not_ defined; otherwise does nothing.
+ *
+ * @param ... The statement(s) to embed.
+ *
+ * @sa #BLOCK()
+ */
+#ifndef NDEBUG
+#define DEBUG_BLOCK(...)          BLOCK( __VA_ARGS__ )
+#else
+#define DEBUG_BLOCK(...)          BLOCK( /* nothing */ )
+#endif /* NDEBUG */
 
 /**
  * Shorthand for printing to standard error.

@@ -169,6 +169,9 @@ static void chan_add_obs( struct chan *chan, chan_dir dir,
   assert( chan != NULL );
   assert( add_obs != NULL );
 
+#ifndef NDEBUG
+  int locked_cnt = 0;
+#endif /* NDEBUG */
   pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
   for ( chan_impl_obs *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
@@ -180,20 +183,24 @@ static void chan_add_obs( struct chan *chan, chan_dir dir,
     else {
       next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
       PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ... (1)
+      DEBUG_BLOCK( ++locked_cnt; );
       if ( add_obs->key < next_obs->key ) {
         obs->next = add_obs;
         add_obs->next = next_obs;
-        PTHREAD_MUTEX_UNLOCK( next_pmtx );
-        next_obs = NULL;                // Causes loop to exit ... (2)
+        next_obs = NULL;                // Will causeloop to exit ... (2)
+        pmtx = next_pmtx;               // Will unlock next_mptx.
       }
       else {
         assert( add_obs->key != next_obs->key );
       }
     }
-    if ( pmtx != NULL )                 // (2) ... yet still runs this code.
+    if ( pmtx != NULL ) {               // (2) ... yet still runs this code.
       PTHREAD_MUTEX_UNLOCK( pmtx );     // (1) ... before unlocking previous.
+      DEBUG_BLOCK( --locked_cnt; );
+    }
   } // for
 
+  assert( locked_cnt == 0 );
   ++chan->wait_cnt[ dir ];
 }
 
@@ -347,6 +354,9 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
   // Whether the channel is closed now doesn't matter since it may have been
   // open when the observer was added.
 
+#ifndef NDEBUG
+  int locked_cnt = 0;
+#endif /* NDEBUG */
   bool removed = false;
   pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
@@ -357,17 +367,21 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
       // remove_obs is an observer in our caller's stack frame, i.e., this
       // thread, so there's no need to lock next_obs->pmtx.
       obs->next = next_obs->next;
-      next_obs = NULL;                  // Causes loop to exit ... (1)
+      next_obs = NULL;                  // Will causeloop to exit ... (1)
       removed = true;
     }
     else if ( next_obs != NULL ) {
       next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
       PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ... (2)
+      DEBUG_BLOCK( ++locked_cnt; );
     }
-    if ( pmtx != NULL )                 // (1) ... yet still runs this code.
+    if ( pmtx != NULL ) {               // (1) ... yet still runs this code.
       PTHREAD_MUTEX_UNLOCK( pmtx );     // (2) ... before unlocking previous.
+      DEBUG_BLOCK( --locked_cnt; );
+    }
   } // for
 
+  assert( locked_cnt == 0 );
   assert( removed );
   --chan->wait_cnt[ dir ];
 }
@@ -460,6 +474,9 @@ static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
   if ( chan->wait_cnt[ dir ] == 0 )     // Nobody is waiting.
     return;
 
+#ifndef NDEBUG
+  int locked_cnt = 0;
+#endif /* NDEBUG */
   pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
 
   for ( chan_impl_obs *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
@@ -470,10 +487,15 @@ static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
     if ( next_obs != NULL ) {
       next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
       PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ...
+      DEBUG_BLOCK( ++locked_cnt; );
     }
-    if ( pmtx != NULL )
+    if ( pmtx != NULL ) {
       PTHREAD_MUTEX_UNLOCK( pmtx );     // ... before unlocking previous.
+      DEBUG_BLOCK( --locked_cnt; );
+    }
   } // for
+
+  assert( locked_cnt == 0 );
 }
 
 /**
