@@ -91,9 +91,9 @@ AS_IF([test "x$enable_ubsan" = xyes], [
 ])
 
 # Makefile conditionals.
-AM_CONDITIONAL([ENABLE_ASAN],         [test "x$enable_asan"         = xyes])
-AM_CONDITIONAL([ENABLE_MSAN],         [test "x$enable_msan"         = xyes])
-AM_CONDITIONAL([ENABLE_UBSAN],        [test "x$enable_ubsan"        = xyes])
+AM_CONDITIONAL([ENABLE_ASAN],   [test "x$enable_asan"   = xyes])
+AM_CONDITIONAL([ENABLE_MSAN],   [test "x$enable_msan"   = xyes])
+AM_CONDITIONAL([ENABLE_UBSAN],  [test "x$enable_ubsan"  = xyes])
 
 # Miscellaneous.
 AX_C___ATTRIBUTE__
