@@ -43,7 +43,7 @@
 #define TEST_INC_FAIL_CNT(EXPR,INC_FAIL_CNT_EXPR) \
   ( !!(EXPR) ||                                   \
     ( (INC_FAIL_CNT_EXPR),                        \
-      EPRINTF( "%s:%d: " #EXPR "\n", test_prog_name, __LINE__ ) ) )
+      !EPRINTF( "%s:%d: " #EXPR "\n", test_prog_name, __LINE__ ) ) )
 
 ///////////////////////////////////////////////////////////////////////////////
 
