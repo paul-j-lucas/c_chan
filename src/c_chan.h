@@ -113,7 +113,7 @@ struct chan {
     } buf;
     struct {
       void           *recv_buf;         ///< Where to copy the message to.
-      pthread_cond_t  available[2];     ///< Recv/0, send/1 now available.
+      pthread_cond_t  avail[2];         ///< Recv/0, send/1 now available.
       bool            in_use[2];        ///< Recv/0, send/1 in use.
       bool            send_is_done;     ///< Is the sender done?
     } unbuf;
