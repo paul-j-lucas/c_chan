@@ -107,8 +107,31 @@
  * Shorthand for printing to standard error.
  *
  * @param ... The `printf()` arguments.
+ *
+ * @sa #EPUTC()
+ * @sa #EPUTS()
  */
 #define EPRINTF(...)              fprintf( stderr, __VA_ARGS__ )
+
+/**
+ * Shorthand for printing a character to standard error.
+ *
+ * @param C The character to print.
+ *
+ * @sa #EPRINTF()
+ * @sa #EPUTS()
+ */
+#define EPUTC(C)                  fputc( (C), stderr )
+
+/**
+ * Shorthand for printing a C string to standard error.
+ *
+ * @param S The C string to print.
+ *
+ * @sa #EPRINTF()
+ * @sa #EPUTC()
+ */
+#define EPUTS(S)                  fputs( (S), stderr )
 
 #ifdef HAVE___BUILTIN_EXPECT
 
