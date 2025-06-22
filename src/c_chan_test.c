@@ -29,6 +29,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sysexits.h>
 #include <time.h>
 
@@ -104,6 +105,22 @@ static void ms_sleep( unsigned ms ) {
 }
 
 /**
+ * Prints expected and actual function return values and their meanings.
+ *
+ * @param expected_rv The expected function return value.
+ * @param actual_rv The actual function return value.
+ */
+static void print_rvs( int expected_rv, int actual_rv ) {
+  EPRINTF( "expected_rv=%d", expected_rv );
+  if ( expected_rv != 0 )
+    EPRINTF( " (%s)", strerror( expected_rv ) );
+  EPRINTF( ", actual_rv=%d", actual_rv );
+  if ( actual_rv != 0 )
+    EPRINTF( " (%s)", strerror( actual_rv ) );
+  EPUTC( '\n' );
+}
+
+/**
  * Spin-waits for `*pus` to be non-zero.
  *
  * @param mtx The mutex to lock/unlock before/after checking `*pus`.
@@ -126,7 +143,10 @@ static void* thrd_chan_recv( void *p ) {
   test_thrd_arg *const arg = p;
   int data = 0;
   int const rv = chan_recv( arg->chan, &data, arg->duration );
-  if ( THRD_FN_TEST( rv == arg->rv ) && rv == 0 && arg->chan->msg_size > 0 )
+  bool const rvs_equal = THRD_FN_TEST( rv == arg->rv );
+  if ( !rvs_equal )
+    print_rvs( arg->rv, rv );
+  if ( rvs_equal && rv == 0 && arg->chan->msg_size > 0 )
     THRD_FN_TEST( data == arg->recv_val );
   THRD_FN_END();
 }
@@ -139,7 +159,8 @@ static void* thrd_chan_select( void *p ) {
     arg->send_len, arg->send_chan, arg->send_buf,
     arg->duration
   );
-  THRD_FN_TEST( rv == arg->rv );
+  if ( !THRD_FN_TEST( rv == arg->rv ) )
+    print_rvs( arg->rv, rv );
   THRD_FN_END();
 }
 
@@ -147,7 +168,8 @@ static void* thrd_chan_send( void *p ) {
   THRD_FN_BEGIN();
   test_thrd_arg *const arg = p;
   int const rv = chan_send( arg->chan, &arg->send_val, arg->duration );
-  THRD_FN_TEST( rv == arg->rv );
+  if ( !THRD_FN_TEST( rv == arg->rv ) )
+    print_rvs( arg->rv, rv );
   THRD_FN_END();
 }
 
@@ -255,14 +277,14 @@ static bool test_buf_select_recv_nowait( void ) {
 /**
  * Tests that selecting from a ready buffered channel works.
  *
+ * @param buf_cap The channel's capacity.
  * @return Returns `true` only if all tests passed.
  */
-static bool test_buf_select_recv_1( void ) {
+static bool test_buf_select_recv_1( unsigned buf_cap ) {
   TEST_FN_BEGIN();
 
   struct chan chan;
-  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) == 0 ) ) {
-    int data = 0;
+  if ( FN_TEST( chan_init( &chan, buf_cap, sizeof(int) ) == 0 ) ) {
     pthread_t recv_thrd, send_thrd;
 
     test_thrd_arg send_arg = TEST_THRD_ARG(
@@ -271,17 +293,18 @@ static bool test_buf_select_recv_1( void ) {
     );
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &send_arg );
 
+    int recv_val = 0;
     test_thrd_arg select_arg = TEST_THRD_ARG(
       .recv_len = 1,
       .recv_chan = (struct chan*[]){ &chan },
-      .recv_buf = (void*[]){ &data },
+      .recv_buf = (void*[]){ &recv_val },
       .duration = CHAN_NO_TIMEOUT,
       .rv = CHAN_RECV(0)
     );
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
     TEST_PTHREAD_JOIN( recv_thrd );
     TEST_PTHREAD_JOIN( send_thrd );
-    FN_TEST( data == 42 );
+    FN_TEST( recv_val == 42 );
 
     chan_close( &chan );
     chan_cleanup( &chan, /*free_fn=*/NULL );
@@ -436,7 +459,7 @@ int main( int argc, char const *argv[] ) {
   if ( test_buf_chan() &&
        test_unbuf_chan( sizeof(int) ) && test_unbuf_chan( 0 ) ) {
     test_buf_select_recv_nowait();
-    test_buf_select_recv_1() && test_buf_select_recv_2();
+    test_buf_select_recv_1( 1 ) && test_buf_select_recv_2();
     test_buf_select_send_1();
   }
 }
