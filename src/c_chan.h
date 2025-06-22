@@ -70,6 +70,18 @@ struct chan_impl_obs {
   pthread_mutex_t  *pmtx;               ///< The mutex to use.
 };
 
+/**
+ * An unbuffered channel's state.
+ *
+ * @note This is an implementation detail not part of the public API.
+ */
+enum chan_impl_unbuf_st {
+  CHAN_IMPL_UNBUF_AVAIL,                ///< Available for use.
+  CHAN_IMPL_UNBUF_READY,                ///< In use and ready to recv or send.
+  CHAN_IMPL_UNBUF_DONE                  ///< In use and done.
+};
+typedef enum chan_impl_unbuf_st chan_impl_unbuf_st;
+
 /** @} */
 
 ////////// public /////////////////////////////////////////////////////////////
@@ -106,26 +118,26 @@ struct chan_impl_obs {
 struct chan {
   union {
     struct {
-      void           *ring_buf;         ///< Message ring buffer.
-      unsigned        ring_len;         ///< Number of messages in buffer.
-      unsigned        recv_idx;         ///< Ring buffer receive index.
-      unsigned        send_idx;         ///< Ring buffer send index.
+      void               *ring_buf;     ///< Message ring buffer.
+      unsigned            ring_len;     ///< Number of messages in buffer.
+      unsigned            recv_idx;     ///< Ring buffer receive index.
+      unsigned            send_idx;     ///< Ring buffer send index.
     } buf;
     struct {
-      void           *recv_buf;         ///< Where to copy the message to.
-      pthread_cond_t  avail[2];         ///< Recv/0, send/1 now available.
-      bool            in_use[2];        ///< Recv/0, send/1 in use.
-      bool            send_is_done;     ///< Is the sender done?
+      void               *recv_buf;     ///< Where to copy the message to.
+      pthread_cond_t      recv_done;    ///< The receive is done.
+      pthread_cond_t      avail[2];     ///< Recv/0, send/1 now available.
+      chan_impl_unbuf_st  state[2];     ///< Recv/0, send/1 state.
     } unbuf;
   };
 
-  chan_impl_obs       observer[2];      ///< Receivers/0, senders/1.
-  unsigned short      wait_cnt[2];      ///< Waiting to recv/0 or send/1.
+  chan_impl_obs           observer[2];  ///< Receivers/0, senders/1.
+  unsigned short          wait_cnt[2];  ///< Waiting to recv/0 or send/1.
 
-  pthread_mutex_t     mtx;              ///< Channel mutex.
-  size_t              msg_size;         ///< Message size.
-  unsigned            buf_cap;          ///< Channel capacity; 0 = unbuffered.
-  bool                is_closed;        ///< Is channel closed?
+  pthread_mutex_t         mtx;          ///< Channel mutex.
+  size_t                  msg_size;     ///< Message size.
+  unsigned                buf_cap;      ///< Channel capacity; 0 = unbuffered.
+  bool                    is_closed;    ///< Is channel closed?
 };
 
 ////////// extern variables ///////////////////////////////////////////////////
