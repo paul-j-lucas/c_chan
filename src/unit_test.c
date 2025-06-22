@@ -109,6 +109,7 @@ void test_prog_init( int argc, char const *const argv[] ) {
   if ( --argc != 0 )
     test_prog_usage();                  // LCOV_EXCL_LINE
   ATEXIT( &test_prog_exit );
+  setvbuf( stdout, /*buf=*/NULL, _IONBF, /*size=*/0 );
 }
 
 ///////////////////////////////////////////////////////////////////////////////
