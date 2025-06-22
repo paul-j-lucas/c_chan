@@ -289,7 +289,8 @@ static bool test_buf_select_recv_1( unsigned buf_cap ) {
 
     test_thrd_arg send_arg = TEST_THRD_ARG(
       .chan = &chan,
-      .send_val = 42
+      .send_val = 42,
+      .duration = CHAN_NO_TIMEOUT
     );
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &send_arg );
 
