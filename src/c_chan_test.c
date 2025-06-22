@@ -263,14 +263,13 @@ static bool test_buf_select_recv_1( void ) {
   struct chan chan;
   if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) == 0 ) ) {
     int data = 0;
-    pthread_t thrd;
+    pthread_t recv_thrd, send_thrd;
 
     test_thrd_arg send_arg = TEST_THRD_ARG(
       .chan = &chan,
       .send_val = 42
     );
-    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send, &send_arg );
-    TEST_PTHREAD_JOIN( thrd );
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &send_arg );
 
     test_thrd_arg select_arg = TEST_THRD_ARG(
       .recv_len = 1,
@@ -279,8 +278,9 @@ static bool test_buf_select_recv_1( void ) {
       .duration = CHAN_NO_TIMEOUT,
       .rv = CHAN_RECV(0)
     );
-    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
-    TEST_PTHREAD_JOIN( thrd );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
+    TEST_PTHREAD_JOIN( recv_thrd );
+    TEST_PTHREAD_JOIN( send_thrd );
     FN_TEST( data == 42 );
 
     chan_close( &chan );
