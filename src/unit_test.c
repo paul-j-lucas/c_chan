@@ -90,24 +90,12 @@ static void test_prog_exit( void ) {
   _Exit( test_fail_cnt > 0 ? EX_SOFTWARE : EX_OK );
 }
 
-/**
- * Prints the usage message to standard error and exits.
- */
-_Noreturn
-static void test_prog_usage( void ) {
-  // LCOV_EXCL_START
-  EPRINTF( "usage: %s\n", test_prog_name );
-  exit( EX_USAGE );
-  // LCOV_EXCL_STOP
-}
-
 ////////// extern functions ///////////////////////////////////////////////////
 
 void test_prog_init( int argc, char const *const argv[] ) {
+  (void)argc;
   ASSERT_RUN_ONCE();
   test_prog_name = base_name( argv[0] );
-  if ( --argc != 0 )
-    test_prog_usage();                  // LCOV_EXCL_LINE
   ATEXIT( &test_prog_exit );
   setvbuf( stdout, /*buf=*/NULL, _IONBF, /*size=*/0 );
 }
