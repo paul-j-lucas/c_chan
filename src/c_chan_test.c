@@ -302,7 +302,7 @@ static bool test_select_recv_2( unsigned buf_cap ) {
   if ( !FN_TEST( chan_init( &chan1, buf_cap, sizeof(int) ) == 0 ) )
     goto close0;
 
-  pthread_t thrd;
+  pthread_t recv_thrd, send_thrd;
   int data0 = 0, data1 = 0;
 
   test_thrd_arg send_arg = TEST_THRD_ARG(
@@ -310,8 +310,7 @@ static bool test_select_recv_2( unsigned buf_cap ) {
     .send_val = 42,
     .duration = CHAN_NO_TIMEOUT
   );
-  PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send, &send_arg );
-  TEST_PTHREAD_JOIN( thrd );
+  PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &send_arg );
 
   test_thrd_arg select_arg = TEST_THRD_ARG(
     .recv_len = 2,
@@ -320,8 +319,9 @@ static bool test_select_recv_2( unsigned buf_cap ) {
     .duration = CHAN_NO_TIMEOUT,
     .rv = CHAN_RECV(1)
   );
-  PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
-  TEST_PTHREAD_JOIN( thrd );
+  PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
+  TEST_PTHREAD_JOIN( recv_thrd );
+  TEST_PTHREAD_JOIN( send_thrd );
   FN_TEST( data1 == 42 );
 
   chan_close( &chan1 );
@@ -463,8 +463,10 @@ int main( int argc, char const *argv[] ) {
 
   if ( test_buf_chan() &&
        test_unbuf_chan( sizeof(int) ) && test_unbuf_chan( 0 ) ) {
-    if ( test_select_recv_1( 0 ) && test_select_recv_1( 1 ) )
+    if ( test_select_recv_1( 0 ) && test_select_recv_1( 1 ) ) {
+      test_select_recv_2( 0 );
       test_select_recv_2( 1 );
+    }
     test_select_recv_nowait( 0 );
     test_select_recv_nowait( 1 );
     test_select_send_1( 0 );
