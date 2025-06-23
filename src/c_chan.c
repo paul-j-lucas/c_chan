@@ -727,18 +727,16 @@ static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
   assert( mtx != NULL );
   assert( abs_time != NULL );
 
-  if ( abs_time == CHAN_NO_TIMEOUT ) {
-    PTHREAD_COND_WAIT( cond, mtx );
-    return 0;
-  }
+  int const pcw_rv = abs_time == CHAN_NO_TIMEOUT ?
+    pthread_cond_wait( cond, mtx ) :
+    pthread_cond_timedwait( cond, mtx, abs_time );
 
-  int const pct_rv = pthread_cond_timedwait( cond, mtx, abs_time );
-  switch ( pct_rv ) {
+  switch ( pcw_rv ) {
     case 0:
     case ETIMEDOUT:
-      return pct_rv;
+      return pcw_rv;
     default:
-      errno = pct_rv;
+      errno = pcw_rv;
       perror_exit( EX_IOERR );
   } // switch
 }
