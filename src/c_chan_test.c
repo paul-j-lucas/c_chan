@@ -248,39 +248,12 @@ static bool test_buf_chan( void ) {
 }
 
 /**
- * Tests that selecting from a buffered channel that isn't ready and not
- * waiting works.
- *
- * @return Returns `true` only if all tests passed.
- */
-static bool test_buf_select_recv_nowait( void ) {
-  TEST_FN_BEGIN();
-
-  struct chan chan;
-  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) == 0 ) ) {
-    int data = 0;
-    pthread_t thrd;
-
-    test_thrd_arg select_arg = TEST_THRD_ARG(
-      .recv_len = 1,
-      .recv_chan = (struct chan*[]){ &chan },
-      .recv_buf = (void*[]){ &data },
-      .rv = -1
-    );
-    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
-    TEST_PTHREAD_JOIN( thrd );
-  }
-
-  TEST_FN_END();
-}
-
-/**
- * Tests that selecting from a ready buffered channel works.
+ * Tests that selecting from a ready channel works.
  *
  * @param buf_cap The channel's capacity.
  * @return Returns `true` only if all tests passed.
  */
-static bool test_buf_select_recv_1( unsigned buf_cap ) {
+static bool test_select_recv_1( unsigned buf_cap ) {
   TEST_FN_BEGIN();
 
   struct chan chan;
@@ -315,17 +288,18 @@ static bool test_buf_select_recv_1( unsigned buf_cap ) {
 }
 
 /**
- * Tests that selecting from two buffered channels works.
+ * Tests that selecting from two channels works.
  *
+ * @param buf_cap The channel's capacity.
  * @return Returns `true` only if all tests passed.
  */
-static bool test_buf_select_recv_2( void ) {
+static bool test_select_recv_2( unsigned buf_cap ) {
   TEST_FN_BEGIN();
 
   struct chan chan0, chan1;
-  if ( !FN_TEST( chan_init( &chan0, /*buf_cap=*/1, sizeof(int) ) == 0 ) )
+  if ( !FN_TEST( chan_init( &chan0, buf_cap, sizeof(int) ) == 0 ) )
     goto error;
-  if ( !FN_TEST( chan_init( &chan1, /*buf_cap=*/1, sizeof(int) ) == 0 ) )
+  if ( !FN_TEST( chan_init( &chan1, buf_cap, sizeof(int) ) == 0 ) )
     goto close0;
 
   pthread_t thrd;
@@ -333,7 +307,8 @@ static bool test_buf_select_recv_2( void ) {
 
   test_thrd_arg send_arg = TEST_THRD_ARG(
     .chan = &chan1,
-    .send_val = 42
+    .send_val = 42,
+    .duration = CHAN_NO_TIMEOUT
   );
   PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_send, &send_arg );
   TEST_PTHREAD_JOIN( thrd );
@@ -342,6 +317,7 @@ static bool test_buf_select_recv_2( void ) {
     .recv_len = 2,
     .recv_chan = (struct chan*[]){ &chan0, &chan1 },
     .recv_buf = (void*[]){ &data0, &data1 },
+    .duration = CHAN_NO_TIMEOUT,
     .rv = CHAN_RECV(1)
   );
   PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
@@ -360,15 +336,43 @@ error:
 }
 
 /**
- * Tests that selecting from a ready buffered channel works.
+ * Tests that selecting from a channel that isn't ready and not waiting works.
  *
+ * @param buf_cap The channel's capacity.
  * @return Returns `true` only if all tests passed.
  */
-static bool test_buf_select_send_1( void ) {
+static bool test_select_recv_nowait( unsigned buf_cap ) {
   TEST_FN_BEGIN();
 
   struct chan chan;
-  if ( FN_TEST( chan_init( &chan, /*buf_cap=*/1, sizeof(int) ) == 0 ) ) {
+  if ( FN_TEST( chan_init( &chan, buf_cap, sizeof(int) ) == 0 ) ) {
+    int data = 0;
+    pthread_t thrd;
+
+    test_thrd_arg select_arg = TEST_THRD_ARG(
+      .recv_len = 1,
+      .recv_chan = (struct chan*[]){ &chan },
+      .recv_buf = (void*[]){ &data },
+      .rv = -1
+    );
+    PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
+    TEST_PTHREAD_JOIN( thrd );
+  }
+
+  TEST_FN_END();
+}
+
+/**
+ * Tests that selecting from a ready channel works.
+ *
+ * @param buf_cap The channel's capacity.
+ * @return Returns `true` only if all tests passed.
+ */
+static bool test_select_send_1( unsigned buf_cap ) {
+  TEST_FN_BEGIN();
+
+  struct chan chan;
+  if ( FN_TEST( chan_init( &chan, buf_cap, sizeof(int) ) == 0 ) ) {
     int data = 42;
     pthread_t recv_thrd, send_thrd;
 
@@ -459,9 +463,12 @@ int main( int argc, char const *argv[] ) {
 
   if ( test_buf_chan() &&
        test_unbuf_chan( sizeof(int) ) && test_unbuf_chan( 0 ) ) {
-    test_buf_select_recv_nowait();
-    test_buf_select_recv_1( 1 ) && test_buf_select_recv_2();
-    test_buf_select_send_1();
+    if ( test_select_recv_1( 0 ) && test_select_recv_1( 1 ) )
+      test_select_recv_2( 1 );
+    test_select_recv_nowait( 0 );
+    test_select_recv_nowait( 1 );
+    test_select_send_1( 0 );
+    test_select_send_1( 1 );
   }
 }
 
