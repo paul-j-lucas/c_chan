@@ -237,8 +237,7 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
     }
     // Since we can still read from a closed, non-empty, buffered channel, this
     // check is after the above.
-    rv = chan->is_closed ?
-      EPIPE :
+    rv = chan->is_closed ? EPIPE :
       chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } while ( rv == 0 );
 
