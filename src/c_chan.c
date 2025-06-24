@@ -517,8 +517,6 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
   while ( rv == 0 && chan->unbuf.state[ dir ] != CHAN_IMPL_UNBUF_AVAIL ) {
     if ( chan->is_closed )
       return EPIPE;
-    if ( abs_time == NULL )
-      return EAGAIN;
     rv = pthread_cond_wait_wrapper( &chan->unbuf.avail[ dir ], &chan->mtx,
                                     abs_time );
   } // while
@@ -678,9 +676,6 @@ static int chan_wait( struct chan *chan, chan_dir dir,
   assert( chan != NULL );
   assert( !chan->is_closed );
 
-  if ( abs_time == NULL )
-    return EAGAIN;
-
   ++chan->wait_cnt[ dir ];
   int const rv = pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
                                             &chan->mtx, abs_time );
@@ -714,14 +709,15 @@ static void obs_remove_all_chan( chan_impl_obs *remove_obs, unsigned chan_len,
 
 /**
  * Like **pthread_cond_wait**(3)** and **pthread_cond_timedwait**(3) except:
+ *  + If \a abs_time is `NULL`, returns immediatly.
  *  + If \a abs_time is \ref CHAN_NO_TIMEOUT, waits indefinitely.
  *  + Checks the return value of **pthread_cond_timedwait**(3) for errors other
  *    than `ETIMEDOUT`.
  *
  * @param cond The condition to wait for.
  * @param mtx The mutex to unlock temporarily.
- * @param abs_time When to wait until.  If \ref CHAN_NO_TIMEOUT, waits
- * indefinitely.
+ * @param abs_time When to wait until. If `NULL`, it's considered now (does not
+ * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns either 0 only if \a cond was signaled or `ETIMEDOUT` only if
  * it's now \a abs_time or later.
  */
@@ -731,7 +727,9 @@ static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
                                       struct timespec const *abs_time ) {
   assert( cond != NULL );
   assert( mtx != NULL );
-  assert( abs_time != NULL );
+
+  if ( abs_time == NULL )
+    return EAGAIN;
 
   int const pcw_rv = abs_time == CHAN_NO_TIMEOUT ?
     pthread_cond_wait( cond, mtx ) :
