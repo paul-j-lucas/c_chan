@@ -70,18 +70,6 @@ struct chan_impl_obs {
   pthread_mutex_t  *pmtx;               ///< The mutex to use.
 };
 
-/**
- * An unbuffered channel's state.
- *
- * @note This is an implementation detail not part of the public API.
- */
-enum chan_impl_unbuf_st {
-  CHAN_IMPL_UNBUF_AVAIL,                ///< Available for use.
-  CHAN_IMPL_UNBUF_READY,                ///< In use and ready to recv or send.
-  CHAN_IMPL_UNBUF_DONE                  ///< In use and done.
-};
-typedef enum chan_impl_unbuf_st chan_impl_unbuf_st;
-
 /** @} */
 
 ////////// public /////////////////////////////////////////////////////////////
@@ -127,7 +115,7 @@ struct chan {
       void               *recv_buf;     ///< Where to copy the message to.
       pthread_cond_t      avail[2];     ///< Recv/0, send/1 now available.
       pthread_cond_t      xfer_done[2]; ///< The receive is done.
-      chan_impl_unbuf_st  state[2];     ///< Recv/0, send/1 state.
+      bool                in_use[2];    ///< Recv/0, send/1 in use?
     } unbuf;
   };
 

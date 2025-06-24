@@ -514,14 +514,14 @@ NODISCARD
 static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
                                struct timespec const *abs_time ) {
   int rv = 0;
-  while ( rv == 0 && chan->unbuf.state[ dir ] != CHAN_IMPL_UNBUF_AVAIL ) {
+  while ( rv == 0 && chan->unbuf.in_use[ dir ] ) {
     if ( chan->is_closed )
       return EPIPE;
     rv = pthread_cond_wait_wrapper( &chan->unbuf.avail[ dir ], &chan->mtx,
                                     abs_time );
   } // while
   if ( rv == 0 )
-    chan->unbuf.state[ dir ] = CHAN_IMPL_UNBUF_READY;
+    chan->unbuf.in_use[ dir ] = true;
   return rv;
 }
 
@@ -552,22 +552,15 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
     chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_signal );
 
     do {
-      switch ( chan->unbuf.state[ CHAN_SEND ] ) {
-        case CHAN_IMPL_UNBUF_AVAIL:
-          rv = chan->is_closed ? EPIPE : chan_wait( chan, CHAN_RECV, abs_time );
-          break;
-        case CHAN_IMPL_UNBUF_READY:
-          chan->unbuf.state[ CHAN_SEND ] = CHAN_IMPL_UNBUF_DONE;
-          PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
-          break;
-        case CHAN_IMPL_UNBUF_DONE:
-          PTHREAD_COND_WAIT( &chan->unbuf.xfer_done[ CHAN_RECV ], &chan->mtx );
-          PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
-          goto done;
-      } // switch
+      if ( chan->unbuf.in_use[ CHAN_SEND ] ) {
+        PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
+        PTHREAD_COND_WAIT( &chan->unbuf.xfer_done[ CHAN_RECV ], &chan->mtx );
+        PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
+        break;
+      }
+      rv = chan->is_closed ? EPIPE : chan_wait( chan, CHAN_RECV, abs_time );
     } while ( rv == 0 );
 
-done:
     chan->unbuf.recv_buf = NULL;
     chan_unbuf_release( chan, CHAN_RECV );
   }
@@ -587,7 +580,7 @@ done:
  * @sa chan_unbuf_acquire()
  */
 static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
-  chan->unbuf.state[ dir ] = CHAN_IMPL_UNBUF_AVAIL;
+  chan->unbuf.in_use[ dir ] = false;
   PTHREAD_COND_SIGNAL( &chan->unbuf.avail[ dir ] );
 }
 
@@ -617,30 +610,17 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
     chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_signal );
 
     do {
-      if ( chan->is_closed ) {
-        rv = EPIPE;
+      if ( chan->unbuf.in_use[ CHAN_RECV ] ) {
+        if ( chan->msg_size > 0 )
+          memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
+        PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_RECV ] );
+        PTHREAD_COND_WAIT( &chan->unbuf.xfer_done[ CHAN_SEND ], &chan->mtx );
+        PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_RECV ] );
+        break;
       }
-      else {
-        switch ( chan->unbuf.state[ CHAN_RECV ] ) {
-          case CHAN_IMPL_UNBUF_AVAIL:
-            rv = chan_wait( chan, CHAN_SEND, abs_time );
-            break;
-          case CHAN_IMPL_UNBUF_READY:
-            if ( chan->msg_size > 0 )
-              memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
-            chan->unbuf.state[ CHAN_RECV ] = CHAN_IMPL_UNBUF_DONE;
-            PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_RECV ] );
-            break;
-          case CHAN_IMPL_UNBUF_DONE:
-            PTHREAD_COND_WAIT( &chan->unbuf.xfer_done[ CHAN_SEND ],
-                               &chan->mtx );
-            PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_RECV ] );
-            goto done;
-        } // switch
-      }
+      rv = chan->is_closed ? EPIPE : chan_wait( chan, CHAN_SEND, abs_time );
     } while ( rv == 0 );
 
-done:
     chan_unbuf_release( chan, CHAN_SEND );
   }
 
@@ -843,8 +823,8 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
     PTHREAD_COND_INIT( &chan->unbuf.avail[ CHAN_SEND ], /*attr=*/NULL );
     PTHREAD_COND_INIT( &chan->unbuf.xfer_done[ CHAN_RECV ], /*attr=*/NULL );
     PTHREAD_COND_INIT( &chan->unbuf.xfer_done[ CHAN_SEND ], /*attr=*/NULL );
-    chan->unbuf.state[ CHAN_RECV ] = CHAN_IMPL_UNBUF_AVAIL;
-    chan->unbuf.state[ CHAN_SEND ] = CHAN_IMPL_UNBUF_AVAIL;
+    chan->unbuf.in_use[ CHAN_RECV ] = false;
+    chan->unbuf.in_use[ CHAN_SEND ] = false;
   }
 
   chan->buf_cap = buf_cap;
