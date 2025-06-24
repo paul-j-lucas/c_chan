@@ -59,11 +59,7 @@
  * Argument passed to a thread's start function.
  */
 struct test_thrd_arg {
-  struct timespec const  *duration;     ///< Duration to wait, if any.
-  int                     rv;           ///< Expected function return value.
-
   union {
-
     /// For chan_recv(), chan_send() only.
     struct {
       struct chan        *chan;         ///< The channel to use.
@@ -82,10 +78,21 @@ struct test_thrd_arg {
       struct chan       **send_chan;    ///< Array of send channels, if any.
       void const        **send_buf;     ///< Array of send buffers, if any.
     };
-
   };
+
+  struct timespec const  *duration;     ///< Duration to wait, if any.
+  int                     rv;           ///< Expected function return value.
 };
 typedef struct test_thrd_arg test_thrd_arg;
+
+/**
+ * Argument passed to the thrd_fib_start function.
+ */
+struct fib_thrd_arg {
+  struct chan *fib_chan;
+  struct chan *quit_chan;
+};
+typedef struct fib_thrd_arg fib_thrd_arg;
 
 ////////// local functions ////////////////////////////////////////////////////
 
@@ -138,6 +145,37 @@ static void spin_wait_us( pthread_mutex_t *mtx, unsigned short *pus ) {
 
 ////////// test helper functions //////////////////////////////////////////////
 
+/**
+ * Generates Fibonacci numbers until told quit.
+ *
+ * @param fib_chan The \ref chan to send the next Fibonacci number to.
+ * @param quit_chan The \ref chan to receive a quit signal from.
+ *
+ * @sa [A Tour of Go: Select](https://go.dev/tour/concurrency/5)
+ */
+static void fibonacci( struct chan *fib_chan, struct chan *quit_chan ) {
+  unsigned fib = 0, prev_fib, next_fib = 1;
+  for (;;) {
+    int const rv = chan_select(
+      1, (struct chan*[]){ quit_chan }, (void      *[]){ NULL },
+      1, (struct chan*[]){ fib_chan  }, (void const*[]){ &fib },
+      CHAN_NO_TIMEOUT
+    );
+    switch ( rv ) {
+      case CHAN_RECV(0):                // If received quit ...
+        return;                         // ... quit.
+      case CHAN_SEND(0):                // If sent number ...
+        printf( "fib_chan <- %u\n", fib );
+        prev_fib = fib;                 // ... calculate next number.
+        fib = next_fib;
+        next_fib += prev_fib;
+        break;
+      default:
+        EPRINTF( "rv=%d, errno=%d (%s)", rv, errno, strerror( errno ) );
+    } // switch
+  } // for
+}
+
 static void* thrd_chan_recv( void *p ) {
   THRD_FN_BEGIN();
   test_thrd_arg *const arg = p;
@@ -171,6 +209,12 @@ static void* thrd_chan_send( void *p ) {
   if ( !THRD_FN_TEST( rv == arg->rv ) )
     print_rvs( arg->rv, rv );
   THRD_FN_END();
+}
+
+static void* thrd_fib_start( void *p ) {
+  fib_thrd_arg const *const arg = p;
+  fibonacci( arg->fib_chan, arg->quit_chan );
+  return NULL;
 }
 
 ////////// test functions /////////////////////////////////////////////////////
@@ -456,6 +500,45 @@ static bool test_unbuf_chan( size_t msg_size ) {
   TEST_FN_END();
 }
 
+/**
+ * Tests that a select of multiple unbuffered channels works.
+ *
+ * @sa [A Tour of Go: Select](https://go.dev/tour/concurrency/5)
+ */
+static bool test_select_unbuf_2( void ) {
+  TEST_FN_BEGIN();
+
+  struct chan fib_chan, quit_chan;
+  if ( !FN_TEST( chan_init( &fib_chan, 0, sizeof(unsigned) ) == 0 ) )
+    goto fib_chan_error;
+  if ( !FN_TEST( chan_init( &quit_chan, 0, 0 ) == 0 ) )
+    goto quit_chan_error;
+
+  pthread_t fib_thrd;
+  fib_thrd_arg arg = { &fib_chan, &quit_chan };
+  PTHREAD_CREATE( &fib_thrd, /*attr=*/NULL, &thrd_fib_start, &arg );
+
+  static unsigned const FIB[] = { 0, 1, 1, 2, 3, 5, 8, 13, 21, 34 };
+
+  for ( unsigned i = 0; i < ARRAY_SIZE( FIB ); ++i ) {
+    unsigned fib;
+    if ( !FN_TEST( chan_recv( &fib_chan, &fib, CHAN_NO_TIMEOUT ) == 0 ) )
+      goto fib_error;
+    printf( "fib := <- %u\n", fib );
+    if ( !FN_TEST( fib == FIB[i] ) )
+      goto fib_error;
+  }
+  if ( FN_TEST( chan_send( &quit_chan, NULL, CHAN_NO_TIMEOUT ) == 0 ) )
+    PTHREAD_JOIN( fib_thrd, NULL );
+
+fib_error:
+  chan_cleanup( &quit_chan, NULL );
+quit_chan_error:
+  chan_cleanup( &fib_chan, NULL );
+fib_chan_error:
+  TEST_FN_END();
+}
+
 ////////// main ///////////////////////////////////////////////////////////////
 
 int main( int argc, char const *argv[] ) {
@@ -471,6 +554,7 @@ int main( int argc, char const *argv[] ) {
     test_select_recv_nowait( 1 );
     test_select_send_1( 0 );
     test_select_send_1( 1 );
+    test_select_unbuf_2();
   }
 }
 
