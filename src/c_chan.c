@@ -794,15 +794,15 @@ void chan_close( struct chan *chan ) {
   bool const was_already_closed = chan->is_closed;
   chan->is_closed = true;
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
-  if ( !was_already_closed ) {          // Wake up all waiting threads, if any.
-    chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_broadcast );
-    chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_broadcast );
-    if ( chan->buf_cap == 0 ) {
-      PTHREAD_COND_BROADCAST( &chan->unbuf.released[ CHAN_RECV ] );
-      PTHREAD_COND_BROADCAST( &chan->unbuf.released[ CHAN_SEND ] );
-      PTHREAD_COND_BROADCAST( &chan->unbuf.xfer_done[ CHAN_RECV ] );
-      PTHREAD_COND_BROADCAST( &chan->unbuf.xfer_done[ CHAN_SEND ] );
-    }
+  if ( was_already_closed )
+    return;
+  chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_broadcast );
+  chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_broadcast );
+  if ( chan->buf_cap == 0 ) {
+    PTHREAD_COND_BROADCAST( &chan->unbuf.released[ CHAN_RECV ] );
+    PTHREAD_COND_BROADCAST( &chan->unbuf.released[ CHAN_SEND ] );
+    PTHREAD_COND_BROADCAST( &chan->unbuf.xfer_done[ CHAN_RECV ] );
+    PTHREAD_COND_BROADCAST( &chan->unbuf.xfer_done[ CHAN_SEND ] );
   }
 }
 
