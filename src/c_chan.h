@@ -64,10 +64,10 @@ typedef struct chan_impl_obs chan_impl_obs;
  */
 struct chan_impl_obs {
   struct chan      *chan;               ///< The channel being observed.
-  pthread_cond_t    chan_ready;         ///< Is \ref chan ready?
-  unsigned          key;                ///< A fairly unique key.
   chan_impl_obs    *next;               ///< The next observer, if any.
   pthread_mutex_t  *pmtx;               ///< The mutex to use.
+  pthread_cond_t    chan_ready;         ///< Is \ref chan ready?
+  unsigned          key;                ///< A fairly unique key.
 };
 
 /** @} */
