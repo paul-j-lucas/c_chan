@@ -561,14 +561,8 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
           PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
           break;
         case CHAN_IMPL_UNBUF_DONE:
-          if ( chan->is_closed ) {
-            rv = EPIPE;
-          }
-          else {
-            PTHREAD_COND_WAIT( &chan->unbuf.xfer_done[ CHAN_RECV ],
-                               &chan->mtx );
-            PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
-          }
+          PTHREAD_COND_WAIT( &chan->unbuf.xfer_done[ CHAN_RECV ], &chan->mtx );
+          PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
           goto done;
       } // switch
     } while ( rv == 0 );
