@@ -512,13 +512,13 @@ NODISCARD
 static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
                                struct timespec const *abs_time ) {
   int rv = 0;
-  while ( rv == 0 && chan->unbuf.in_use[ dir ] ) {
+  while ( rv == 0 && chan->unbuf.is_busy[ dir ] ) {
     rv = chan->is_closed ? EPIPE :
       pthread_cond_wait_wrapper( &chan->unbuf.released[ dir ], &chan->mtx,
                                  abs_time );
   } // while
   if ( rv == 0 )
-    chan->unbuf.in_use[ dir ] = true;
+    chan->unbuf.is_busy[ dir ] = true;
   return rv;
 }
 
@@ -549,7 +549,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
     chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_signal );
 
     do {
-      if ( chan->unbuf.in_use[ CHAN_SEND ] ) {
+      if ( chan->unbuf.is_busy[ CHAN_SEND ] ) {
         PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
         PTHREAD_COND_WAIT( &chan->unbuf.xfer_done[ CHAN_RECV ], &chan->mtx );
         PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
@@ -577,7 +577,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
  * @sa chan_unbuf_acquire()
  */
 static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
-  chan->unbuf.in_use[ dir ] = false;
+  chan->unbuf.is_busy[ dir ] = false;
   PTHREAD_COND_SIGNAL( &chan->unbuf.released[ dir ] );
 }
 
@@ -607,7 +607,7 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
     chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_signal );
 
     do {
-      if ( chan->unbuf.in_use[ CHAN_RECV ] ) {
+      if ( chan->unbuf.is_busy[ CHAN_RECV ] ) {
         if ( chan->msg_size > 0 )
           memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
         PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_RECV ] );
@@ -824,8 +824,8 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
     PTHREAD_COND_INIT( &chan->unbuf.released[ CHAN_SEND ], /*attr=*/NULL );
     PTHREAD_COND_INIT( &chan->unbuf.xfer_done[ CHAN_RECV ], /*attr=*/NULL );
     PTHREAD_COND_INIT( &chan->unbuf.xfer_done[ CHAN_SEND ], /*attr=*/NULL );
-    chan->unbuf.in_use[ CHAN_RECV ] = false;
-    chan->unbuf.in_use[ CHAN_SEND ] = false;
+    chan->unbuf.is_busy[ CHAN_RECV ] = false;
+    chan->unbuf.is_busy[ CHAN_SEND ] = false;
   }
 
   chan->buf_cap = buf_cap;
