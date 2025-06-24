@@ -515,10 +515,9 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
                                struct timespec const *abs_time ) {
   int rv = 0;
   while ( rv == 0 && chan->unbuf.in_use[ dir ] ) {
-    if ( chan->is_closed )
-      return EPIPE;
-    rv = pthread_cond_wait_wrapper( &chan->unbuf.released[ dir ], &chan->mtx,
-                                    abs_time );
+    rv = chan->is_closed ? EPIPE :
+      pthread_cond_wait_wrapper( &chan->unbuf.released[ dir ], &chan->mtx,
+                                 abs_time );
   } // while
   if ( rv == 0 )
     chan->unbuf.in_use[ dir ] = true;
