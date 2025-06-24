@@ -227,6 +227,8 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   do {
+    // Since we can still read from a closed, non-empty, buffered channel,
+    // there's no check for is_closed first.
     if ( chan->buf.ring_len > 0 ) {
       memcpy( recv_buf, chan_buf_at( chan, chan->buf.recv_idx ),
               chan->msg_size );
@@ -235,10 +237,7 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
         chan_signal_all_obs( chan, CHAN_BUF_NOT_FULL, &pthread_cond_signal );
       break;
     }
-    // Since we can still read from a closed, non-empty, buffered channel, this
-    // check is after the above.
-    rv = chan->is_closed ? EPIPE :
-      chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
+    rv = chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } while ( rv == 0 );
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
@@ -556,7 +555,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
         PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
         break;
       }
-      rv = chan->is_closed ? EPIPE : chan_wait( chan, CHAN_RECV, abs_time );
+      rv = chan_wait( chan, CHAN_RECV, abs_time );
     } while ( rv == 0 );
 
     chan->unbuf.recv_buf = NULL;
@@ -616,7 +615,7 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
         PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_RECV ] );
         break;
       }
-      rv = chan->is_closed ? EPIPE : chan_wait( chan, CHAN_SEND, abs_time );
+      rv = chan_wait( chan, CHAN_SEND, abs_time );
     } while ( rv == 0 );
 
     chan_unbuf_release( chan, CHAN_SEND );
@@ -637,6 +636,7 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
  * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
+ *  + `EPIPE` if \a chan is closed or:
  *  + `EAGAIN` if \a abs_time is `NULL`; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
@@ -646,13 +646,16 @@ NODISCARD
 static int chan_wait( struct chan *chan, chan_dir dir,
                       struct timespec const *abs_time ) {
   assert( chan != NULL );
-  assert( !chan->is_closed );
+
+  if ( chan->is_closed )
+    return EPIPE;
 
   ++chan->wait_cnt[ dir ];
   int const rv = pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
                                             &chan->mtx, abs_time );
   --chan->wait_cnt[ dir ];
 
+  // The channel could have been closed while waiting, so check again.
   return chan->is_closed ? EPIPE : rv;
 }
 
