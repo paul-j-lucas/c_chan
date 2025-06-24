@@ -559,11 +559,13 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
           rv = chan->is_closed ? EPIPE : chan_wait( chan, CHAN_RECV, abs_time );
           break;
         case CHAN_IMPL_UNBUF_READY:
+          chan->unbuf.state[ CHAN_SEND ] = CHAN_IMPL_UNBUF_DONE;
+          PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
+          break;
+        case CHAN_IMPL_UNBUF_DONE:
           rv = chan->is_closed ? EPIPE :
                pthread_cond_wait_wrapper( &chan->unbuf.xfer_done[ CHAN_RECV ],
                                           &chan->mtx, CHAN_NO_TIMEOUT );
-          break;
-        case CHAN_IMPL_UNBUF_DONE:
           PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_SEND ] );
           goto done;
       } // switch
@@ -631,12 +633,12 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
             if ( chan->msg_size > 0 )
               memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
             chan->unbuf.state[ CHAN_RECV ] = CHAN_IMPL_UNBUF_DONE;
-            chan->unbuf.state[ CHAN_SEND ] = CHAN_IMPL_UNBUF_DONE;
             PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_RECV ] );
             break;
           case CHAN_IMPL_UNBUF_DONE:
             rv = pthread_cond_wait_wrapper( &chan->unbuf.xfer_done[ CHAN_SEND ],
                                             &chan->mtx, CHAN_NO_TIMEOUT );
+            PTHREAD_COND_SIGNAL( &chan->unbuf.xfer_done[ CHAN_RECV ] );
             goto done;
         } // switch
       }
