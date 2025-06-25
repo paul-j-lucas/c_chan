@@ -881,7 +881,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   unsigned                      chans_open;   // number of open channels
   chan_impl_obs                 select_obs;   // observer for this select
   pthread_mutex_t               select_mtx;   // mutex for select_obs
-  chan_select_ref const        *selected_ref;
+  chan_select_ref const        *selected_ref; // reference to selected channel
   int                           rv;
   bool const                    wait = duration != NULL;
 
