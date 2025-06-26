@@ -441,7 +441,9 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
 
       PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
 
-      if ( !is_closed && (is_ready || add_obs != NULL) ) {
+      if ( is_closed )
+        continue;
+      if ( is_ready || add_obs != NULL ) {
         ref[ (*pref_len)++ ] = (chan_select_ref){
           .chan = chan[i],
           .dir = dir,
