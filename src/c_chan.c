@@ -432,7 +432,7 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
           (dir == CHAN_RECV ?
             chan[i]->buf.ring_len > 0 :
             chan[i]->buf.ring_len < chan[i]->buf_cap) :
-          chan[i]->unbuf.is_busy[ !dir ];
+          chan[i]->wait_cnt[ !dir ] > 0;
 
         if ( add_obs != NULL )
           chan_add_obs( chan[i], dir, add_obs );
