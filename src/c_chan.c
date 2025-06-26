@@ -879,13 +879,13 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   struct timespec               abs_ts;
   struct timespec const *const  abs_time = ts_dur_to_abs( duration, &abs_ts );
   unsigned                      chans_open;   // number of open channels
+  bool const                    is_blocking = duration != NULL;
   chan_impl_obs                 select_obs;   // observer for this select
   pthread_mutex_t               select_mtx;   // mutex for select_obs
   chan_select_ref const        *selected_ref; // reference to selected channel
   int                           rv;
-  bool const                    wait = duration != NULL;
 
-  if ( wait ) {
+  if ( is_blocking ) {
     PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/NULL );
     chan_obs_init( &select_obs, &select_mtx );
     chan_obs_init_key( &select_obs );
@@ -899,11 +899,11 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     unsigned const maybe_ready_len =    // number of channels that may be ready
       chan_select_init(
         ref, &chans_open, recv_len, recv_chan, CHAN_RECV,
-        wait ? &select_obs : NULL
+        is_blocking ? &select_obs : NULL
       ) +
       chan_select_init(
         ref, &chans_open, send_len, send_chan, CHAN_SEND,
-        wait ? &select_obs : NULL
+        is_blocking ? &select_obs : NULL
       );
 
     if ( chans_open == 0 )
@@ -923,7 +923,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       // sort them.
     }
 
-    if ( maybe_ready_len == 0 && wait ) {
+    if ( maybe_ready_len == 0 && is_blocking ) {
       // None of the channels may be ready and we should wait -- so wait.
       PTHREAD_MUTEX_LOCK( &select_mtx );
       if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
@@ -961,7 +961,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
         );
     }
 
-    if ( wait ) {
+    if ( is_blocking ) {
       obs_remove_all_chan( &select_obs, recv_len, recv_chan, CHAN_RECV );
       obs_remove_all_chan( &select_obs, send_len, send_chan, CHAN_SEND );
     }
@@ -993,7 +993,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       CHAN_SEND( selected_ref->param_idx );
   }
 
-  if ( wait ) {
+  if ( is_blocking ) {
     PTHREAD_COND_DESTROY( &select_obs.chan_ready );
     PTHREAD_MUTEX_DESTROY( &select_mtx );
   }
