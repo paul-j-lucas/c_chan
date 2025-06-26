@@ -352,8 +352,6 @@ static void chan_obs_init_key( chan_impl_obs *obs ) {
  * @param dir The direction of \a chan.
  * @param remove_obs The observer to remove.
  *
- * @warning \ref chan::mtx _must_ be locked before calling this function.
- *
  * @sa chan_add_obs()
  * @sa obs_remove_all_chan()
  */
@@ -366,10 +364,12 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
   // open when the observer was added.
 
 #ifndef NDEBUG
-  int debug_locked_cnt = 0;
-  bool debug_removed = false;
+  int   debug_locked_cnt = 0;
+  bool  debug_removed = false;
 #endif /* NDEBUG */
   pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
+
+  PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   for ( chan_impl_obs *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
         obs = next_obs, pmtx = next_pmtx ) {
@@ -392,9 +392,10 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
     }
   } // for
 
+  --chan->wait_cnt[ dir ];
+  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   assert( debug_locked_cnt == 0 );
   assert( debug_removed );
-  --chan->wait_cnt[ dir ];
 }
 
 /**
@@ -670,29 +671,6 @@ static int chan_wait( struct chan *chan, chan_dir dir,
 
   // The channel could have been closed while waiting, so check again.
   return chan->is_closed ? EPIPE : rv;
-}
-
-/**
- * Removes \a remove_obs as an observer from all \a chan.
- *
- * @param remove_obs The observer to remove.
- * @param chan_len The length of \a chan.
- * @param chan The array of channels to remove \a remove_obs from.  If \a
- * chan_len is 0, may be `NULL`.
- * @param dir The common direction of \a chan.
- *
- * @sa chan_remove_obs()
- */
-static void obs_remove_all_chan( chan_impl_obs *remove_obs, unsigned chan_len,
-                                 struct chan *chan[chan_len], chan_dir dir ) {
-  assert( remove_obs != NULL );
-  assert( chan_len == 0 || chan != NULL );
-
-  for ( unsigned i = 0; i < chan_len; ++i ) {
-    PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
-    chan_remove_obs( chan[i], dir, remove_obs );
-    PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
-  } // for
 }
 
 /**
@@ -974,8 +952,10 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     }
 
     if ( is_blocking ) {
-      obs_remove_all_chan( &select_obs, recv_len, recv_chan, CHAN_RECV );
-      obs_remove_all_chan( &select_obs, send_len, send_chan, CHAN_SEND );
+      for ( unsigned i = 0; i < recv_len; ++i )
+        chan_remove_obs( recv_chan[i], CHAN_RECV, &select_obs );
+      for ( unsigned i = 0; i < send_len; ++i )
+        chan_remove_obs( send_chan[i], CHAN_SEND, &select_obs );
     }
 
     // If rv is:
