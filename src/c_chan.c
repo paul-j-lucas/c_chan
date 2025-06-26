@@ -288,11 +288,24 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
 }
 
 /**
+ * Cleans-up a \ref chan_impl_obs.
+ *
+ * @param obs The \ref chan_impl_obs to clean up.
+ *
+ * @sa chan_obs_init()
+ */
+static void chan_obs_cleanup( chan_impl_obs *obs ) {
+  assert( obs != NULL );
+  PTHREAD_COND_DESTROY( &obs->chan_ready );
+}
+
+/**
  * Initializes a \ref chan_impl_obs.
  *
  * @param obs The \ref chan_impl_obs to initialize.
  * @param pmtx The mutex to use, if any.
  *
+ * @sa chan_obs_cleanup()
  * @sa chan_obs_init_key()
  */
 static void chan_obs_init( chan_impl_obs *obs, pthread_mutex_t *pmtx ) {
@@ -783,8 +796,8 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
     PTHREAD_COND_DESTROY( &chan->unbuf.xfer_done[ CHAN_SEND ] );
   }
 
-  PTHREAD_COND_DESTROY( &chan->observer[ CHAN_RECV ].chan_ready );
-  PTHREAD_COND_DESTROY( &chan->observer[ CHAN_SEND ].chan_ready );
+  chan_obs_cleanup( &chan->observer[ CHAN_RECV ] );
+  chan_obs_cleanup( &chan->observer[ CHAN_SEND ] );
   PTHREAD_MUTEX_DESTROY( &chan->mtx );
 }
 
@@ -994,7 +1007,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   }
 
   if ( is_blocking ) {
-    PTHREAD_COND_DESTROY( &select_obs.chan_ready );
+    chan_obs_cleanup( &select_obs );
     PTHREAD_MUTEX_DESTROY( &select_mtx );
   }
   if ( ref != stack_ref )
