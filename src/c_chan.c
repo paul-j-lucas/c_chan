@@ -939,7 +939,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       selected_ref = &ref[ rand() % (int)select_len ];
     }
 
-    if ( rv == 0 ) {
+    if ( selected_ref != NULL ) {
       rv = selected_ref->dir == CHAN_RECV ?
         chan_recv(
           selected_ref->chan, recv_buf[ selected_ref->param_idx ],
