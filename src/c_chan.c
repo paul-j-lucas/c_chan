@@ -187,7 +187,7 @@ static void chan_add_obs( struct chan *chan, chan_dir dir,
       if ( add_obs->key < next_obs->key ) {
         obs->next = add_obs;
         add_obs->next = next_obs;
-        next_obs = NULL;                // Will causeloop to exit ... (2)
+        next_obs = NULL;                // Will cause loop to exit ... (2)
         pmtx = next_pmtx;               // Will unlock next_mptx.
       }
       else {
@@ -365,7 +365,7 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
       // remove_obs is an observer in our caller's stack frame, i.e., this
       // thread, so there's no need to lock next_obs->pmtx.
       obs->next = next_obs->next;
-      next_obs = NULL;                  // Will causeloop to exit ... (1)
+      next_obs = NULL;                  // Will cause loop to exit ... (1)
       DEBUG_BLOCK( debug_removed = true; );
     }
     else if ( next_obs != NULL ) {
@@ -418,7 +418,7 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
           (dir == CHAN_RECV ?
             chan[i]->buf.ring_len > 0 :
             chan[i]->buf.ring_len < chan[i]->buf_cap) :
-          chan[i]->wait_cnt[ !dir ] > 0;
+          chan[i]->unbuf.is_busy[ !dir ];
 
         if ( add_obs != NULL )
           chan_add_obs( chan[i], dir, add_obs );
