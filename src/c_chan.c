@@ -943,7 +943,8 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
                                       abs_time ) == ETIMEDOUT ) {
         rv = ETIMEDOUT;
       }
-      else {
+      PTHREAD_MUTEX_UNLOCK( &select_mtx );
+      if ( rv == 0 ) {
         // A channel became ready: find it in our list.
         for ( unsigned i = 0; i < select_len; ++i ) {
           if ( select_obs.chan == ref[i].chan ) {
@@ -953,7 +954,6 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
         } // for
         assert( selected_ref != NULL );
       }
-      PTHREAD_MUTEX_UNLOCK( &select_mtx );
     }
     else {
       // Some or all channels may be ready: pick one at random.
