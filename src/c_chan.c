@@ -427,7 +427,8 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
       bool is_ready = false;
       PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
 
-      if ( !chan[i]->is_closed ) {
+      bool const is_closed = chan[i]->is_closed;
+      if ( !is_closed ) {
         is_ready = chan[i]->buf_cap > 0 ?
           (dir == CHAN_RECV ?
             chan[i]->buf.ring_len > 0 :
@@ -436,19 +437,18 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
 
         if ( add_obs != NULL )
           chan_add_obs( chan[i], dir, add_obs );
-
-        if ( is_ready || add_obs != NULL ) {
-          ref[ (*pref_len)++ ] = (chan_select_ref){
-            .chan = chan[i],
-            .dir = dir,
-            .param_idx = (unsigned short)i,
-            .maybe_ready = is_ready
-          };
-        }
       }
 
       PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
 
+      if ( !is_closed && (is_ready || add_obs != NULL) ) {
+        ref[ (*pref_len)++ ] = (chan_select_ref){
+          .chan = chan[i],
+          .dir = dir,
+          .param_idx = (unsigned short)i,
+          .maybe_ready = is_ready
+        };
+      }
       if ( is_ready )
         ++maybe_ready_len;
     } // for
