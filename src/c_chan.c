@@ -916,6 +916,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       // sort them.
     }
 
+    struct timespec const *might_as_well_wait_time;
     if ( maybe_ready_len == 0 && is_blocking ) {
       // None of the channels may be ready and we should wait -- so wait.
       PTHREAD_MUTEX_LOCK( &select_mtx );
@@ -933,24 +934,38 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
         } // for
         assert( selected_ref != NULL );
       }
+      might_as_well_wait_time = NULL;
     }
     else {
       // Some or all channels may be ready: pick one at random.
       static pthread_once_t once = PTHREAD_ONCE_INIT;
       PTHREAD_ONCE( &once, &srand_init );
       selected_ref = &ref[ rand() % (int)select_len ];
+      might_as_well_wait_time = chans_open == 1 ? abs_time : NULL;
     }
 
     if ( selected_ref != NULL ) {
+      struct chan *const selected_chan = selected_ref->chan;
       rv = selected_ref->dir == CHAN_RECV ?
-        chan_recv(
-          selected_ref->chan, recv_buf[ selected_ref->param_idx ],
-          /*duration=*/NULL
-        ) :
-        chan_send(
-          selected_ref->chan, send_buf[ selected_ref->param_idx ],
-          /*duration=*/NULL
-        );
+        selected_chan->buf_cap > 0 ?
+          chan_buf_recv(
+            selected_chan, recv_buf[ selected_ref->param_idx ],
+            might_as_well_wait_time
+          ) :
+          chan_unbuf_recv(
+            selected_chan, recv_buf[ selected_ref->param_idx ],
+            might_as_well_wait_time
+          )
+      :
+        selected_chan->buf_cap > 0 ?
+          chan_buf_send(
+            selected_chan, send_buf[ selected_ref->param_idx ],
+            might_as_well_wait_time
+          ) :
+          chan_unbuf_send(
+            selected_chan, send_buf[ selected_ref->param_idx ],
+            might_as_well_wait_time
+          );
     }
 
     if ( is_blocking ) {
