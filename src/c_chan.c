@@ -96,14 +96,14 @@ struct chan_select_ref {
   struct chan    *chan;                 ///< The \ref chan referred to.
 
   /**
-   * Index into either \p recv_chan and \p recv_buf, or \p send_chan and \p
+   * Index into either \a recv_chan and \a recv_buf, or \a send_chan and \a
    * send_buf parameters of chan_select().
    */
   unsigned short  param_idx;
 
   /**
-   * Indicates whether param_idx refers to either the \p recv_chan and \p
-   * recv_buf, or \p send_chan and \p send_buf parameters of chan_select().
+   * Indicates whether param_idx refers to either the \a recv_chan and \a
+   * recv_buf, or \a send_chan and \a send_buf parameters of chan_select().
    */
   chan_dir        dir;
 
