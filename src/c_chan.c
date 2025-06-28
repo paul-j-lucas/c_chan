@@ -127,12 +127,12 @@ static int  pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
 // local variables
 
 /// A variable to which \ref CHAN_NO_TIMEOUT can point.
-static struct timespec const  CHAN_NO_TIMEOUT_TIMESPEC;
+static struct timespec const  CHAN_NO_TIMEOUT_TS;
 
 /// @cond DOXYGEN_IGNORE
 
 // extern variables
-struct timespec const *const CHAN_NO_TIMEOUT = &CHAN_NO_TIMEOUT_TIMESPEC;
+struct timespec const *const CHAN_NO_TIMEOUT = &CHAN_NO_TIMEOUT_TS;
 
 /// @endcond
 
