@@ -863,11 +863,17 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     return -1;
   }
 
-  unsigned const total_channels = recv_len + send_len;
+  chan_select_ref  *ref, stack_ref[16];
+  unsigned const    total_channels = recv_len + send_len;
 
-  chan_select_ref stack_ref[16];
-  chan_select_ref *const ref = total_channels <= ARRAY_SIZE( stack_ref ) ?
-    stack_ref : malloc( total_channels * sizeof( chan_select_ref ) );
+  if ( total_channels <= ARRAY_SIZE( stack_ref ) ) {
+    ref = stack_ref;
+  }
+  else {
+    ref = malloc( total_channels * sizeof( chan_select_ref ) );
+    if ( unlikely( ref == NULL ) )
+      return -1;                        // malloc sets errno
+  }
 
   struct timespec               abs_ts;
   struct timespec const *const  abs_time = ts_dur_to_abs( duration, &abs_ts );
