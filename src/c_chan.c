@@ -922,8 +922,12 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       // sort them.
     }
 
-    struct timespec const *might_as_well_wait_time;
-    if ( maybe_ready_len == 0 && is_blocking ) {
+    struct timespec const *might_as_well_wait_time = NULL;
+    if ( chans_open == 1 ) {            // Degenerate case.
+      selected_ref = ref;
+      might_as_well_wait_time = abs_time;
+    }
+    else if ( maybe_ready_len == 0 && is_blocking ) {
       // None of the channels may be ready and we should wait -- so wait.
       PTHREAD_MUTEX_LOCK( &select_mtx );
       if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
@@ -940,14 +944,11 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
         } // for
         assert( selected_ref != NULL );
       }
-      might_as_well_wait_time = NULL;
     }
-    else {
-      // Some or all channels may be ready: pick one at random.
+    else {                              // Some or all may be ready: pick one.
       static pthread_once_t once = PTHREAD_ONCE_INIT;
       PTHREAD_ONCE( &once, &srand_init );
       selected_ref = &ref[ rand() % (int)select_len ];
-      might_as_well_wait_time = chans_open == 1 ? abs_time : NULL;
     }
 
     if ( selected_ref != NULL ) {
