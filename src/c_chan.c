@@ -905,8 +905,10 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
         is_blocking ? &select_obs : NULL
       );
 
-    if ( chans_open == 0 )
+    if ( chans_open == 0 ) {
+      rv = EPIPE;
       break;
+    }
 
     unsigned select_len = chans_open;   // number of channels to select from
 
