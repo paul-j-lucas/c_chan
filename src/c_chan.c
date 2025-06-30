@@ -729,7 +729,7 @@ static void srand_init( void ) {
  * or \ref CHAN_NO_TIMEOUT to mean wait indefinitely.
  * @param abs_time A pointer to receive the absolute time, but only if \a
  * duration is neither `NULL` nor \ref CHAN_NO_TIMEOUT.
- * @return Returns \a duration if either `NULL` or \a CHAN_NO_TIMEOUT, or \a
+ * @return Returns \a duration if either `NULL` or \ref CHAN_NO_TIMEOUT, or \a
  * abs_time otherwise.
  */
 NODISCARD
