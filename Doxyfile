@@ -18,7 +18,7 @@
 #       along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-PROJECT_NAME            = "C_Channel"
+PROJECT_NAME            = "C Chan"
 PROJECT_BRIEF           = "Channels library for C."
 
 INPUT                   = README.md src
