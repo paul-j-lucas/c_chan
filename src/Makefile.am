@@ -21,9 +21,9 @@
 noinst_LIBRARIES =	libc_chan.a
 check_PROGRAMS=	c_chan_test
 
-AM_CFLAGS =	$(C_CHAN_CFLAGS)
+AM_CFLAGS =	$(C_CHAN_CFLAGS) $(PTHREAD_CFLAGS)
 
-c_chan_test_LDADD = libc_chan.a
+c_chan_test_LDADD = libc_chan.a $(PTHREAD_LIBS)
 
 if ENABLE_ASAN
 AM_CFLAGS +=	-fsanitize=address -fno-omit-frame-pointer

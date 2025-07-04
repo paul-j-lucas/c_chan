@@ -40,6 +40,7 @@ AM_PROG_AR
 AC_PROG_INSTALL
 
 # Checks for libraries.
+AX_PTHREAD
 
 # Checks for header files.
 AC_CHECK_HEADERS([sysexits.h])
