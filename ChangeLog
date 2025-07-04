@@ -1,0 +1,232 @@
+2025-07-04  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan_test.c: Added #include <stdint.h>.
+   * configure.ac, ax_pthread.m4, src/Makefile.am: Added AX_PTHREAD.
+
+2025-06-30  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: chan_select() now correctly returns EPIPE if all channels are
+     closed.
+
+2025-06-28  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Now handling chans_open == 1 case specially.
+   * c_chan.c: Now checking malloc in chan_select for NULL.
+
+2025-06-27  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Added might_as_well_wait_time.
+
+2025-06-26  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Now using "continue".
+   * c_chan.c: Now holding chan->mtx for less time.
+   * c_chan.c: Reverted to using wait_cnt[ !dir ] > 0.
+   * c_chan.c, c_chan.h: s/xfer/cpy/
+   * c_chan.c: Chaned "if" condition.
+   * c_chan.c: Removed obs_remove_all_chan().
+   * c_chan.c: Holding select_mtx less.
+   * c_chan.c: Added chan_obs_cleanup.
+
+2025-06-25  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: s/wait_cnt/unbuf.is_busy/
+   * c_chan.c: s/wait/is_blocking/
+
+2025-06-24  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h: s/released/not_busy/
+   * c_chan.h: struct member rearrangement.
+   * c_chan.c, c_chan.h: s/in_use/is_busy/
+   * c_chan.c: chan_wait() now handles is_closed.
+   * c_chan_test.c: Added Fibonacci test.
+   * c_chan.c, c_chan.h: s/avail/released/
+   * c_chan.c, c_chan.h: Eliminated chan_impl_unbuf_st.
+   * c_chan.c: Removed check for is_closed.
+   * c_chan.c: Moved test for abs_time == NULL into pthread_cond_wait_wrapper.
+   * c_chan.c: Now just using PTHREAD_COND_WAIT.
+   * c_chan.c: Unbuffered works.
+
+2025-06-23  Paul J. Lucas <paul@lucasmail.org>
+
+   * unit_test.c: Eliminated test_prog_usage().
+   * c_chan_test.c: Fixed test.
+
+2025-06-22  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h, c_chan_test.c: Now using xfer_done.
+   * c_chan_test.c: Added missing .duration = CHAN_NO_TIMEOUT.
+   * c_chan.c, c_chan.h: Now using tri-state for unbuffered channels.
+   * c_chan.c, c_chan.h: s/available/avail/
+   * c_chan_test.c: Added printing of function return values.
+   * util.h: Added EPUTC, EPUTS.
+   * unit_test.h: Added '!'.
+   * unit_test.c: Added call to setvbuf.
+
+2025-06-21  Paul J. Lucas <paul@lucasmail.org>
+
+   * configure.ac: Added -Wno-cast-function-type-strict.
+   * c_chan.c, util.h: Added locked_cnt.
+   * c_chan.c, c_chan.h: s/chan_obs_impl/chan_impl_obs/
+
+2025-06-19  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan_test.c, unit_test.h: Eliminated use of _Atomic.
+   * c_chan_test.c, util.h: Moved PTHREAD_CREATE and PTHREAD_JOIN to util.h;
+     renaming.
+
+2025-06-18  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h: Went back to recv_buf.
+
+2025-06-17  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h: Now using temp_buf.
+   * c_chan.c, c_chan.h: s/is_free/available/
+   * c_chan.c, c_chan.h: Eliminated send_done condition variable.
+   * c_chan.c, c_chan.h: Betted unbuffered code.
+
+2025-06-16  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Undid check for recv_buf/send_buf != NULL.
+   * c_chan.c: Fixed several things in chan_select.
+   * c_chan.c: Replaced assert with "if".
+
+2025-06-15  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan_test.c: Now using variables for arg.
+   * src/Makefile.am: Fixed dependencies.
+   * c_chan.c: Removed unneeded forward declarations.
+   * c_chan.c: Removed asserts.
+   * c_chan.c, c_chan.h, c_chan_test.c: Added recv_cnt; proper handling of
+     zero-sized messages.
+
+2025-06-14  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Fixed return value of chan_wait.
+   * c_chan.c: Added assert that observer keys are never equal.
+   * c_chan.c: Added assert() to ensure observer was removed.
+   * c_chan.c, c_chan.h, c_chan_test.c: Now using EINVAL.
+
+2025-06-13  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Consistent treatment of msg_size and buffers in chan_send() and
+     chan_receive().
+   * c_chan.c: s/0/NULL/
+   * c_chan.h: Don't need forward declaration.
+   * c_chan.c, c_chan.h: s/free_fn/msg_cleanup_fn/
+   * c_chan.c: Moved mutex init of select_mtx before chan_obs_init.
+   * c_chan.c: Eliminated chan_is_buffered().
+   * c_chan.c, c_chan.h: Made closing a channel optional.
+
+2025-06-12  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h, c_chan_test.c: s/channel/chan/
+   * c_chan.c: s/CHAN_NO_TIMEOUT/abs_time/
+   * c_chan.c: Better logic in chan_unbuf_recv().
+   * c_chan.c: abs_time == NULL now handled outside
+     pthread_cond_wait_wrapper().
+
+2025-06-11  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.h: Fixed doi URL.
+   * c_chan_test.c: Added TEST_FN_BEGIN(), TEST_FN_END().
+   * c_chan.c, c_chan.h: s/data/a message/
+   * c_chan.c, c_chan.h, c_chan_test.c: Now using EAGAIN.
+   * c_chan.c: Added NODISCARD.
+   * c_chan.c: chan_notify() now does nothing if nobody is waiting.
+   * c_chan.c: Eliminated ifs.
+   * c_chan.c: More explicit loop.
+   * c_chan.c, c_chan.h, c_chan_test.c: s/CHAN_SELECT/CHAN/
+   * c_chan.c, c_chan.h, c_chan_test.c: Eliminated chan_rv.
+   * c_chan.c, c_chan.h: Back to using -1 for chan_select() return value.
+
+2025-06-10  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Added assert().
+   * c_chan.c, c_chan.h: chan_select() now also returns either CHAN_CLOSED or
+     CHAN_TIMEDOUT.
+   * c_chan_test.c: Added temp vars.
+   * c_chan.c: Fixed declarations of chan_unbuf_recv and chan_unbuf_send.
+   * c_chan.c: Now using do...while.
+   * c_chan.c: Initializing rv.
+   * unit_test.c: Added "static".
+   * c_chan.c: Now aborting if cleaning-up an open channel.
+   * util.h: Added missing #include.
+   * configure.ac, pjl_compile.m4: Added check for __builtin_expect.
+
+2025-06-09  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan_test.c: More tests.
+   * c_chan_test.c: Another test.
+   * c_chan_test.c: More tests.
+
+2025-06-08  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan_test.c: Test that we select and receive from a ready channel.
+   * c_chan_test.c: Testing closed unbufferd channels.
+   * c_chan_test.c: Testing closed buffered channels.
+   * c_chan.c: Fixed receiving from a closed but non-empty channel.
+   * c_chan_test.c, unit_test.c, unit_test.h: Unit tests are now thread-safe.
+
+2025-06-02  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan_test.c: Now using common thrd_arg.
+   * c_chan_test.c: Now using thrd_arg.
+   * c_chan_test.c: Another test.
+
+2025-06-01  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Now using a loop in chan_select().
+   * c_chan.c: Now initializing select_mtx only if waiting.
+   * c_chan.c: Moved unlocking.
+   * c_chan.c: Split out chan_obs_add().
+
+2025-05-31  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h: Added key to chan_obs_impl; now inserting in key
+     order.
+   * c_chan.c: chan_select_init() can now take chan == NULL.
+   * c_chan_test.c: Updated tests.
+   * c_chan.c: Fixed chan_unbuf_recv().
+   * c_chan.c: Added assert.
+   * c_chan.c: s/check_pthread_cond_timedwait/pthread_cond_wait_wrapper/
+   * c_chan_test.c: First chan_select() test.
+
+2025-05-30  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan_test.c: Added missing close/cleanup.
+   * c_chan.c: Hand-over-hand locking.
+   * c_chan.c, c_chan.h, c_chan_test.c: Now using absolute time internally.
+
+2025-05-29  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, util.h: Now using pthread_once().
+   * c_chan.c: s/8/16/
+   * c_chan.c: Made chan_select_init() return maybe_ready.
+   * c_chan.c, c_chan.h, c_chan_test.c: Added recv_buf_is_null.
+
+2025-05-28  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h: Big update.
+   * c_chan_test.c: Now using wait_cnt array.
+   * util.c: Eliminated "me"; now using PACKAGE.
+
+2025-05-18  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h: Eliminated unbuf.mtx[1].
+
+2025-05-17  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h, c_chan_test.c: Added chan_rv.
+   * unit_test.c, unit_test.h: Made test_failures be _Atomic.
+   * Doxyfile, Makefile.am, bootstrap, c_chan.css, configure.ac, makedoc.sh,
+     src/Makefile.am, c_chan.c, c_chan.h, c_chan_test.c, unit_test.h, util.c,
+     util.h: s/C Channel/c_chan/
+   * src/Makefile.am, c_chan.c, c_chan_test.c, unit_test.c, unit_test.h,
+     util.c, util.h: Added util.c, unit_test.c.
+
+2025-05-16  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h: Compiles.
+   * util.h: Added PTHREAD_COND_SIGNAL.
