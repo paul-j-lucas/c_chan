@@ -1,5 +1,6 @@
 .dirstamp
 /assert.h
+/fcntl.h
 /stddef.h
 /stdlib.h
 /stdnoreturn.h
