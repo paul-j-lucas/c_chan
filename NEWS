@@ -5,6 +5,12 @@ See the end of the file for license conditions.
 
 -------------------------------------------------------------------------------
 
+* Changes in c_chan 1.0.1
+
+** Receive select from a closed, but non-empty, buffered channel
+Selecting from a closed, but non-empty, buffered channel now works.
+
+
 * Changes in c_chan 1.0
 
 ** Initial version

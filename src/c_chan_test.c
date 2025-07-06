@@ -408,6 +408,43 @@ static bool test_select_recv_nowait( unsigned buf_cap ) {
 }
 
 /**
+ * Tests that selecting from a closed, non-empty, buffered channel works.
+ *
+ * @return Returns `true` only if all tests passed.
+ */
+static bool test_select_buf_recv_closed( void ) {
+  TEST_FN_BEGIN();
+
+  struct chan chan;
+  if ( FN_TEST( chan_init( &chan, 1, sizeof(int) ) == 0 ) ) {
+    pthread_t recv_thrd, send_thrd;
+
+    test_thrd_arg arg = TEST_THRD_ARG(
+      .chan = &chan,
+      .duration = CHAN_NO_TIMEOUT,
+      .send_val = 42
+    );
+
+    PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
+    TEST_PTHREAD_JOIN( send_thrd );
+    chan_close( &chan );
+
+    int data = 0;
+    test_thrd_arg select_arg = TEST_THRD_ARG(
+      .recv_len = 1,
+      .recv_chan = (struct chan*[]){ &chan },
+      .recv_buf = (void*[]){ &data },
+      .rv = CHAN_RECV(0)
+    );
+    PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
+    TEST_PTHREAD_JOIN( recv_thrd );
+    FN_TEST( data == 42 );
+  }
+
+  TEST_FN_END();
+}
+
+/**
  * Tests that selecting from a ready channel works.
  *
  * @param buf_cap The channel's capacity.
@@ -553,6 +590,7 @@ int main( int argc, char const *argv[] ) {
     }
     test_select_recv_nowait( 0 );
     test_select_recv_nowait( 1 );
+    test_select_buf_recv_closed();
     test_select_send_1( 0 );
     test_select_send_1( 1 );
     test_select_unbuf_2();

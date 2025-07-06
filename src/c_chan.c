@@ -288,6 +288,21 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
 }
 
 /**
+ * Checks whether \a chan is "hard closed."
+ *
+ * @remarks A non-empty buffered channel can still be received from even if
+ * it's closed, so \a chan shouldn't be considered "hard closed" if it's such a
+ * channel.
+ *
+ * @param dir The direction of \a chan to check.
+ * @return Returns `true` only if \a chan is "hard closed."
+ */
+static bool chan_is_hard_closed( struct chan const *chan, chan_dir dir ) {
+  return  chan->is_closed &&
+          (dir == CHAN_SEND || chan->buf_cap == 0 || chan->buf.ring_len == 0);
+}
+
+/**
  * Cleans-up a \ref chan_impl_obs.
  *
  * @param obs The \ref chan_impl_obs to clean up.
@@ -427,8 +442,8 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
       bool is_ready = false;
       PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
 
-      bool const is_closed = chan[i]->is_closed;
-      if ( !is_closed ) {
+      bool const is_hard_closed = chan_is_hard_closed( chan[i], dir );
+      if ( !is_hard_closed ) {
         is_ready = chan[i]->buf_cap > 0 ?
           (dir == CHAN_RECV ?
             chan[i]->buf.ring_len > 0 :
@@ -441,7 +456,7 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
 
       PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
 
-      if ( is_closed )
+      if ( is_hard_closed )
         continue;
       if ( is_ready || add_obs != NULL ) {
         ref[ (*pref_len)++ ] = (chan_select_ref){
@@ -672,7 +687,7 @@ static int chan_wait( struct chan *chan, chan_dir dir,
   --chan->wait_cnt[ dir ];
 
   // The channel could have been closed while waiting, so check again.
-  return chan->is_closed ? EPIPE : rv;
+  return chan_is_hard_closed( chan, dir ) ? EPIPE : rv;
 }
 
 /**
