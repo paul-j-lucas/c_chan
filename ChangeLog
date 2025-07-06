@@ -1,3 +1,8 @@
+2025-07-06  Paul J. Lucas <paul@lucasmail.org>
+
+   * configure.ac, c_chan.c, c_chan_test.c: Selecting from a closed, but
+     non-empty, buffered channel now works.
+
 2025-07-04  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan_test.c: Added #include <stdint.h>.
