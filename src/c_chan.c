@@ -297,6 +297,7 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
  * @param dir The direction of \a chan to check.
  * @return Returns `true` only if \a chan is "hard closed."
  */
+NODISCARD
 static bool chan_is_hard_closed( struct chan const *chan, chan_dir dir ) {
   return  chan->is_closed &&
           (dir == CHAN_SEND || chan->buf_cap == 0 || chan->buf.ring_len == 0);
