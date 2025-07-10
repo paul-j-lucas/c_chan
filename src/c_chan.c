@@ -35,7 +35,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>                     /* for memcpy(3) */
-#include <sys/time.h>                   /* for gettimeofday(2) */
+#include <sys/time.h>                   /* for clock_gettime(3) */
 #include <unistd.h>
 
 /// @endcond
@@ -733,9 +733,9 @@ static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
  * Calls **srand**(3) using the time-of-day as the seed.
  */
 static void srand_init( void ) {
-  struct timeval now;
-  (void)gettimeofday( &now, /*tzp=*/NULL );
-  srand( (unsigned)now.tv_usec );
+  struct timespec now;
+  CLOCK_GETTIME( CLOCK_REALTIME, &now );
+  srand( (unsigned)now.tv_nsec );
 }
 
 /**
@@ -756,12 +756,12 @@ static struct timespec const* ts_dur_to_abs( struct timespec const *duration,
   if ( duration == NULL || duration == CHAN_NO_TIMEOUT )
     return duration;
 
-  struct timeval now;
-  (void)gettimeofday( &now, /*tzp=*/NULL );
+  struct timespec now;
+  CLOCK_GETTIME( CLOCK_REALTIME, &now );
 
   *abs_time = (struct timespec){
-    .tv_sec  = now.tv_sec         + duration->tv_sec,
-    .tv_nsec = now.tv_usec * 1000 + duration->tv_nsec
+    .tv_sec  = now.tv_sec  + duration->tv_sec,
+    .tv_nsec = now.tv_nsec + duration->tv_nsec
   };
 
   return abs_time;

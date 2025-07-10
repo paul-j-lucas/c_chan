@@ -90,6 +90,15 @@
 #define BLOCK(...)                do { __VA_ARGS__ } while (0)
 
 /**
+ * Calls **clock_gettime**(3) and checks for failure.
+ *
+ * @param CLOCK_ID The clock ID to use.
+ * @param PTS A pointer to the `timespec` `struct` to store the time into.
+ */
+#define CLOCK_GETTIME(CLOCK_ID,PTS) \
+  PERROR_EXIT_IF( clock_gettime( (CLOCK_ID), (PTS) ) != 0, EX_OSERR )
+
+/**
  * Embeds the given statements into a compound statement block, but only if
  * `NDEBUG` is _not_ defined; otherwise does nothing.
  *
