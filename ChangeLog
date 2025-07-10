@@ -1,5 +1,10 @@
+2025-07-09  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, util.h: Now using clock_gettime() rather than gettimeofday().
+
 2025-07-06  Paul J. Lucas <paul@lucasmail.org>
 
+   * c_chan.c: Added NODISCARD.
    * configure.ac, c_chan.c, c_chan_test.c: Selecting from a closed, but
      non-empty, buffered channel now works.
 
