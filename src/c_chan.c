@@ -730,12 +730,20 @@ static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
 }
 
 /**
- * Calls **srand**(3) using the time-of-day as the seed.
+ * Gets a seed for **rand_r**(3) or **srand**(3).
+ *
+ * @param abs_time A pointer to an absolute time.  If not `NULL` nor \ref
+ * CHAN_NO_TIMEOUT, uses it as the basis for a seed; otherwise, uses the
+ * current time.
+ * @return Returns a pseudo-random unsigned integer in the range 0 to
+ * `RAND_MAX`.
  */
-static void srand_init( void ) {
+static unsigned rand_seed( struct timespec const *abs_time ) {
+  if ( abs_time != NULL && abs_time != CHAN_NO_TIMEOUT )
+    return (unsigned)abs_time->tv_nsec;
   struct timespec now;
   CLOCK_GETTIME( CLOCK_REALTIME, &now );
-  srand( (unsigned)now.tv_nsec );
+  return (unsigned)now.tv_nsec;
 }
 
 /**
@@ -895,6 +903,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   struct timespec const *const  abs_time = ts_dur_to_abs( duration, &abs_ts );
   unsigned                      chans_open;   // number of open channels
   bool const                    is_blocking = duration != NULL;
+  unsigned                      seed = 0;     // random number seed
   chan_impl_obs                 select_obs;   // observer for this select
   pthread_mutex_t               select_mtx;   // mutex for select_obs
   chan_select_ref const        *selected_ref; // reference to selected channel
@@ -964,9 +973,9 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       }
     }
     else {                              // Some or all may be ready: pick one.
-      static pthread_once_t once = PTHREAD_ONCE_INIT;
-      PTHREAD_ONCE( &once, &srand_init );
-      selected_ref = &ref[ rand() % (int)select_len ];
+      if ( seed == 0 )
+        seed = rand_seed( abs_time );
+      selected_ref = &ref[ rand_r( &seed ) % (int)select_len ];
     }
 
     if ( selected_ref != NULL ) {

@@ -350,15 +350,6 @@
   PERROR_EXIT_IF( pthread_mutex_unlock( (MTX) ) != 0, EX_IOERR )
 
 /**
- * Calls **pthread_once**(3), checks for an error, and exits if there was one.
- *
- * @param ONCE The "once" variable to use.
- * @param FN The pointer to the function to call once.
- */
-#define PTHREAD_ONCE(ONCE,FN) \
-  PERROR_EXIT_IF( pthread_once( (ONCE), (FN) ) != 0, EX_IOERR )
-
-/**
  * Synthesises a name prefixed by \a PREFIX unique to the line on which it's
  * used.
  *

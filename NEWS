@@ -5,6 +5,12 @@ See the end of the file for license conditions.
 
 -------------------------------------------------------------------------------
 
+* Changes in c_chan 1.0.2
+
+** `rand_r`
+Now using `rand_r` rather than `rand`.
+
+
 * Changes in c_chan 1.0.1
 
 ** Receive select from a closed, but non-empty, buffered channel

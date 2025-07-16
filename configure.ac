@@ -21,7 +21,7 @@
 ##
 
 AC_PREREQ([2.69])
-AC_INIT([c_chan],[1.0.1],[https://github.com/paul-j-lucas/c_chan/issues],[],[https://github.com/paul-j-lucas/c_chan])
+AC_INIT([c_chan],[1.0.2],[https://github.com/paul-j-lucas/c_chan/issues],[],[https://github.com/paul-j-lucas/c_chan])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
