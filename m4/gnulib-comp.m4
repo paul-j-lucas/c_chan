@@ -59,12 +59,10 @@ AC_DEFUN([gl_EARLY],
   # Code from module snippet/warn-on-use:
   # Code from module ssize_t:
   # Code from module std-gnu11:
-  # Code from module stdbool:
   # Code from module stddef-h:
   # Code from module stdlib-h:
   # Code from module sys_types-h:
   AC_REQUIRE([AC_USE_SYSTEM_EXTENSIONS])
-  # Code from module sysexits:
   # Code from module sysexits-h:
   # Code from module unistd-h:
 ])

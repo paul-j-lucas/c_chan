@@ -29,13 +29,12 @@
 #  --doc-base=doc \
 #  --tests-base=tests \
 #  --aux-dir=. \
-#  --lgpl \
 #  --no-conditional-dependencies \
 #  --no-libtool \
 #  --macro-prefix=gl \
 #  attribute \
-#  stdbool \
-#  sysexits
+#  bool \
+#  sysexits-h
 
 AUTOMAKE_OPTIONS = 1.14 gnits
 
