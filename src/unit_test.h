@@ -23,6 +23,9 @@
 
 #pragma GCC diagnostic ignored "-Wunused-value"
 
+// standard
+#include <stdio.h>
+
 /**
  * @defgroup unit-test-group Unit Tests
  * Macros, variables, and functions for unit-test programs.
@@ -43,7 +46,7 @@
 #define TEST_INC_FAIL_CNT(EXPR,INC_FAIL_CNT_EXPR) \
   ( !!(EXPR) ||                                   \
     ( (INC_FAIL_CNT_EXPR),                        \
-      !EPRINTF( "%s:%d: " #EXPR "\n", test_prog_name, __LINE__ ) ) )
+      !fprintf( stderr, "%s:%d: " #EXPR "\n", test_prog_name, __LINE__ ) ) )
 
 ///////////////////////////////////////////////////////////////////////////////
 
