@@ -61,8 +61,8 @@ you can generate `configure` yourself by doing:
 
     ./bootstrap
 
-Then follow the generic installation instructions given in
-[`INSTALL`](https://github.com/paul-j-lucas/c_exception/blob/master/INSTALL).
+Then follow the generic installation instructions
+given in `INSTALL`.
 
 If you would like to generate the developer documentation,
 you will also need
