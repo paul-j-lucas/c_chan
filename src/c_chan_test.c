@@ -31,7 +31,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sysexits.h>
 #include <time.h>
 
 #define FN_TEST(EXPR)             TEST_INC_FAIL_CNT(EXPR, ++fn_fail_cnt)
