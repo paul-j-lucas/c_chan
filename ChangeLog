@@ -1,3 +1,12 @@
+2025-10-06  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan_test.c: Removed unnecessary #include.
+   * unit_test.h: No longer dependent on util.h.
+
+2025-07-16  Paul J. Lucas <paul@lucasmail.org>
+
+   * configure.ac, c_chan.c, util.h: Now using rand_r.
+
 2025-07-09  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.c, util.h: Now using clock_gettime() rather than gettimeofday().
