@@ -294,6 +294,7 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
  * it's closed, so \a chan shouldn't be considered "hard closed" if it's such a
  * channel.
  *
+ * @param chan The \ref chan to check.
  * @param dir The direction of \a chan to check.
  * @return Returns `true` only if \a chan is "hard closed."
  */
