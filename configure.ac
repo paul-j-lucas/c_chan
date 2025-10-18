@@ -43,7 +43,6 @@ AC_PROG_INSTALL
 AX_PTHREAD
 
 # Checks for header files.
-AC_CHECK_HEADERS([sysexits.h])
 AC_HEADER_ASSERT
 AC_HEADER_STDBOOL
 gl_INIT
