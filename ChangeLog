@@ -1,3 +1,12 @@
+2025-10-18  Paul J. Lucas <paul@lucasmail.org>
+
+   * configure.ac: Removed -Wzero-as-null-pointer-constant -- not valid for C.
+
+2025-10-17  Paul J. Lucas <paul@lucasmail.org>
+
+   * configure.ac: Removed unnecessary AC_CHECK_HEADERS.
+   * Makefile.am: Added --no-vc-files.
+
 2025-10-15  Paul J. Lucas <paul@lucasmail.org>
 
    * configure.ac, pjl_check_compile_flag.m4: Added PJL_CHECK_COMPILE_FLAG.
