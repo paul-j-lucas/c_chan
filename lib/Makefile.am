@@ -32,6 +32,7 @@
 #  --no-conditional-dependencies \
 #  --no-libtool \
 #  --macro-prefix=gl \
+#  --no-vc-files \
 #  attribute \
 #  bool \
 #  sysexits-h
@@ -99,10 +100,12 @@ fcntl.h: fcntl.in.h $(top_builddir)/config.status $(CXXDEFS_H) $(ARG_NONNULL_H) 
 	      -e 's/@''GNULIB_NONBLOCKING''@/$(GL_GNULIB_NONBLOCKING)/g' \
 	      -e 's/@''GNULIB_OPEN''@/$(GL_GNULIB_OPEN)/g' \
 	      -e 's/@''GNULIB_OPENAT''@/$(GL_GNULIB_OPENAT)/g' \
+	      -e 's/@''GNULIB_OPENAT2''@/$(GL_GNULIB_OPENAT2)/g' \
 	      -e 's/@''GNULIB_MDA_CREAT''@/$(GL_GNULIB_MDA_CREAT)/g' \
 	      -e 's/@''GNULIB_MDA_OPEN''@/$(GL_GNULIB_MDA_OPEN)/g' \
 	      -e 's|@''HAVE_FCNTL''@|$(HAVE_FCNTL)|g' \
 	      -e 's|@''HAVE_OPENAT''@|$(HAVE_OPENAT)|g' \
+	      -e 's|@''HAVE_OPENAT2''@|$(HAVE_OPENAT2)|g' \
 	      -e 's|@''REPLACE_CREAT''@|$(REPLACE_CREAT)|g' \
 	      -e 's|@''REPLACE_FCNTL''@|$(REPLACE_FCNTL)|g' \
 	      -e 's|@''REPLACE_OPEN''@|$(REPLACE_OPEN)|g' \
