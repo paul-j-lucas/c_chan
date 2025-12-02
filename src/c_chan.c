@@ -669,7 +669,7 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
  * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EPIPE` if \a chan is closed or:
+ *  + `EPIPE` if \a chan is closed; or:
  *  + `EAGAIN` if \a abs_time is `NULL`; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
