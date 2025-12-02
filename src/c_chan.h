@@ -84,6 +84,8 @@ struct chan_impl_obs {
  * For use with cases of a `switch` statement on chan_select() to specify the
  * index of a receive channel.
  *
+ * @param IDX The index into the \a recv_chan array parameter of chan_select().
+ *
  * @sa #CHAN_SEND
  */
 #define CHAN_RECV(IDX)            ((int)(IDX))
@@ -91,6 +93,8 @@ struct chan_impl_obs {
 /**
  * For use with cases of a `switch` statement on chan_select() to specify the
  * index of a send channel.
+ *
+ * @param IDX The index into the \a send_chan array parameter of chan_select().
  *
  * @sa #CHAN_RECV
  */
