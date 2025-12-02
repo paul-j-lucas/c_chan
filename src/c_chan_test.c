@@ -146,7 +146,7 @@ static void spin_wait_us( pthread_mutex_t *mtx, unsigned short *pus ) {
 ////////// test helper functions //////////////////////////////////////////////
 
 /**
- * Generates Fibonacci numbers until told quit.
+ * Generates Fibonacci numbers until told to quit.
  *
  * @param fib_chan The \ref chan to send the next Fibonacci number to.
  * @param quit_chan The \ref chan to receive a quit signal from.
