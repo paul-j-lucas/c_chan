@@ -668,9 +668,7 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
         // the scheduler could decide to run thread 1. Note that the same thing
         // can happen with the sender and receiver roles reversed, i.e., the
         // receiver could receive the same message multiple times thinking it's
-        // a new message since the sender isn't given a chance to run. (For
-        // simplicity, we'll stick to the event sequence as originally
-        // presented, i.e., the sender is called multiple times.)
+        // a new message since the sender isn't given a chance to run.
         //
         // What's needed is a way to force thread 2 to block after sending a
         // message and wait on a condition variable. Since it's blocked, the
