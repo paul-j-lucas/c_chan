@@ -583,6 +583,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
 
     do {
       if ( chan->unbuf.is_busy[ CHAN_SEND ] ) {
+        // See the big comment in chan_unbuf_send.
         PTHREAD_COND_SIGNAL( &chan->unbuf.cpy_done[ CHAN_SEND ] );
         PTHREAD_COND_WAIT( &chan->unbuf.cpy_done[ CHAN_RECV ], &chan->mtx );
         PTHREAD_COND_SIGNAL( &chan->unbuf.cpy_done[ CHAN_SEND ] );
@@ -643,6 +644,44 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
       if ( chan->unbuf.is_busy[ CHAN_RECV ] ) {
         if ( chan->msg_size > 0 )
           memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
+        //
+        // The sender has to block to allow the receiver to do something with
+        // the message, before attempting to send another message. To
+        // understand the problem, consider the following sequence of events
+        // between two threads where each thread is in a loop, one sending and
+        // the other receiving:
+        //
+        // 1. On thread 1, chan_unbuf_recv is called on a channel, but no
+        //    sender is present, so it waits.
+        //
+        // 2. On thread 2, chan_unbuf_send is called, sees a receiver is
+        //    waiting, copies the message immediately, and returns.
+        //
+        // 3. The kernel's task scheduler arbitrarily decides to schedule
+        //    thread 2 again immediately. As stated, it's in a loop, so
+        //    chan_unbuf_send is called again, sees a receiver is still
+        //    "waiting" (even though the message was already copied), and
+        //    immediately copies a new message overwriting the previous
+        //    message!
+        //
+        // Step 3 can happen any number of times overwriting messages before
+        // the scheduler could decide to run thread 1. Note that the same thing
+        // can happen with the sender and receiver roles reversed, i.e., the
+        // receiver could receive the same message multiple times thinking it's
+        // a new message since the sender isn't given a chance to run. (For
+        // simplicity, we'll stick to the event sequence as originally
+        // presented, i.e., the sender is called multiple times.)
+        //
+        // What's needed is a way to force thread 2 to block after sending a
+        // message and wait on a condition variable. Since it's blocked, the
+        // scheduler won't schedule it again and it therefore will schedule
+        // thread 1 to allow its chan_unbuf_recv to return and allow its loop
+        // to do whatever with the message.
+        //
+        // This is what the cpy_done condition variable is for. Additionally,
+        // both calls to pthread_cond_signal are necessary to implement a
+        // handshake between the two threads.
+        //
         PTHREAD_COND_SIGNAL( &chan->unbuf.cpy_done[ CHAN_RECV ] );
         PTHREAD_COND_WAIT( &chan->unbuf.cpy_done[ CHAN_SEND ], &chan->mtx );
         PTHREAD_COND_SIGNAL( &chan->unbuf.cpy_done[ CHAN_RECV ] );
