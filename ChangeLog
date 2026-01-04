@@ -1,3 +1,17 @@
+2025-11-15  Paul J. Lucas <paul@lucasmail.org>
+
+   * Makefile.am, ax_cflags_warn_all.m4, ax_check_compile_flag.m4,
+     update_m4.sh: Added update_m4.sh.
+
+2025-11-01  Paul J. Lucas <paul@lucasmail.org>
+
+   * Makefile.am, makedoc.sh: makedoc.sh now takes parameters (copied from
+     cdecl).
+
+2025-10-20  Paul J. Lucas <paul@lucasmail.org>
+
+   * configure.ac: Removed -Wundef.
+
 2025-10-19  Paul J. Lucas <paul@lucasmail.org>
 
    * pjl_compile.m4: Removed AC_REQUIRE.
