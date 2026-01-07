@@ -1058,7 +1058,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     //  + EAGAIN: the selected channel wasn't ready: try again.
     //
     //  + EPIPE: the selected channel was closed between when we called
-    //    chan_select_init() an when we called either chan_recv() or
+    //    chan_select_init() and when we called either chan_recv() or
     //    chan_send().  However, if there's at least one other channel that may
     //    still be open, try again.
   } while ( rv == EAGAIN || (rv == EPIPE && chans_open > 1) );
