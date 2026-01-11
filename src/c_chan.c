@@ -327,6 +327,7 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
   chan_impl_link *curr_link = &chan->head_link[ dir ];
   do {
     chan_impl_link *const next_link = curr_link->next;
+    assert( next_link != NULL );
     if ( next_link->obs == remove_obs ) {
       curr_link->next = next_link->next;
       free( next_link );
