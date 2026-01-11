@@ -128,14 +128,16 @@ static void print_rvs( int expected_rv, int actual_rv ) {
 }
 
 /**
- * Spin-waits for `*pus` to be non-zero.
+ * Spin-waits for `*pus` to be &ge; \a min_val.
  *
  * @param mtx The mutex to lock/unlock before/after checking `*pus`.
  * @param pus A pointer to an `unsigned short`.
+ * @param min_val The minimum value wanted.
  */
-static void spin_wait_us( pthread_mutex_t *mtx, unsigned short const *pus ) {
+static void spin_wait_us_ge( pthread_mutex_t *mtx, unsigned short const *pus,
+                             unsigned short min_val ) {
   PTHREAD_MUTEX_LOCK( mtx );
-  while ( *pus == 0 ) {
+  while ( *pus < min_val ) {
     PTHREAD_MUTEX_UNLOCK( mtx );
     ms_sleep( 5 );
     PTHREAD_MUTEX_LOCK( mtx );
@@ -249,7 +251,7 @@ static bool test_buf_chan( void ) {
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
-    spin_wait_us( &chan.mtx, &chan.wait_cnt[0] );
+    spin_wait_us_ge( &chan.mtx, &chan.wait_cnt[0], 1 );
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     TEST_PTHREAD_JOIN( recv_thrd );
     TEST_PTHREAD_JOIN( send_thrd );
@@ -465,7 +467,7 @@ static bool test_select_send_1( unsigned buf_cap ) {
       .recv_val = 42
     );
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &recv_arg );
-    spin_wait_us( &chan.mtx, &chan.wait_cnt[0] );
+    spin_wait_us_ge( &chan.mtx, &chan.wait_cnt[0], 1 );
 
     test_thrd_arg select_arg = TEST_THRD_ARG(
       .send_len = 1,
@@ -507,7 +509,7 @@ static bool test_unbuf_chan( size_t msg_size ) {
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
-    spin_wait_us( &chan.mtx, &chan.wait_cnt[0] );
+    spin_wait_us_ge( &chan.mtx, &chan.wait_cnt[0], 1 );
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     TEST_PTHREAD_JOIN( recv_thrd );
     TEST_PTHREAD_JOIN( send_thrd );
@@ -515,7 +517,7 @@ static bool test_unbuf_chan( size_t msg_size ) {
     // Create the sending thread first and ensure it's ready before creating
     // the receiving thread.
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
-    spin_wait_us( &chan.mtx, &chan.wait_cnt[1] );
+    spin_wait_us_ge( &chan.mtx, &chan.wait_cnt[1], 1 );
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     TEST_PTHREAD_JOIN( recv_thrd );
     TEST_PTHREAD_JOIN( send_thrd );
@@ -576,6 +578,63 @@ fib_chan_error:
   TEST_FN_END();
 }
 
+/**
+ * Tests that more than one select on the same channel works.
+ *
+ * @param buf_cap The channel's capacity.
+ */
+static bool test_select_2_recv( unsigned buf_cap ) {
+  TEST_FN_BEGIN();
+
+  struct chan chan;
+  if ( FN_TEST( chan_init( &chan, buf_cap, sizeof(int) ) == 0 ) ) {
+    pthread_t recv_thrd[2], send_thrd;
+
+    int recv_val[] = { 0, 0 };
+    test_thrd_arg select_arg[] = {
+      TEST_THRD_ARG(
+        .recv_len = 1,
+        .recv_chan = (struct chan*[]){ &chan },
+        .recv_buf = (void*[]){ &recv_val[0] },
+        .duration = CHAN_NO_TIMEOUT,
+        .rv = CHAN_RECV(0)
+      ),
+      TEST_THRD_ARG(
+        .recv_len = 1,
+        .recv_chan = (struct chan*[]){ &chan },
+        .recv_buf = (void*[]){ &recv_val[1] },
+        .duration = CHAN_NO_TIMEOUT,
+        .rv = CHAN_RECV(0)
+      )
+    };
+
+    test_thrd_arg send_arg = TEST_THRD_ARG(
+      .chan = &chan,
+      .send_val = 42,
+      .duration = CHAN_NO_TIMEOUT
+    );
+
+    PTHREAD_CREATE( &recv_thrd[0], NULL, &thrd_chan_select, &select_arg[0] );
+    PTHREAD_CREATE( &recv_thrd[1], NULL, &thrd_chan_select, &select_arg[1] );
+    spin_wait_us_ge( &chan.mtx, &chan.wait_cnt[0], 2 );
+    PTHREAD_CREATE( &send_thrd, NULL, &thrd_chan_send, &send_arg );
+    TEST_PTHREAD_JOIN( send_thrd );
+
+    // Must close the channel so the chan_select() that was NOT chosen is
+    // forced to unblock.
+    chan_close( &chan );
+
+    TEST_PTHREAD_JOIN( recv_thrd[0] );
+    TEST_PTHREAD_JOIN( recv_thrd[1] );
+    FN_TEST( (recv_val[0] == 42 && recv_val[1] ==  0) ||
+             (recv_val[0] ==  0 && recv_val[1] == 42) );
+
+    chan_cleanup( &chan, /*free_fn=*/NULL );
+  }
+
+  TEST_FN_END();
+}
+
 ////////// main ///////////////////////////////////////////////////////////////
 
 int main( int argc, char const *argv[] ) {
@@ -593,6 +652,8 @@ int main( int argc, char const *argv[] ) {
     test_select_send_1( 0 );
     test_select_send_1( 1 );
     test_select_unbuf_2();
+    test_select_2_recv( 0 );
+    test_select_2_recv( 1 );
   }
 }
 
