@@ -1,5 +1,6 @@
 2026-01-11  Paul J. Lucas <paul@lucasmail.org>
 
+   * c_chan.c: Made chan_is_hard_closed() inline.
    * c_chan.c: Split out chan_is_ready().
    * c_chan_test.c: Added const.
 
