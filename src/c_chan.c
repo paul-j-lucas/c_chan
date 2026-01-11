@@ -151,6 +151,24 @@ static inline void* chan_buf_at( struct chan *chan, unsigned abs_idx ) {
 }
 
 /**
+ * Checks whether \a chan is "hard closed."
+ *
+ * @remarks A non-empty buffered channel can still be received from even if
+ * it's closed, so \a chan shouldn't be considered "hard closed" if it's such a
+ * channel.
+ *
+ * @param chan The \ref chan to check.
+ * @param dir The direction of \a chan to check.
+ * @return Returns `true` only if \a chan is "hard closed."
+ */
+NODISCARD
+static inline bool chan_is_hard_closed( struct chan const *chan,
+                                        chan_dir dir ) {
+  return  chan->is_closed &&
+          (dir == CHAN_SEND || chan->buf_cap == 0 || chan->buf.ring_len == 0);
+}
+
+/**
  * Gets whether a channel is ready.
  *
  * @param chan The channel to check.
@@ -276,23 +294,6 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return rv;
-}
-
-/**
- * Checks whether \a chan is "hard closed."
- *
- * @remarks A non-empty buffered channel can still be received from even if
- * it's closed, so \a chan shouldn't be considered "hard closed" if it's such a
- * channel.
- *
- * @param chan The \ref chan to check.
- * @param dir The direction of \a chan to check.
- * @return Returns `true` only if \a chan is "hard closed."
- */
-NODISCARD
-static bool chan_is_hard_closed( struct chan const *chan, chan_dir dir ) {
-  return  chan->is_closed &&
-          (dir == CHAN_SEND || chan->buf_cap == 0 || chan->buf.ring_len == 0);
 }
 
 /**
