@@ -55,7 +55,16 @@ extern "C" {
  * @{
  */
 
-typedef struct chan_impl_obs chan_impl_obs;
+typedef struct chan_impl_link chan_impl_link;
+typedef struct chan_impl_obs  chan_impl_obs;
+
+/**
+ * A linked list of observers.
+ */
+struct chan_impl_link {
+  chan_impl_obs  *obs;                  ///< The observer.
+  chan_impl_link *next;                 ///< The next link, if any.
+};
 
 /**
  * An "observer" for a channel that is used to wait until it's ready.
@@ -64,10 +73,7 @@ typedef struct chan_impl_obs chan_impl_obs;
  */
 struct chan_impl_obs {
   struct chan      *chan;               ///< The channel being observed.
-  chan_impl_obs    *next;               ///< The next observer, if any.
-  pthread_mutex_t  *pmtx;               ///< The mutex to use.
   pthread_cond_t    chan_ready;         ///< Is \ref chan ready?
-  unsigned          key;                ///< A fairly unique key.
 };
 
 /** @} */
@@ -123,6 +129,7 @@ struct chan {
     } unbuf;
   };
 
+  chan_impl_link          head_link[2]; ///< Linked lists of observers.
   chan_impl_obs           observer[2];  ///< Receiver/0, sender/1.
   unsigned short          wait_cnt[2];  ///< Waiting to receive/0 or send/1.
 
