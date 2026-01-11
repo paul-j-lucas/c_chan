@@ -150,6 +150,22 @@ static inline void* chan_buf_at( struct chan *chan, unsigned abs_idx ) {
   return (char*)chan->buf.ring_buf + abs_idx * chan->msg_size;
 }
 
+/**
+ * Gets whether a channel is ready.
+ *
+ * @param chan The channel to check.
+ * @param dir The direction of \a chan.
+ * @return Returns `true` only if \a chan is ready.
+ */
+NODISCARD
+static inline bool chan_is_ready( struct chan const *chan, chan_dir dir ) {
+  if ( chan->buf_cap == 0 )
+    return chan->wait_cnt[ !dir ] > 0;
+  return dir == CHAN_RECV ?
+    chan->buf.ring_len > 0 :
+    chan->buf.ring_len < chan->buf_cap;
+}
+
 ////////// local functions ////////////////////////////////////////////////////
 
 /**
@@ -446,12 +462,7 @@ static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
 
       bool const is_hard_closed = chan_is_hard_closed( chan[i], dir );
       if ( !is_hard_closed ) {
-        is_ready = chan[i]->buf_cap > 0 ?
-          (dir == CHAN_RECV ?
-            chan[i]->buf.ring_len > 0 :
-            chan[i]->buf.ring_len < chan[i]->buf_cap) :
-          chan[i]->wait_cnt[ !dir ] > 0;
-
+        is_ready = chan_is_ready( chan[i], dir );
         if ( add_obs != NULL )
           chan_add_obs( chan[i], dir, add_obs );
       }
