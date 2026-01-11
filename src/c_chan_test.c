@@ -133,7 +133,7 @@ static void print_rvs( int expected_rv, int actual_rv ) {
  * @param mtx The mutex to lock/unlock before/after checking `*pus`.
  * @param pus A pointer to an `unsigned short`.
  */
-static void spin_wait_us( pthread_mutex_t *mtx, unsigned short *pus ) {
+static void spin_wait_us( pthread_mutex_t *mtx, unsigned short const *pus ) {
   PTHREAD_MUTEX_LOCK( mtx );
   while ( *pus == 0 ) {
     PTHREAD_MUTEX_UNLOCK( mtx );
