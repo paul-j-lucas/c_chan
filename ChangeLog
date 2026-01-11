@@ -1,3 +1,8 @@
+2026-01-11  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Split out chan_is_ready().
+   * c_chan_test.c: Added const.
+
 2025-11-15  Paul J. Lucas <paul@lucasmail.org>
 
    * Makefile.am, ax_cflags_warn_all.m4, ax_check_compile_flag.m4,
