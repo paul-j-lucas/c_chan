@@ -73,6 +73,7 @@ struct chan_impl_link {
  */
 struct chan_impl_obs {
   struct chan      *chan;               ///< The channel being observed.
+  pthread_mutex_t  *pmtx;               ///< The mutex to lock, if any.
   pthread_cond_t    chan_ready;         ///< Is \ref chan ready?
 };
 

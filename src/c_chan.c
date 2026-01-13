@@ -312,12 +312,14 @@ static void chan_obs_cleanup( chan_impl_obs *obs ) {
  * Initializes a \ref chan_impl_obs.
  *
  * @param obs The \ref chan_impl_obs to initialize.
+ * @param pmtx The mutex to use, if any
  *
  * @sa chan_obs_cleanup()
  */
-static void chan_obs_init( chan_impl_obs *obs ) {
+static void chan_obs_init( chan_impl_obs *obs, pthread_mutex_t *pmtx ) {
   assert( obs != NULL );
   obs->chan = NULL;
+  obs->pmtx = pmtx;
   PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/NULL );
 }
 
@@ -446,8 +448,13 @@ static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
   for ( chan_impl_link *curr_link = &chan->head_link[ dir ]; curr_link != NULL;
         curr_link = curr_link->next ) {
     chan_impl_obs *const obs = curr_link->obs;
-    obs->chan = chan;
+    if ( obs->pmtx != NULL ) {
+      PTHREAD_MUTEX_LOCK( obs->pmtx );
+      obs->chan = chan;
+    }
     PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->chan_ready ) != 0, EX_IOERR );
+    if ( obs->pmtx != NULL )
+      PTHREAD_MUTEX_UNLOCK( obs->pmtx );
   } // for
 }
 
@@ -819,8 +826,8 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   };
 
   PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/NULL );
-  chan_obs_init( &chan->observer[ CHAN_RECV ] );
-  chan_obs_init( &chan->observer[ CHAN_SEND ] );
+  chan_obs_init( &chan->observer[ CHAN_RECV ], /*ptmx=*/NULL );
+  chan_obs_init( &chan->observer[ CHAN_SEND ], /*ptmx=*/NULL );
   chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
 
   return 0;
@@ -879,7 +886,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
 
   if ( is_blocking ) {
     PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/NULL );
-    chan_obs_init( &select_obs );
+    chan_obs_init( &select_obs, &select_mtx );
   }
 
   do {
@@ -916,6 +923,8 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       // sort them.
     }
 
+    struct chan *selected_chan = NULL;
+
     struct timespec const *might_as_well_wait_time = NULL;
     if ( chans_open == 1 ) {            // Degenerate case.
       selected_ref = ref;
@@ -924,14 +933,18 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     else if ( maybe_ready_len == 0 && is_blocking ) {
       // None of the channels may be ready and we should wait -- so wait.
       PTHREAD_MUTEX_LOCK( &select_mtx );
-      if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
-                                      abs_time ) == ETIMEDOUT ) {
-        rv = ETIMEDOUT;
-      }
+      select_obs.chan = NULL;
+      do {
+        if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
+                                        abs_time ) == ETIMEDOUT ) {
+          rv = ETIMEDOUT;
+        }
+      } while ( rv == 0 && select_obs.chan == NULL );
+      selected_chan = select_obs.chan;
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
       if ( rv == 0 ) {                  // A channel became ready: find it.
         for ( unsigned i = 0; i < select_len; ++i ) {
-          if ( select_obs.chan == ref[i].chan ) {
+          if ( selected_chan == ref[i].chan ) {
             selected_ref = &ref[i];
             break;
           }
@@ -946,7 +959,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     }
 
     if ( selected_ref != NULL ) {
-      struct chan *const selected_chan = selected_ref->chan;
+      selected_chan = selected_ref->chan;
       rv = selected_ref->dir == CHAN_RECV ?
         selected_chan->buf_cap > 0 ?
           chan_buf_recv(
