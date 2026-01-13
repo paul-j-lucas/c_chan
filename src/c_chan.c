@@ -312,7 +312,7 @@ static void chan_obs_cleanup( chan_impl_obs *obs ) {
  * Initializes a \ref chan_impl_obs.
  *
  * @param obs The \ref chan_impl_obs to initialize.
- * @param pmtx The mutex to use, if any
+ * @param pmtx The mutex to use, if any.
  *
  * @sa chan_obs_cleanup()
  */
