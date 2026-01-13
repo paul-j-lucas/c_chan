@@ -940,8 +940,10 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
           rv = ETIMEDOUT;
         }
       } while ( rv == 0 && select_obs.chan == NULL );
+      // Must copy select_obs.chan to a local variable while mutex is locked.
       selected_chan = select_obs.chan;
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
+
       if ( rv == 0 ) {                  // A channel became ready: find it.
         for ( unsigned i = 0; i < select_len; ++i ) {
           if ( selected_chan == ref[i].chan ) {
