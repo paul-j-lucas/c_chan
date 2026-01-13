@@ -319,8 +319,8 @@ static void chan_obs_cleanup( chan_impl_obs *obs ) {
 static void chan_obs_init( chan_impl_obs *obs, pthread_mutex_t *pmtx ) {
   assert( obs != NULL );
   obs->chan = NULL;
-  obs->pmtx = pmtx;
   PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/NULL );
+  obs->pmtx = pmtx;
 }
 
 /**
