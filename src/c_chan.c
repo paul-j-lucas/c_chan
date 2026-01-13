@@ -771,19 +771,18 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
 void chan_close( struct chan *chan ) {
   assert( chan != NULL );
   PTHREAD_MUTEX_LOCK( &chan->mtx );
-  bool const was_already_closed = chan->is_closed;
-  chan->is_closed = true;
-  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
-  if ( was_already_closed )
-    return;
-  chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_broadcast );
-  chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_broadcast );
-  if ( chan->buf_cap == 0 ) {
-    PTHREAD_COND_BROADCAST( &chan->unbuf.cpy_done[ CHAN_RECV ] );
-    PTHREAD_COND_BROADCAST( &chan->unbuf.cpy_done[ CHAN_SEND ] );
-    PTHREAD_COND_BROADCAST( &chan->unbuf.not_busy[ CHAN_RECV ] );
-    PTHREAD_COND_BROADCAST( &chan->unbuf.not_busy[ CHAN_SEND ] );
+  if ( !chan->is_closed ) {
+    chan->is_closed = true;
+    chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_broadcast );
+    chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_broadcast );
+    if ( chan->buf_cap == 0 ) {
+      PTHREAD_COND_BROADCAST( &chan->unbuf.cpy_done[ CHAN_RECV ] );
+      PTHREAD_COND_BROADCAST( &chan->unbuf.cpy_done[ CHAN_SEND ] );
+      PTHREAD_COND_BROADCAST( &chan->unbuf.not_busy[ CHAN_RECV ] );
+      PTHREAD_COND_BROADCAST( &chan->unbuf.not_busy[ CHAN_SEND ] );
+    }
   }
+  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
 }
 
 int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {

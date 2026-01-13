@@ -1,3 +1,7 @@
+2026-01-12  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Now holding chan->mtx throughout chan_close().
+
 2026-01-11  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.c: Made chan_is_hard_closed() inline.
