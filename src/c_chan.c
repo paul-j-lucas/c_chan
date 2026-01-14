@@ -203,38 +203,13 @@ static void chan_add_obs( struct chan *chan, chan_dir dir,
   assert( chan != NULL );
   assert( add_obs != NULL );
 
-#ifndef NDEBUG
-  int debug_locked_cnt = 0;
-#endif /* NDEBUG */
-  pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
+  chan_impl_link *const new_link = malloc( sizeof( chan_impl_link ) );
+  *new_link = (chan_impl_link){
+    .obs = add_obs,
+    .next = chan->head_link[ dir ].next
+  };
+  chan->head_link[ dir ].next = new_link;
 
-  for ( chan_impl_obs *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
-        obs = next_obs, pmtx = next_pmtx ) {
-    next_obs = obs->next;
-    if ( next_obs == NULL ) {           // At end of list.
-      obs->next = add_obs;
-    }
-    else {
-      next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
-      PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ... (1)
-      DEBUG_BLOCK( ++debug_locked_cnt; );
-      if ( add_obs->key < next_obs->key ) {
-        obs->next = add_obs;
-        add_obs->next = next_obs;
-        next_obs = NULL;                // Will cause loop to exit ... (2)
-        pmtx = next_pmtx;               // Will unlock next_mptx.
-      }
-      else {
-        assert( add_obs->key != next_obs->key );
-      }
-    }
-    if ( pmtx != NULL ) {               // (2) ... yet still runs this code.
-      PTHREAD_MUTEX_UNLOCK( pmtx );     // (1) ... before unlocking previous.
-      DEBUG_BLOCK( --debug_locked_cnt; );
-    }
-  } // for
-
-  assert( debug_locked_cnt == 0 );
   ++chan->wait_cnt[ dir ];
 }
 
@@ -340,43 +315,12 @@ static void chan_obs_cleanup( chan_impl_obs *obs ) {
  * @param pmtx The mutex to use, if any.
  *
  * @sa chan_obs_cleanup()
- * @sa chan_obs_init_key()
  */
 static void chan_obs_init( chan_impl_obs *obs, pthread_mutex_t *pmtx ) {
   assert( obs != NULL );
-
   obs->chan = NULL;
   PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/NULL );
-  obs->key  = 0;
-  obs->next = NULL;
   obs->pmtx = pmtx;
-}
-
-/**
- * Initializes a \ref chan_impl_obs key.
- *
- * @remarks An observer has an arbitrary, comparable key so the linked list of
- * a channel's observers can be in ascending key order.  The linked list is
- * traversed using hand-over-hand locking.  Since an observer can be in
- * multiple channels' lists, the ordering ensures that pairs of mutexes are
- * always locked in the same order on every list to avoid deadlocks.
- *
- * @param obs The \ref chan_impl_obs to initialize the key of.
- *
- * @sa chan_obs_init()
- * @sa chan_select_init()
- */
-static void chan_obs_init_key( chan_impl_obs *obs ) {
-  assert( obs != NULL );
-
-  static unsigned         next_key      = 1;
-  static pthread_mutex_t  next_key_mtx  = PTHREAD_MUTEX_INITIALIZER;
-
-  PTHREAD_MUTEX_LOCK( &next_key_mtx );
-  obs->key = next_key++;
-  if ( next_key == 0 )                  // Reserved for channel itself.
-    ++next_key;
-  PTHREAD_MUTEX_UNLOCK( &next_key_mtx );
 }
 
 /**
@@ -397,39 +341,23 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
   // Whether the channel is closed now doesn't matter since it may have been
   // open when the observer was added.
 
-#ifndef NDEBUG
-  int   debug_locked_cnt = 0;
-  bool  debug_removed = false;
-#endif /* NDEBUG */
-  pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
-
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
-  for ( chan_impl_obs *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
-        obs = next_obs, pmtx = next_pmtx ) {
-    next_obs = obs->next;
-    if ( next_obs == remove_obs ) {
-      // remove_obs is an observer in our caller's stack frame, i.e., this
-      // thread, so there's no need to lock next_obs->pmtx.
-      obs->next = next_obs->next;
-      next_obs = NULL;                  // Will cause loop to exit ... (1)
-      DEBUG_BLOCK( debug_removed = true; );
+  chan_impl_link *curr_link = &chan->head_link[ dir ];
+  do {
+    chan_impl_link *const next_link = curr_link->next;
+    assert( next_link != NULL );
+    if ( next_link->obs == remove_obs ) {
+      curr_link->next = next_link->next;
+      free( next_link );
+      break;
     }
-    else if ( next_obs != NULL ) {
-      next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
-      PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ... (2)
-      DEBUG_BLOCK( ++debug_locked_cnt; );
-    }
-    if ( pmtx != NULL ) {               // (1) ... yet still runs this code.
-      PTHREAD_MUTEX_UNLOCK( pmtx );     // (2) ... before unlocking previous.
-      DEBUG_BLOCK( --debug_locked_cnt; );
-    }
-  } // for
+    curr_link = next_link;
+  } while ( curr_link != NULL );
 
   --chan->wait_cnt[ dir ];
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
-  assert( debug_locked_cnt == 0 );
-  assert( debug_removed );
+  assert( curr_link != NULL );
 }
 
 /**
@@ -517,28 +445,17 @@ static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
   if ( chan->wait_cnt[ dir ] == 0 )     // Nobody is waiting.
     return;
 
-#ifndef NDEBUG
-  int debug_locked_cnt = 0;
-#endif /* NDEBUG */
-  pthread_mutex_t *pmtx = NULL, *next_pmtx = NULL;
-
-  for ( chan_impl_obs *obs = &chan->observer[ dir ], *next_obs; obs != NULL;
-        obs = next_obs, pmtx = next_pmtx ) {
-    obs->chan = chan;
+  for ( chan_impl_link *curr_link = &chan->head_link[ dir ]; curr_link != NULL;
+        curr_link = curr_link->next ) {
+    chan_impl_obs *const obs = curr_link->obs;
+    if ( obs->pmtx != NULL ) {
+      PTHREAD_MUTEX_LOCK( obs->pmtx );
+      obs->chan = chan;
+    }
     PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->chan_ready ) != 0, EX_IOERR );
-    next_obs = obs->next;
-    if ( next_obs != NULL ) {
-      next_pmtx = next_obs->pmtx;       // Do hand-over-hand locking:
-      PTHREAD_MUTEX_LOCK( next_pmtx );  // lock next mutex ...
-      DEBUG_BLOCK( ++debug_locked_cnt; );
-    }
-    if ( pmtx != NULL ) {
-      PTHREAD_MUTEX_UNLOCK( pmtx );     // ... before unlocking previous.
-      DEBUG_BLOCK( --debug_locked_cnt; );
-    }
+    if ( obs->pmtx != NULL )
+      PTHREAD_MUTEX_UNLOCK( obs->pmtx );
   } // for
-
-  assert( debug_locked_cnt == 0 );
 }
 
 /**
@@ -850,6 +767,9 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
     PTHREAD_COND_DESTROY( &chan->unbuf.not_busy[ CHAN_SEND ] );
   }
 
+  assert( chan->head_link[ CHAN_RECV ].obs == &chan->observer[ CHAN_RECV ] );
+  assert( chan->head_link[ CHAN_SEND ].obs == &chan->observer[ CHAN_SEND ] );
+
   chan_obs_cleanup( &chan->observer[ CHAN_RECV ] );
   chan_obs_cleanup( &chan->observer[ CHAN_SEND ] );
   PTHREAD_MUTEX_DESTROY( &chan->mtx );
@@ -898,11 +818,17 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   chan->msg_size = msg_size;
   chan->is_closed = false;
 
-  PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/NULL );
-  chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
+  chan->head_link[ CHAN_RECV ] = (chan_impl_link){
+    .obs = &chan->observer[ CHAN_RECV ]
+  };
+  chan->head_link[ CHAN_SEND ] = (chan_impl_link){
+    .obs = &chan->observer[ CHAN_SEND ]
+  };
 
-  chan_obs_init( &chan->observer[ CHAN_RECV ], /*pmtx=*/NULL );
-  chan_obs_init( &chan->observer[ CHAN_SEND ], /*pmtx=*/NULL );
+  PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/NULL );
+  chan_obs_init( &chan->observer[ CHAN_RECV ], /*ptmx=*/NULL );
+  chan_obs_init( &chan->observer[ CHAN_SEND ], /*ptmx=*/NULL );
+  chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
 
   return 0;
 }
@@ -961,7 +887,6 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   if ( is_blocking ) {
     PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/NULL );
     chan_obs_init( &select_obs, &select_mtx );
-    chan_obs_init_key( &select_obs );
   }
 
   do {
@@ -998,6 +923,8 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       // sort them.
     }
 
+    struct chan *selected_chan = NULL;
+
     struct timespec const *might_as_well_wait_time = NULL;
     if ( chans_open == 1 ) {            // Degenerate case.
       selected_ref = ref;
@@ -1006,14 +933,20 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     else if ( maybe_ready_len == 0 && is_blocking ) {
       // None of the channels may be ready and we should wait -- so wait.
       PTHREAD_MUTEX_LOCK( &select_mtx );
-      if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
-                                      abs_time ) == ETIMEDOUT ) {
-        rv = ETIMEDOUT;
-      }
+      select_obs.chan = NULL;
+      do {
+        if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
+                                        abs_time ) == ETIMEDOUT ) {
+          rv = ETIMEDOUT;
+        }
+      } while ( rv == 0 && select_obs.chan == NULL );
+      // Must copy select_obs.chan to a local variable while mutex is locked.
+      selected_chan = select_obs.chan;
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
+
       if ( rv == 0 ) {                  // A channel became ready: find it.
         for ( unsigned i = 0; i < select_len; ++i ) {
-          if ( select_obs.chan == ref[i].chan ) {
+          if ( selected_chan == ref[i].chan ) {
             selected_ref = &ref[i];
             break;
           }
@@ -1028,7 +961,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     }
 
     if ( selected_ref != NULL ) {
-      struct chan *const selected_chan = selected_ref->chan;
+      selected_chan = selected_ref->chan;
       rv = selected_ref->dir == CHAN_RECV ?
         selected_chan->buf_cap > 0 ?
           chan_buf_recv(
