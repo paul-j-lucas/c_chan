@@ -117,27 +117,27 @@ struct chan_impl_obs {
 struct chan {
   union {
     struct {
-      void               *ring_buf;     ///< Message ring buffer.
-      unsigned            ring_len;     ///< Number of messages in buffer.
-      unsigned            recv_idx;     ///< Ring buffer receive index.
-      unsigned            send_idx;     ///< Ring buffer send index.
+      void           *ring_buf;         ///< Message ring buffer.
+      unsigned        ring_len;         ///< Number of messages in buffer.
+      unsigned        recv_idx;         ///< Ring buffer receive index.
+      unsigned        send_idx;         ///< Ring buffer send index.
     } buf;
     struct {
-      void               *recv_buf;     ///< Where to copy the message to.
-      pthread_cond_t      cpy_done[2];  ///< Receive/0, send/1 copy done.
-      pthread_cond_t      not_busy[2];  ///< Receive/0, send/1 no longer busy.
-      bool                is_busy[2];   ///< Is recv/0, send/1 busy?
+      void           *recv_buf;         ///< Where to copy the message to.
+      pthread_cond_t  cpy_done[2];      ///< Receive/0, send/1 copy done.
+      pthread_cond_t  not_busy[2];      ///< Receive/0, send/1 no longer busy.
+      bool            is_busy[2];       ///< Is recv/0, send/1 busy?
     } unbuf;
   };
 
-  chan_impl_link          head_link[2]; ///< Linked lists of observers.
-  chan_impl_obs           self_obs[2];  ///< Receiver/0, sender/1.
-  unsigned short          wait_cnt[2];  ///< Waiting to receive/0 or send/1.
+  chan_impl_link      head_link[2];     ///< Linked lists of observers.
+  chan_impl_obs       self_obs[2];      ///< Receiver/0, sender/1.
+  unsigned short      wait_cnt[2];      ///< Waiting to receive/0 or send/1.
 
-  pthread_mutex_t         mtx;          ///< Channel mutex.
-  size_t                  msg_size;     ///< Message size.
-  unsigned                buf_cap;      ///< Channel capacity; 0 = unbuffered.
-  bool                    is_closed;    ///< Is channel closed?
+  pthread_mutex_t     mtx;              ///< Channel mutex.
+  size_t              msg_size;         ///< Message size.
+  unsigned            buf_cap;          ///< Channel capacity; 0 = unbuffered.
+  bool                is_closed;        ///< Is channel closed?
 };
 
 ////////// extern variables ///////////////////////////////////////////////////
