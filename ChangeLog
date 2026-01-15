@@ -1,3 +1,8 @@
+2026-01-14  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h, c_chan_test.c: Rework how a linked list of observers
+     is implemented (#2)
+
 2026-01-12  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.c: Now holding chan->mtx throughout chan_close().
