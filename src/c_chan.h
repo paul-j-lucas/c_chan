@@ -124,7 +124,7 @@ struct chan {
     } buf;
     struct {
       void           *recv_buf;         ///< Where to copy the message to.
-      pthread_cond_t  cpy_done[2];      ///< Receive/0, send/1 copy done.
+      pthread_cond_t  copy_done[2];     ///< Receive/0, send/1 copy done.
       pthread_cond_t  not_busy[2];      ///< Receive/0, send/1 no longer busy.
       bool            is_busy[2];       ///< Is recv/0, send/1 busy?
     } unbuf;
