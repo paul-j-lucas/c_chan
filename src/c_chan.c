@@ -650,7 +650,7 @@ static int chan_wait( struct chan *chan, chan_dir dir,
     return EPIPE;
 
   ++chan->wait_cnt[ dir ];
-  int const rv = pthread_cond_wait_wrapper( &chan->observer[ dir ].chan_ready,
+  int const rv = pthread_cond_wait_wrapper( &chan->self_obs[ dir ].chan_ready,
                                             &chan->mtx, abs_time );
   --chan->wait_cnt[ dir ];
 
@@ -767,11 +767,11 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
     PTHREAD_COND_DESTROY( &chan->unbuf.not_busy[ CHAN_SEND ] );
   }
 
-  assert( chan->head_link[ CHAN_RECV ].obs == &chan->observer[ CHAN_RECV ] );
-  assert( chan->head_link[ CHAN_SEND ].obs == &chan->observer[ CHAN_SEND ] );
+  assert( chan->head_link[ CHAN_RECV ].obs == &chan->self_obs[ CHAN_RECV ] );
+  assert( chan->head_link[ CHAN_SEND ].obs == &chan->self_obs[ CHAN_SEND ] );
 
-  chan_obs_cleanup( &chan->observer[ CHAN_RECV ] );
-  chan_obs_cleanup( &chan->observer[ CHAN_SEND ] );
+  chan_obs_cleanup( &chan->self_obs[ CHAN_RECV ] );
+  chan_obs_cleanup( &chan->self_obs[ CHAN_SEND ] );
   PTHREAD_MUTEX_DESTROY( &chan->mtx );
 }
 
@@ -819,15 +819,15 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   chan->is_closed = false;
 
   chan->head_link[ CHAN_RECV ] = (chan_impl_link){
-    .obs = &chan->observer[ CHAN_RECV ]
+    .obs = &chan->self_obs[ CHAN_RECV ]
   };
   chan->head_link[ CHAN_SEND ] = (chan_impl_link){
-    .obs = &chan->observer[ CHAN_SEND ]
+    .obs = &chan->self_obs[ CHAN_SEND ]
   };
 
   PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/NULL );
-  chan_obs_init( &chan->observer[ CHAN_RECV ], /*ptmx=*/NULL );
-  chan_obs_init( &chan->observer[ CHAN_SEND ], /*ptmx=*/NULL );
+  chan_obs_init( &chan->self_obs[ CHAN_RECV ], /*ptmx=*/NULL );
+  chan_obs_init( &chan->self_obs[ CHAN_SEND ], /*ptmx=*/NULL );
   chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
 
   return 0;

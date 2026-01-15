@@ -131,7 +131,7 @@ struct chan {
   };
 
   chan_impl_link          head_link[2]; ///< Linked lists of observers.
-  chan_impl_obs           observer[2];  ///< Receiver/0, sender/1.
+  chan_impl_obs           self_obs[2];  ///< Receiver/0, sender/1.
   unsigned short          wait_cnt[2];  ///< Waiting to receive/0 or send/1.
 
   pthread_mutex_t         mtx;          ///< Channel mutex.
