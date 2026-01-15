@@ -119,8 +119,7 @@ struct chan {
     struct {
       void           *ring_buf;         ///< Message ring buffer.
       unsigned        ring_len;         ///< Number of messages in buffer.
-      unsigned        recv_idx;         ///< Ring buffer receive index.
-      unsigned        send_idx;         ///< Ring buffer send index.
+      unsigned        ring_idx[2];      ///< Ring buffer receive/send indicies.
     } buf;
     struct {
       void           *recv_buf;         ///< Where to copy the message to.
