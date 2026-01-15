@@ -239,9 +239,10 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
     // Since we can still read from a closed, non-empty, buffered channel,
     // there's no check for is_closed first.
     if ( chan->buf.ring_len > 0 ) {
-      memcpy( recv_buf, chan_buf_at( chan, chan->buf.recv_idx ),
+      memcpy( recv_buf, chan_buf_at( chan, chan->buf.ring_idx[ CHAN_RECV ] ),
               chan->msg_size );
-      chan->buf.recv_idx = (chan->buf.recv_idx + 1) % chan->buf_cap;
+      chan->buf.ring_idx[ CHAN_RECV ] =
+        (chan->buf.ring_idx[ CHAN_RECV ] + 1) % chan->buf_cap;
       if ( chan->buf.ring_len-- == chan->buf_cap )
         chan_signal_all_obs( chan, CHAN_BUF_NOT_FULL, &pthread_cond_signal );
       break;
@@ -280,9 +281,10 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
       rv = EPIPE;
     }
     else if ( chan->buf.ring_len < chan->buf_cap ) {
-      memcpy( chan_buf_at( chan, chan->buf.send_idx ), send_buf,
+      memcpy( chan_buf_at( chan, chan->buf.ring_idx[ CHAN_SEND ] ), send_buf,
               chan->msg_size );
-      chan->buf.send_idx = (chan->buf.send_idx + 1) % chan->buf_cap;
+      chan->buf.ring_idx[ CHAN_SEND ] =
+        (chan->buf.ring_idx[ CHAN_SEND ] + 1) % chan->buf_cap;
       if ( ++chan->buf.ring_len == 1 )
         chan_signal_all_obs( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
       break;
@@ -752,10 +754,10 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
 
   if ( chan->buf_cap > 0 ) {
     if ( chan->buf.ring_len > 0 && msg_cleanup_fn != NULL ) {
-      unsigned idx = chan->buf.recv_idx;
+      unsigned recv_idx = chan->buf.ring_idx[ CHAN_RECV ];
       for ( unsigned i = 0; i < chan->buf.ring_len; ++i ) {
-        (*msg_cleanup_fn)( chan_buf_at( chan, idx ) );
-        idx = (idx + 1) % chan->buf_cap;
+        (*msg_cleanup_fn)( chan_buf_at( chan, recv_idx ) );
+        recv_idx = (recv_idx + 1) % chan->buf_cap;
       }
     }
     free( chan->buf.ring_buf );
@@ -801,7 +803,8 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
     chan->buf.ring_buf = malloc( buf_cap * msg_size );
     if ( unlikely( chan->buf.ring_buf == NULL ) )
       return ENOMEM;
-    chan->buf.recv_idx = chan->buf.send_idx = 0;
+    chan->buf.ring_idx[ CHAN_RECV ] = 0;
+    chan->buf.ring_idx[ CHAN_SEND ] = 0;
     chan->buf.ring_len = 0;
   }
   else {
