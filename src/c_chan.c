@@ -515,8 +515,13 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
     do {
       if ( chan->unbuf.is_busy[ CHAN_SEND ] ) {
         // See the big comment in chan_unbuf_send.
+        chan->unbuf.is_copy_done[ CHAN_SEND ] = true;
         PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ CHAN_SEND ] );
-        PTHREAD_COND_WAIT( &chan->unbuf.copy_done[ CHAN_RECV ], &chan->mtx );
+        chan->unbuf.is_copy_done[ CHAN_RECV ] = false;
+        do {                            // guard against spurious wake-ups
+          PTHREAD_COND_WAIT( &chan->unbuf.copy_done[ CHAN_RECV ], &chan->mtx );
+        } while ( !chan->unbuf.is_copy_done[ CHAN_RECV ] );
+        chan->unbuf.is_copy_done[ CHAN_SEND ] = true;
         PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ CHAN_SEND ] );
         break;
       }
@@ -611,8 +616,13 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
         // both calls to pthread_cond_signal are necessary to implement a
         // handshake between the two threads.
         //
+        chan->unbuf.is_copy_done[ CHAN_RECV ] = true;
         PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ CHAN_RECV ] );
-        PTHREAD_COND_WAIT( &chan->unbuf.copy_done[ CHAN_SEND ], &chan->mtx );
+        chan->unbuf.is_copy_done[ CHAN_SEND ] = false;
+        do {                            // guard against spurious wake-ups
+          PTHREAD_COND_WAIT( &chan->unbuf.copy_done[ CHAN_SEND ], &chan->mtx );
+        } while ( !chan->unbuf.is_copy_done[ CHAN_SEND ] );
+        chan->unbuf.is_copy_done[ CHAN_RECV ] = true;
         PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ CHAN_RECV ] );
         break;
       }
@@ -815,6 +825,8 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
     PTHREAD_COND_INIT( &chan->unbuf.not_busy[ CHAN_SEND ], /*attr=*/NULL );
     chan->unbuf.is_busy[ CHAN_RECV ] = false;
     chan->unbuf.is_busy[ CHAN_SEND ] = false;
+    chan->unbuf.is_copy_done[ CHAN_RECV ] = false;
+    chan->unbuf.is_copy_done[ CHAN_SEND ] = false;
   }
 
   chan->buf_cap = buf_cap;
