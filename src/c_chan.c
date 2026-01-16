@@ -716,29 +716,30 @@ static unsigned rand_seed( struct timespec const *abs_time ) {
 }
 
 /**
- * Converts a duration to an absolute time in the future relative to now.
+ * Converts a relative time (duration) to an absolute time in the future
+ * relative to now.
  *
- * @param duration The duration to convert.  May be `NULL` to mean do not wait
- * or \ref CHAN_NO_TIMEOUT to mean wait indefinitely.
+ * @param rel_time The relative time to convert.  May be `NULL` to mean do not
+ * wait or \ref CHAN_NO_TIMEOUT to mean wait indefinitely.
  * @param abs_time A pointer to receive the absolute time, but only if \a
- * duration is neither `NULL` nor \ref CHAN_NO_TIMEOUT.
- * @return Returns \a duration if either `NULL` or \ref CHAN_NO_TIMEOUT, or \a
+ * rel_time is neither `NULL` nor \ref CHAN_NO_TIMEOUT.
+ * @return Returns \a rel_time if either `NULL` or \ref CHAN_NO_TIMEOUT, or \a
  * abs_time otherwise.
  */
 NODISCARD
-static struct timespec const* ts_dur_to_abs( struct timespec const *duration,
+static struct timespec const* ts_rel_to_abs( struct timespec const *rel_time,
                                              struct timespec *abs_time ) {
   assert( abs_time != NULL );
 
-  if ( duration == NULL || duration == CHAN_NO_TIMEOUT )
-    return duration;
+  if ( rel_time == NULL || rel_time == CHAN_NO_TIMEOUT )
+    return rel_time;
 
   struct timespec now;
   CLOCK_GETTIME( CLOCK_REALTIME, &now );
 
   *abs_time = (struct timespec){
-    .tv_sec  = now.tv_sec  + duration->tv_sec,
-    .tv_nsec = now.tv_nsec + duration->tv_nsec
+    .tv_sec  = now.tv_sec  + rel_time->tv_sec,
+    .tv_nsec = now.tv_nsec + rel_time->tv_nsec
   };
 
   return abs_time;
@@ -841,7 +842,7 @@ int chan_recv( struct chan *chan, void *recv_buf,
   assert( chan != NULL );
 
   struct timespec abs_ts;
-  struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
+  struct timespec const *const abs_time = ts_rel_to_abs( duration, &abs_ts );
 
   if ( chan->buf_cap > 0 ) {
     if ( unlikely( recv_buf == NULL ) )
@@ -878,7 +879,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   }
 
   struct timespec               abs_ts;
-  struct timespec const *const  abs_time = ts_dur_to_abs( duration, &abs_ts );
+  struct timespec const *const  abs_time = ts_rel_to_abs( duration, &abs_ts );
   unsigned                      chans_open;   // number of open channels
   bool const                    is_blocking = duration != NULL;
   unsigned                      seed = 0;     // random number seed
@@ -1036,7 +1037,7 @@ int chan_send( struct chan *chan, void const *send_buf,
   assert( chan != NULL );
 
   struct timespec abs_ts;
-  struct timespec const *const abs_time = ts_dur_to_abs( duration, &abs_ts );
+  struct timespec const *const abs_time = ts_rel_to_abs( duration, &abs_ts );
 
   if ( chan->buf_cap > 0 ) {
     if ( unlikely( send_buf == NULL ) )
