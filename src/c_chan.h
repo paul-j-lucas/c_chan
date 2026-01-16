@@ -123,16 +123,16 @@ struct chan {
     } buf;
     struct {
       void           *recv_buf;         ///< Where to copy the message to.
-      pthread_cond_t  copy_done[2];     ///< Receive/0, send/1 copy done.
-      pthread_cond_t  not_busy[2];      ///< Receive/0, send/1 no longer busy.
-      bool            is_busy[2];       ///< Is recv/0, send/1 busy?
-      bool            is_copy_done[2];  ///< Receive/0, send/1 actually copied.
+      pthread_cond_t  copy_done[2];     ///< Receive/send copy done.
+      pthread_cond_t  not_busy[2];      ///< Receive/send no longer busy.
+      bool            is_busy[2];       ///< Is receive/send busy?
+      bool            is_copy_done[2];  ///< Is receive/send actually copied?
     } unbuf;
   };
 
   chan_impl_link      head_link[2];     ///< Linked lists of observers.
-  chan_impl_obs       self_obs[2];      ///< Receiver/0, sender/1.
-  unsigned short      wait_cnt[2];      ///< Waiting to receive/0 or send/1.
+  chan_impl_obs       self_obs[2];      ///< Receiver/sender.
+  unsigned short      wait_cnt[2];      ///< Number waiting to receive/send.
 
   pthread_mutex_t     mtx;              ///< Channel mutex.
   size_t              msg_size;         ///< Message size.
