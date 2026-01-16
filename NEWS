@@ -9,7 +9,7 @@ See the end of the file for license conditions.
 
 + Extracted linked list from observers so select can be in more than one list.
 
-+ Now handling spurious wake-ups in chan_select().
++ Now handling spurious wake-ups.
 
 
 * Changes in c_chan 1.0.2
