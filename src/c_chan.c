@@ -192,18 +192,22 @@ static inline bool chan_is_ready( struct chan const *chan, chan_dir dir ) {
  * @param chan Then \ref chan to add \a add_obs to.
  * @param dir The direction of \a chan.
  * @param add_obs The observer to add.
+ * @return Returns `true` upon success or `false` only if `malloc`(3) failed.
  *
  * @warning \ref chan::mtx _must_ be locked before calling this function.
  *
  * @sa chan_remove_obs()
  * @sa chan_select_init()
  */
-static void chan_add_obs( struct chan *chan, chan_dir dir,
+NODISCARD
+static bool chan_add_obs( struct chan *chan, chan_dir dir,
                           chan_impl_obs *add_obs ) {
   assert( chan != NULL );
   assert( add_obs != NULL );
 
   chan_impl_link *const new_link = malloc( sizeof( chan_impl_link ) );
+  if ( unlikely( new_link == NULL ) )
+    return false;
   *new_link = (chan_impl_link){
     .obs = add_obs,
     .next = chan->head_link[ dir ].next
@@ -211,6 +215,7 @@ static void chan_add_obs( struct chan *chan, chan_dir dir,
   chan->head_link[ dir ].next = new_link;
 
   ++chan->wait_cnt[ dir ];
+  return true;
 }
 
 /**
@@ -373,49 +378,61 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
  * @param dir The common direction of \a chan.
  * @param add_obs The observer to add to each channel.  If `NULL`, the select
  * is non-blocking.
- * @return Returns the number of channels that may be ready.
+ * @return Returns the number of channels that may be ready or -1 upon failure.
  */
 NODISCARD
-static unsigned chan_select_init( chan_select_ref ref[], unsigned *pref_len,
-                                  unsigned chan_len,
-                                  struct chan *chan[chan_len], chan_dir dir,
-                                  chan_impl_obs *add_obs ) {
+static int chan_select_init( chan_select_ref ref[], unsigned *pref_len,
+                             unsigned chan_len, struct chan *chan[chan_len],
+                             chan_dir dir, chan_impl_obs *add_obs ) {
   assert( ref != NULL );
   assert( pref_len != NULL );
-  assert( chan_len == 0 || chan != NULL );
+  if ( chan_len == 0 )
+    return 0;
+  assert( chan != NULL );
 
-  unsigned maybe_ready_len = 0;
+  unsigned i = 0;
+  int maybe_ready_len = 0;
 
-  if ( chan != NULL ) {
-    for ( unsigned i = 0; i < chan_len; ++i ) {
-      bool is_ready = false;
-      PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
+  for ( ; i < chan_len; ++i ) {
+    bool is_ready = false;
+    PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
 
-      bool const is_hard_closed = chan_is_hard_closed( chan[i], dir );
-      if ( !is_hard_closed ) {
-        is_ready = chan_is_ready( chan[i], dir );
-        if ( add_obs != NULL )
-          chan_add_obs( chan[i], dir, add_obs );
-      }
+    bool add_failed = false;
+    bool const is_hard_closed = chan_is_hard_closed( chan[i], dir );
+    if ( !is_hard_closed ) {
+      is_ready = chan_is_ready( chan[i], dir );
+      if ( add_obs != NULL )
+        add_failed = !chan_add_obs( chan[i], dir, add_obs );
+    }
 
-      PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
+    PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
 
-      if ( is_hard_closed )
-        continue;
-      if ( is_ready || add_obs != NULL ) {
-        ref[ (*pref_len)++ ] = (chan_select_ref){
-          .chan = chan[i],
-          .dir = dir,
-          .param_idx = (unsigned short)i,
-          .maybe_ready = is_ready
-        };
-      }
-      if ( is_ready )
-        ++maybe_ready_len;
-    } // for
-  }
+    if ( unlikely( add_failed ) )
+      goto remove_already_added;
+    if ( is_hard_closed )
+      continue;
+    if ( is_ready || add_obs != NULL ) {
+      ref[ (*pref_len)++ ] = (chan_select_ref){
+        .chan = chan[i],
+        .dir = dir,
+        .param_idx = (unsigned short)i,
+        .maybe_ready = is_ready
+      };
+    }
+    if ( is_ready )
+      ++maybe_ready_len;
+  } // for
 
   return maybe_ready_len;
+
+remove_already_added:
+  //
+  // The adding of add_obs as an observer for chan[i] failed: remove add_obs as
+  // an observer from all chan[j] for j < i.
+  //
+  for ( unsigned j = 0; j < i; ++j )
+    chan_remove_obs( chan[j], dir, add_obs );
+  return -1;
 }
 
 /**
@@ -898,20 +915,32 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     rv = 0;
     selected_ref = NULL;
 
-    unsigned const maybe_ready_len =    // number of channels that may be ready
-      chan_select_init(
-        ref, &chans_open, recv_len, recv_chan, CHAN_RECV,
-        is_blocking ? &select_obs : NULL
-      ) +
-      chan_select_init(
-        ref, &chans_open, send_len, send_chan, CHAN_SEND,
-        is_blocking ? &select_obs : NULL
-      );
+    int const recv_maybe_ready_len = chan_select_init(
+      ref, &chans_open, recv_len, recv_chan, CHAN_RECV,
+      is_blocking ? &select_obs : NULL
+    );
+    if ( unlikely( recv_maybe_ready_len == -1 ) )
+      break;
+
+    int const send_maybe_ready_len = chan_select_init(
+      ref, &chans_open, send_len, send_chan, CHAN_SEND,
+      is_blocking ? &select_obs : NULL
+    );
+    if ( unlikely( send_maybe_ready_len == -1 ) ) {
+      if ( is_blocking ) {
+        for ( unsigned i = 0; i < recv_len; ++i )
+          chan_remove_obs( recv_chan[i], CHAN_RECV, &select_obs );
+      }
+      break;
+    }
 
     if ( chans_open == 0 ) {
       rv = EPIPE;
       break;
     }
+
+    unsigned const maybe_ready_len =
+      (unsigned)recv_maybe_ready_len + (unsigned)send_maybe_ready_len;
 
     unsigned select_len = chans_open;   // number of channels to select from
 
