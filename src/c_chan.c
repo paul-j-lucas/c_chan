@@ -813,7 +813,9 @@ void chan_close( struct chan *chan ) {
     chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_broadcast );
     chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_broadcast );
     if ( chan->buf_cap == 0 ) {
+      chan->unbuf.is_copy_done[ CHAN_RECV ] = true;
       PTHREAD_COND_BROADCAST( &chan->unbuf.copy_done[ CHAN_RECV ] );
+      chan->unbuf.is_copy_done[ CHAN_SEND ] = true;
       PTHREAD_COND_BROADCAST( &chan->unbuf.copy_done[ CHAN_SEND ] );
       PTHREAD_COND_BROADCAST( &chan->unbuf.not_busy[ CHAN_RECV ] );
       PTHREAD_COND_BROADCAST( &chan->unbuf.not_busy[ CHAN_SEND ] );
