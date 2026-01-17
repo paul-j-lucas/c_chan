@@ -213,6 +213,8 @@ void chan_close( struct chan *chan );
  *  + 0 upon success; or:
  *  + `EINVAL` only for an invalid argument; or:
  *  + `ENOMEM` only if memory allocation for a buffered channel fails.
+ * @par
+ * For a non-zero return value, the global variable `errno` is also set to it.
  *
  * @sa chan_cleanup()
  * @sa chan_close()
@@ -233,6 +235,8 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size );
  *  + `EPIPE` if \a chan is closed; or:
  *  + `EAGAIN` if no message is available and \a duration is `NULL`; or:
  *  + `ETIMEDOUT` if \a duration expired.
+ * @par
+ * For a non-zero return value, the global variable `errno` is also set to it.
  *
  * @sa chan_send()
  */
@@ -253,6 +257,8 @@ int chan_recv( struct chan *chan, void *recv_buf,
  *  + `EPIPE` if \a chan is closed; or:
  *  + `EAGAIN` if no message can be sent and \a duration is `NULL`; or:
  *  + `ETIMEDOUT` if \a duration expired.
+ * @par
+ * For a non-zero return value, the global variable `errno` is also set to it.
  *
  * @sa chan_recv()
  */
@@ -317,8 +323,8 @@ int chan_send( struct chan *chan, void const *send_buf,
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns an integer &ge; 0 to indicate a selected channel (to be used
- * with #CHAN_RECV or #CHAN_SEND) or -1 if no channel was selected and `errno`
- * is set to:
+ * with #CHAN_RECV or #CHAN_SEND) or -1 if no channel was selected and the
+ * global variable `errno` is set to one of:
  *  + `EINVAL` only if an invalid argument was given; or:
  *  + `EPIPE` only if all channels are closed; or:
  *  + `EAGAIN` only if \a duration is `NULL` and no channels are ready; or:

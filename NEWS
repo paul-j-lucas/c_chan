@@ -11,6 +11,8 @@ See the end of the file for license conditions.
 
 + Now handling spurious wake-ups.
 
++ Functions that return an error value (non-zero) now also set `errno` to it.
+
 
 * Changes in c_chan 1.0.2
 

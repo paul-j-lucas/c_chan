@@ -828,11 +828,13 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   assert( chan != NULL );
 
   if ( buf_cap > 0 ) {
-    if ( unlikely( msg_size == 0 ) )
+    if ( unlikely( msg_size == 0 ) ) {
+      errno = EINVAL;
       return EINVAL;
+    }
     chan->buf.ring_buf = malloc( buf_cap * msg_size );
     if ( unlikely( chan->buf.ring_buf == NULL ) )
-      return ENOMEM;
+      return ENOMEM;                    // malloc sets errno to ENOMEM
     chan->buf.ring_idx[ CHAN_RECV ] = 0;
     chan->buf.ring_idx[ CHAN_SEND ] = 0;
     chan->buf.ring_len = 0;
@@ -874,16 +876,24 @@ int chan_recv( struct chan *chan, void *recv_buf,
 
   struct timespec abs_ts;
   struct timespec const *const abs_time = ts_rel_to_abs( duration, &abs_ts );
+  int rv;
 
   if ( chan->buf_cap > 0 ) {
     if ( unlikely( recv_buf == NULL ) )
-      return EINVAL;
-    return chan_buf_recv( chan, recv_buf, abs_time );
+      rv = EINVAL;
+    else
+      rv = chan_buf_recv( chan, recv_buf, abs_time );
+  }
+  else {
+    if ( unlikely( chan->msg_size > 0 && recv_buf == NULL ) )
+      rv = EINVAL;
+    else
+      rv = chan_unbuf_recv( chan, recv_buf, abs_time );
   }
 
-  if ( unlikely( chan->msg_size > 0 && recv_buf == NULL ) )
-    return EINVAL;
-  return chan_unbuf_recv( chan, recv_buf, abs_time );
+  if ( rv != 0 )
+    errno = rv;
+  return rv;
 }
 
 int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
@@ -1081,16 +1091,24 @@ int chan_send( struct chan *chan, void const *send_buf,
 
   struct timespec abs_ts;
   struct timespec const *const abs_time = ts_rel_to_abs( duration, &abs_ts );
+  int rv;
 
   if ( chan->buf_cap > 0 ) {
     if ( unlikely( send_buf == NULL ) )
-      return EINVAL;
-    return chan_buf_send( chan, send_buf, abs_time );
+      rv = EINVAL;
+    else
+      rv = chan_buf_send( chan, send_buf, abs_time );
+  }
+  else {
+    if ( unlikely( chan->msg_size > 0 && send_buf == NULL ) )
+      rv = EINVAL;
+    else
+      rv = chan_unbuf_send( chan, send_buf, abs_time );
   }
 
-  if ( unlikely( chan->msg_size > 0 && send_buf == NULL ) )
-    return EINVAL;
-  return chan_unbuf_send( chan, send_buf, abs_time );
+  if ( rv != 0 )
+    errno = rv;
+  return rv;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
