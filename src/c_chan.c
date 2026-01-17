@@ -394,10 +394,10 @@ static int chan_select_init( chan_select_ref ref[], unsigned *pref_len,
   int maybe_ready_len = 0;
 
   for ( ; i < chan_len; ++i ) {
+    bool add_failed = false;
     bool is_ready = false;
     PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
 
-    bool add_failed = false;
     bool const is_hard_closed = chan_is_hard_closed( chan[i], dir );
     if ( !is_hard_closed ) {
       is_ready = chan_is_ready( chan[i], dir );
