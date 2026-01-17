@@ -764,8 +764,7 @@ static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
  * @param abs_time A pointer to an absolute time.  If not `NULL` nor \ref
  * CHAN_NO_TIMEOUT, uses it as the basis for a seed; otherwise, uses the
  * current time.
- * @return Returns a pseudo-random unsigned integer in the range 0 to
- * `RAND_MAX`.
+ * @return Returns a pseudo-random unsigned integer to be used as a seed.
  */
 static unsigned rand_seed( struct timespec const *abs_time ) {
   if ( abs_time != NULL && abs_time != CHAN_NO_TIMEOUT )
