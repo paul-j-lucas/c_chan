@@ -852,16 +852,14 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   }
 
   chan->buf_cap = buf_cap;
-  chan->msg_size = msg_size;
-  chan->is_closed = false;
-
   chan->head_link[ CHAN_RECV ] = (chan_impl_link){
     .obs = &chan->self_obs[ CHAN_RECV ]
   };
   chan->head_link[ CHAN_SEND ] = (chan_impl_link){
     .obs = &chan->self_obs[ CHAN_SEND ]
   };
-
+  chan->is_closed = false;
+  chan->msg_size = msg_size;
   PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/NULL );
   chan_obs_init( &chan->self_obs[ CHAN_RECV ], /*ptmx=*/NULL );
   chan_obs_init( &chan->self_obs[ CHAN_SEND ], /*ptmx=*/NULL );
