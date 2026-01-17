@@ -1082,7 +1082,6 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   if ( selected_ref == NULL ) {
     if ( rv != 0 )
       errno = rv;
-    rv = -1;
   }
   else {
     rv = selected_ref->dir == CHAN_RECV ?

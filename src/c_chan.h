@@ -88,14 +88,21 @@ struct chan_impl_obs {
  */
 
 /**
+ * For use as a case of a `switch` statement on chan_select() when no channel
+ * has been selected.
+ */
+#define CHAN_NONE                 0
+
+/**
  * For use with cases of a `switch` statement on chan_select() to specify the
  * index of a receive channel.
  *
  * @param IDX The index into the \a recv_chan array parameter of chan_select().
  *
+ * @sa #CHAN_NONE
  * @sa #CHAN_SEND()
  */
-#define CHAN_RECV(IDX)            ((int)(IDX))
+#define CHAN_RECV(IDX)            (-1 - (int)(IDX))
 
 /**
  * For use with cases of a `switch` statement on chan_select() to specify the
@@ -103,9 +110,10 @@ struct chan_impl_obs {
  *
  * @param IDX The index into the \a send_chan array parameter of chan_select().
  *
+ * @sa #CHAN_NONE
  * @sa #CHAN_RECV()
  */
-#define CHAN_SEND(IDX)            (1024 + (int)(IDX))
+#define CHAN_SEND(IDX)            (-1024 - (int)(IDX))
 
 /**
  * A Go-like channel.
@@ -297,8 +305,16 @@ int chan_send( struct chan *chan, void const *send_buf,
  *    case CHAN_SEND(1):          // s_chan1 selected
  *      // ...
  *      break;
- *    default:                    // no channel selected
+ *    case CHAN_NONE:             // no channel selected
  *      // ...
+ *      break;
+ *    case EPIPE:                 // all channels closed
+ *      // ...
+ *      break;
+ *    case ETIMEDOUT:             // duration expired
+ *      // ...
+ *      break;
+ *    // ... other error codes ...
  *  }
  *  ```
  * where #CHAN_RECV(i) refers to the ith \ref chan in `r_chan` and
@@ -322,14 +338,19 @@ int chan_send( struct chan *chan, void const *send_buf,
  * same pointer may appear more than once in the array.
  * @param duration The duration of time to wait. If `NULL`, it's considered
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns an integer &ge; 0 to indicate a selected channel (to be used
- * with #CHAN_RECV or #CHAN_SEND) or -1 if no channel was selected or an error
- * occurred.  If the latter, the global variable `errno` will be set to one of:
- *  + `EINVAL` only if an invalid argument was given; or:
- *  + `ENOMEM` only if memory allocation during a blocking select fails.
- *  + `EPIPE` only if all channels are closed; or:
- *  + `EAGAIN` only if \a duration is `NULL` and no channels are ready; or:
- *  + `ETIMEDOUT` only if \a duration expired.
+
+ * @return Returns an integer:
+ *  + < 0 that specifies the selected channel (to be used with #CHAN_RECV or
+ *    #CHAN_SEND); or:
+ *  + 0, aka, #CHAN_NONE, that specifies no channel was selected; or:
+ *  + > 0 that specifies an error code, one of:
+ *      + `EAGAIN` only if \a duration is `NULL` and no channels are ready; or:
+ *      + `EINVAL` only if an invalid argument was given; or:
+ *      + `ENOMEM` only if memory allocation failed; or:
+ *      + `EPIPE` only if all channels are closed; or:
+ *      + `ETIMEDOUT` only if \a duration expired.
+ * @par
+ * For a positive return value, the global variable `errno` is also set to it.
  *
  * @warning No \ref chan may appear in both \a recv_chan and \a send_chan.
  */

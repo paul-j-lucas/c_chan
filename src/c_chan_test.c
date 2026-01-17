@@ -399,7 +399,7 @@ static bool test_select_recv_nowait( unsigned buf_cap ) {
       .recv_len = 1,
       .recv_chan = (struct chan*[]){ &chan },
       .recv_buf = (void*[]){ &data },
-      .rv = -1
+      .rv = CHAN_NONE
     );
     PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
     TEST_PTHREAD_JOIN( thrd );
