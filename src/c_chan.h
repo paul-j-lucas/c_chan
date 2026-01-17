@@ -93,7 +93,7 @@ struct chan_impl_obs {
  *
  * @param IDX The index into the \a recv_chan array parameter of chan_select().
  *
- * @sa #CHAN_SEND
+ * @sa #CHAN_SEND()
  */
 #define CHAN_RECV(IDX)            ((int)(IDX))
 
@@ -103,7 +103,7 @@ struct chan_impl_obs {
  *
  * @param IDX The index into the \a send_chan array parameter of chan_select().
  *
- * @sa #CHAN_RECV
+ * @sa #CHAN_RECV()
  */
 #define CHAN_SEND(IDX)            (1024 + (int)(IDX))
 
