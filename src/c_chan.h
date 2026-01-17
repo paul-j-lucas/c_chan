@@ -239,9 +239,9 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size );
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
+ *  + `EAGAIN` if no message is available and \a duration is `NULL`; or:
  *  + `EINVAL` only for an invalid argument; or:
  *  + `EPIPE` if \a chan is closed; or:
- *  + `EAGAIN` if no message is available and \a duration is `NULL`; or:
  *  + `ETIMEDOUT` if \a duration expired.
  * @par
  * For a non-zero return value, the global variable `errno` is also set to it.
@@ -261,9 +261,9 @@ int chan_recv( struct chan *chan, void *recv_buf,
  * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
+ *  + `EAGAIN` if no message can be sent and \a duration is `NULL`; or:
  *  + `EINVAL` only for an invalid argument; or:
  *  + `EPIPE` if \a chan is closed; or:
- *  + `EAGAIN` if no message can be sent and \a duration is `NULL`; or:
  *  + `ETIMEDOUT` if \a duration expired.
  * @par
  * For a non-zero return value, the global variable `errno` is also set to it.
