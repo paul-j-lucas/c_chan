@@ -115,10 +115,14 @@ struct chan_select_ref {
 static void chan_signal_all_obs( struct chan*, chan_dir,
                                  int (*)( pthread_cond_t* ) );
 
+NODISCARD
+static int  chan_unbuf_recv( struct chan*, void*, struct timespec const* ),
+            chan_unbuf_send( struct chan*, void const*,
+                             struct timespec const* ),
+            chan_wait( struct chan*, chan_dir, struct timespec const* );
+
 static void chan_unbuf_release( struct chan*, chan_dir );
 
-NODISCARD
-static int  chan_wait( struct chan*, chan_dir, struct timespec const* );
 
 NODISCARD
 static int  pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
@@ -433,6 +437,35 @@ remove_already_added:
   for ( unsigned j = 0; j < i; ++j )
     chan_remove_obs( chan[j], dir, add_obs );
   return -1;
+}
+
+/**
+ * Performs the receive or send on a channel for chan_select().
+ *
+ * @param ref The chan_select_ref to use.
+ * @param recv_buf An array of zero or more pointers to buffers to receive
+ * into.  May be `NULL`.
+ * @param send_buf An array of zero or more pointers to buffers to send from.
+ * May be `NULL`.
+ * @param abs_time When to wait until. If `NULL`, it's considered now (does not
+ * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @return
+ *  + 0 upon success; or:
+ *  + `EPIPE` if \a chan is closed; or:
+ *  + `EAGAIN` if no message is available and \a abs_time is `NULL`; or:
+ *  + `ETIMEDOUT` if it's now \a abs_time or later.
+ */
+static int chan_select_io( chan_select_ref const *ref,
+                           void *recv_buf[], void const *send_buf[],
+                           struct timespec const *abs_time ) {
+  return ref->dir == CHAN_RECV ?
+    ref->chan->buf_cap > 0 ?
+      chan_buf_recv( ref->chan, recv_buf[ ref->param_idx ], abs_time ) :
+      chan_unbuf_recv( ref->chan, recv_buf[ ref->param_idx ], abs_time )
+  :
+    ref->chan->buf_cap > 0 ?
+      chan_buf_send( ref->chan, send_buf[ ref->param_idx ], abs_time ) :
+      chan_unbuf_send( ref->chan, send_buf[ ref->param_idx ], abs_time );
 }
 
 /**
@@ -980,10 +1013,10 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
 
     struct chan *selected_chan = NULL;
 
-    struct timespec const *might_as_well_wait_time = NULL;
+    struct timespec const *select_abs_time = NULL;
     if ( chans_open == 1 ) {            // Degenerate case.
       selected_ref = ref;
-      might_as_well_wait_time = abs_time;
+      select_abs_time = abs_time;
     }
     else if ( maybe_ready_len == 0 && is_blocking ) {
       // None of the channels may be ready and we should wait -- so wait.
@@ -1015,29 +1048,8 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       selected_ref = &ref[ rand_r( &seed ) % (int)select_len ];
     }
 
-    if ( selected_ref != NULL ) {
-      selected_chan = selected_ref->chan;
-      rv = selected_ref->dir == CHAN_RECV ?
-        selected_chan->buf_cap > 0 ?
-          chan_buf_recv(
-            selected_chan, recv_buf[ selected_ref->param_idx ],
-            might_as_well_wait_time
-          ) :
-          chan_unbuf_recv(
-            selected_chan, recv_buf[ selected_ref->param_idx ],
-            might_as_well_wait_time
-          )
-      :
-        selected_chan->buf_cap > 0 ?
-          chan_buf_send(
-            selected_chan, send_buf[ selected_ref->param_idx ],
-            might_as_well_wait_time
-          ) :
-          chan_unbuf_send(
-            selected_chan, send_buf[ selected_ref->param_idx ],
-            might_as_well_wait_time
-          );
-    }
+    if ( selected_ref != NULL )
+      rv = chan_select_io( selected_ref, recv_buf, send_buf, select_abs_time );
 
     if ( is_blocking ) {
       for ( unsigned i = 0; i < recv_len; ++i )
