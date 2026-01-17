@@ -932,7 +932,7 @@ int chan_recv( struct chan *chan, void *recv_buf,
       rv = chan_unbuf_recv( chan, recv_buf, abs_time );
   }
 
-  if ( rv != 0 )
+  if ( rv > 0 )
     errno = rv;
   return rv;
 }
@@ -1080,7 +1080,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   } while ( rv == EAGAIN || (rv == EPIPE && csi.chans_open > 1) );
 
   if ( selected_ref == NULL ) {
-    if ( rv != 0 )
+    if ( rv > 0 )
       errno = rv;
   }
   else {
@@ -1120,7 +1120,7 @@ int chan_send( struct chan *chan, void const *send_buf,
       rv = chan_unbuf_send( chan, send_buf, abs_time );
   }
 
-  if ( rv != 0 )
+  if ( rv > 0 )
     errno = rv;
   return rv;
 }
