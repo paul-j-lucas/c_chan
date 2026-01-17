@@ -71,8 +71,9 @@ enum chan_dir {
 ////////// typedefs ///////////////////////////////////////////////////////////
 
 /// @cond DOXYGEN_IGNORE
-typedef enum    chan_dir        chan_dir;
-typedef struct  chan_select_ref chan_select_ref;
+typedef enum    chan_dir              chan_dir;
+typedef struct  chan_select_init_args chan_select_init_args;
+typedef struct  chan_select_ref       chan_select_ref;
 /// @endcond
 
 /**
@@ -87,6 +88,15 @@ typedef struct  chan_select_ref chan_select_ref;
 typedef int (*qsort_cmp_fn)( void const *i_data, void const *j_data );
 
 ////////// structs ////////////////////////////////////////////////////////////
+
+/**
+ * Contains arguments updated by chan_select_init().
+ */
+struct chan_select_init_args {
+  unsigned  chans_open;                 ///< Number of channels open.
+  unsigned  chans_maybe_ready;          ///< Subset that may be ready.
+  unsigned  ref_len;                    ///< Length of ref array.
+};
 
 /**
  * In chan_select(), a single array of references to both receive and send
@@ -375,27 +385,27 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
  * Initializes \a ref for chan_select().
  *
  * @param ref The array of channel references to initialize.
- * @param pref_len Must be 0 to start; updated to be the number of references.
  * @param chan_len The length of \a chan.
  * @param chan The channels to initialize from.  May be `NULL` only if \a
  * chan_len is 0.
  * @param dir The common direction of \a chan.
  * @param add_obs The observer to add to each channel.  If `NULL`, the select
  * is non-blocking.
- * @return Returns the number of channels that may be ready or -1 upon failure.
+ * @param csi The chan_select_init_args to use.
+ * @return Returns `true` only upon success or `false` on failure.
  */
 NODISCARD
-static int chan_select_init( chan_select_ref ref[], unsigned *pref_len,
-                             unsigned chan_len, struct chan *chan[chan_len],
-                             chan_dir dir, chan_impl_obs *add_obs ) {
+static bool chan_select_init( chan_select_ref ref[],
+                              unsigned chan_len, struct chan *chan[chan_len],
+                              chan_dir dir, chan_impl_obs *add_obs,
+                              chan_select_init_args *csi ) {
   assert( ref != NULL );
-  assert( pref_len != NULL );
+  assert( csi != NULL );
   if ( chan_len == 0 )
-    return 0;
+    return true;
   assert( chan != NULL );
 
   unsigned i = 0;
-  int maybe_ready_len = 0;
 
   for ( ; i < chan_len; ++i ) {
     bool add_failed = false;
@@ -415,8 +425,9 @@ static int chan_select_init( chan_select_ref ref[], unsigned *pref_len,
       goto remove_already_added;
     if ( is_hard_closed )
       continue;
+    ++csi->chans_open;
     if ( is_ready || add_obs != NULL ) {
-      ref[ (*pref_len)++ ] = (chan_select_ref){
+      ref[ csi->ref_len++ ] = (chan_select_ref){
         .chan = chan[i],
         .dir = dir,
         .param_idx = (unsigned short)i,
@@ -424,10 +435,10 @@ static int chan_select_init( chan_select_ref ref[], unsigned *pref_len,
       };
     }
     if ( is_ready )
-      ++maybe_ready_len;
+      ++csi->chans_maybe_ready;
   } // for
 
-  return maybe_ready_len;
+  return true;
 
 remove_already_added:
   //
@@ -436,7 +447,7 @@ remove_already_added:
   //
   for ( unsigned j = 0; j < i; ++j )
     chan_remove_obs( chan[j], dir, add_obs );
-  return -1;
+  return false;
 }
 
 /**
@@ -951,7 +962,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
 
   struct timespec               abs_ts;
   struct timespec const *const  abs_time = ts_rel_to_abs( duration, &abs_ts );
-  unsigned                      chans_open;   // number of open channels
+  chan_select_init_args         csi;
   bool const                    is_blocking = duration != NULL;
   unsigned                      seed = 0;     // random number seed
   chan_impl_obs                 select_obs;   // observer for this select
@@ -965,22 +976,17 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   }
 
   do {
-    chans_open = 0;
+    csi = (chan_select_init_args){ 0 };
     rv = 0;
     selected_ref = NULL;
 
-    int const recv_maybe_ready_len = chan_select_init(
-      ref, &chans_open, recv_len, recv_chan, CHAN_RECV,
-      is_blocking ? &select_obs : NULL
-    );
-    if ( unlikely( recv_maybe_ready_len == -1 ) )
+    if ( !chan_select_init( ref, recv_len, recv_chan, CHAN_RECV,
+                            is_blocking ? &select_obs : NULL, &csi ) ) {
       break;
+    }
 
-    int const send_maybe_ready_len = chan_select_init(
-      ref, &chans_open, send_len, send_chan, CHAN_SEND,
-      is_blocking ? &select_obs : NULL
-    );
-    if ( unlikely( send_maybe_ready_len == -1 ) ) {
+    if ( !chan_select_init( ref, send_len, send_chan, CHAN_SEND,
+                            is_blocking ? &select_obs : NULL, &csi ) ) {
       if ( is_blocking ) {
         for ( unsigned i = 0; i < recv_len; ++i )
           chan_remove_obs( recv_chan[i], CHAN_RECV, &select_obs );
@@ -988,36 +994,20 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       break;
     }
 
-    if ( chans_open == 0 ) {
+    if ( csi.chans_open == 0 ) {
       rv = EPIPE;
       break;
     }
 
-    unsigned const maybe_ready_len =
-      (unsigned)recv_maybe_ready_len + (unsigned)send_maybe_ready_len;
-
-    unsigned select_len = chans_open;   // number of channels to select from
-
-    if ( maybe_ready_len > 0 && maybe_ready_len < chans_open ) {
-      qsort(                            // Sort maybe ready channels first ...
-        ref, chans_open, sizeof( chan_select_ref ),
-        (qsort_cmp_fn)&chan_select_ref_cmp
-      );
-      select_len = maybe_ready_len;     // ... and select only from those.
-    }
-    else {
-      // Otherwise, either no or all channels are ready, so there's no need to
-      // sort them.
-    }
-
     struct chan *selected_chan = NULL;
-
     struct timespec const *select_abs_time = NULL;
-    if ( chans_open == 1 ) {            // Degenerate case.
-      selected_ref = ref;
+
+    if ( csi.chans_open == 1 ) {        // Degenerate case.
+      if ( csi.ref_len > 0 )
+        selected_ref = ref;
       select_abs_time = abs_time;
     }
-    else if ( maybe_ready_len == 0 && is_blocking ) {
+    else if ( csi.chans_maybe_ready == 0 && is_blocking ) {
       // None of the channels may be ready and we should wait -- so wait.
       PTHREAD_MUTEX_LOCK( &select_mtx );
       select_obs.chan = NULL;
@@ -1032,7 +1022,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
 
       if ( rv == 0 ) {                  // A channel became ready: find it.
-        for ( unsigned i = 0; i < select_len; ++i ) {
+        for ( unsigned i = 0; i < csi.chans_open; ++i ) {
           if ( selected_chan == ref[i].chan ) {
             selected_ref = &ref[i];
             break;
@@ -1042,9 +1032,25 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       }
     }
     else {                              // Some or all may be ready: pick one.
+      unsigned select_len;
+      if ( csi.chans_maybe_ready > 0 && csi.chans_maybe_ready < csi.ref_len ) {
+        // Only some channels may be ready: sort those first and select only
+        // from those.
+        qsort(
+          ref, csi.ref_len, sizeof( chan_select_ref ),
+          (qsort_cmp_fn)&chan_select_ref_cmp
+        );
+        select_len = csi.chans_maybe_ready;
+      }
+      else {
+        // Otherwise, either no or all channels are ready, so there's no need
+        // to sort them.
+        select_len = csi.chans_open;
+      }
+
       if ( seed == 0 )
         seed = rand_seed( abs_time );
-      selected_ref = &ref[ rand_r( &seed ) % (int)select_len ];
+      selected_ref = &ref[ (unsigned)rand_r( &seed ) % select_len ];
     }
 
     if ( selected_ref != NULL )
@@ -1071,7 +1077,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     //    chan_select_init() and when we called either chan_recv() or
     //    chan_send().  However, if there's at least one other channel that may
     //    still be open, try again.
-  } while ( rv == EAGAIN || (rv == EPIPE && chans_open > 1) );
+  } while ( rv == EAGAIN || (rv == EPIPE && csi.chans_open > 1) );
 
   if ( selected_ref == NULL ) {
     if ( rv != 0 )
