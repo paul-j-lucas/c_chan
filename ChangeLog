@@ -1,3 +1,14 @@
+2026-01-17  Paul J. Lucas <paul@lucasmail.org>
+
+   * configure.ac: Upped version to 1.1.
+   * c_chan.c: s/!= 0/> 0/
+   * c_chan.c, c_chan.h, c_chan_test.c: chan_select() now also returns error
+     codes directly.
+   * c_chan.c: Now correctly distinguishing between the number of open channels
+     vs. the number of ready channels.
+   * c_chan.c: Added chan_select_io().
+   * c_chan.c: Movde add_failed before pthread_mutex_lock.
+
 2026-01-16  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.h: Added ENOMEM to possible errno values set by chan_select().
