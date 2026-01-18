@@ -5,13 +5,19 @@ See the end of the file for license conditions.
 
 -------------------------------------------------------------------------------
 
+* Changes in c_chan 1.1
+
++ Functions that return an error value (positive) now also set `errno` to it.
+
++ `chan_select()` now returns the actual error code upon error rather than just
+  -1.  (It still also sets `errno`.)
+
+
 * Changes in c_chan 1.0.3
 
 + Extracted linked list from observers so select can be in more than one list.
 
 + Now handling spurious wake-ups.
-
-+ Functions that return an error value (non-zero) now also set `errno` to it.
 
 
 * Changes in c_chan 1.0.2
