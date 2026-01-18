@@ -466,6 +466,7 @@ remove_already_added:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  */
+NODISCARD
 static int chan_select_io( chan_select_ref const *ref,
                            void *recv_buf[], void const *send_buf[],
                            struct timespec const *abs_time ) {
@@ -777,6 +778,7 @@ static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
  * current time.
  * @return Returns a pseudo-random unsigned integer to be used as a seed.
  */
+NODISCARD
 static unsigned rand_seed( struct timespec const *abs_time ) {
   if ( abs_time != NULL && abs_time != CHAN_NO_TIMEOUT )
     return (unsigned)abs_time->tv_nsec;
