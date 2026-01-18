@@ -158,6 +158,22 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
 ////////// extern functions ///////////////////////////////////////////////////
 
 /**
+ * Gets the capacity of \ref chan.
+ *
+ * @param chan the \ref chan to get the capacity of.
+ * @return For a buffered channel, returns its capacity; for an unbuffered
+ * channel, always returns 0.
+ *
+ * @note This function is provided as an analog to the built-in `cap` function
+ * in Go.
+ *
+ * @sa chan_len()
+ */
+static inline unsigned chan_cap( struct chan const *chan ) {
+  return chan->buf_cap;
+}
+
+/**
  * Cleans-up a \ref chan.
  *
  * @param chan The \ref chan to clean-up.  If `NULL`, does nothing.
@@ -228,6 +244,25 @@ void chan_close( struct chan *chan );
  * @sa chan_close()
  */
 int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size );
+
+/**
+ * Gets the length (the number of queued messages) of a buffered \ref chan.
+ *
+ * @param chan the \ref chan to get the length of.
+ * @return For a buffered channel, returns its length; for an unbuffered
+ * channel, always returns 0.
+ *
+ * @note This function is provided as an analog to the built-in `len` function
+ * in Go.
+ *
+ * @warning As in Go, ths function returns only a snapshot of a channel's
+ * length --- that could change immediately afterwards.  Consequently, you
+ * should _not_ use this to determine control flow, but only for things like
+ * debugging or logging.
+ *
+ * @sa chan_cap()
+ */
+unsigned chan_len( struct chan const *chan );
 
 /**
  * Receives a message from a \ref chan.

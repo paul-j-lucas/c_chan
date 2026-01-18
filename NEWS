@@ -7,6 +7,8 @@ See the end of the file for license conditions.
 
 * Changes in c_chan 1.1
 
++ Added chan_cap() and chan_len() functions.
+
 + Functions that return an error value (positive) now also set `errno` to it.
 
 + `chan_select()` now returns the actual error code upon error rather than just

@@ -823,9 +823,9 @@ static struct timespec const* ts_rel_to_abs( struct timespec const *rel_time,
 
 /** @} */
 
-////////// extern functions ///////////////////////////////////////////////////
-
 /// @cond DOXYGEN_IGNORE
+
+////////// extern functions ///////////////////////////////////////////////////
 
 void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
   if ( chan == NULL )
@@ -917,6 +917,17 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
 
   return 0;
+}
+
+unsigned chan_len( struct chan const *chan ) {
+  assert( chan != NULL );
+  if ( chan->buf_cap == 0 )
+    return 0;
+  struct chan *const nonconst_chan = (struct chan*)chan;
+  PTHREAD_MUTEX_LOCK( &nonconst_chan->mtx );
+  unsigned const len = chan->buf.ring_len;
+  PTHREAD_MUTEX_UNLOCK( &nonconst_chan->mtx );
+  return len;
 }
 
 int chan_recv( struct chan *chan, void *recv_buf,
@@ -1119,7 +1130,10 @@ int chan_send( struct chan *chan, void const *send_buf,
   return rv;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
+extern inline unsigned chan_cap( struct chan const* );
+
 /// @endcond
 
-///////////////////////////////////////////////////////////////////////////////
 /* vim:set et sw=2 ts=2: */
