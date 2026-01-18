@@ -1,3 +1,7 @@
+2026-01-18  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, c_chan.h: Added chan_cap() and chan_len().
+
 2026-01-17  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.c: s/-1/EINVAL/
