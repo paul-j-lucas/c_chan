@@ -925,16 +925,13 @@ int chan_recv( struct chan *chan, void *recv_buf,
 
   struct timespec abs_ts;
   struct timespec const *const abs_time = ts_rel_to_abs( duration, &abs_ts );
-  int rv;
 
-  if ( chan->buf_cap > 0 ) {
-    rv = unlikely( recv_buf == NULL ) ? EINVAL :
-      chan_buf_recv( chan, recv_buf, abs_time );
-  }
-  else {
-    rv = unlikely( chan->msg_size > 0 && recv_buf == NULL ) ? EINVAL :
+  int const rv = chan->buf_cap > 0 ?
+    unlikely( recv_buf == NULL ) ? EINVAL :
+      chan_buf_recv( chan, recv_buf, abs_time )
+  :
+    unlikely( chan->msg_size > 0 && recv_buf == NULL ) ? EINVAL :
       chan_unbuf_recv( chan, recv_buf, abs_time );
-  }
 
   if ( rv > 0 )
     errno = rv;
@@ -1109,16 +1106,13 @@ int chan_send( struct chan *chan, void const *send_buf,
 
   struct timespec abs_ts;
   struct timespec const *const abs_time = ts_rel_to_abs( duration, &abs_ts );
-  int rv;
 
-  if ( chan->buf_cap > 0 ) {
-    rv = unlikely( send_buf == NULL ) ? EINVAL :
-      chan_buf_send( chan, send_buf, abs_time );
-  }
-  else {
-    rv = unlikely( chan->msg_size > 0 && send_buf == NULL ) ? EINVAL :
+  int const rv = chan->buf_cap > 0 ?
+    unlikely( send_buf == NULL ) ? EINVAL :
+      chan_buf_send( chan, send_buf, abs_time )
+  :
+    unlikely( chan->msg_size > 0 && send_buf == NULL ) ? EINVAL :
       chan_unbuf_send( chan, send_buf, abs_time );
-  }
 
   if ( rv > 0 )
     errno = rv;
