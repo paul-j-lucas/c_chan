@@ -946,7 +946,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   if ( unlikely( recv_len > 0 && (recv_chan == NULL || recv_buf == NULL) ) ||
        unlikely( send_len > 0 && (send_chan == NULL || send_buf == NULL) ) ) {
     errno = EINVAL;
-    return -1;
+    return EINVAL;
   }
 
   chan_select_ref  *ref, stack_ref[16];
@@ -958,7 +958,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   else {
     ref = malloc( total_channels * sizeof( chan_select_ref ) );
     if ( unlikely( ref == NULL ) )
-      return -1;                        // malloc sets errno
+      return ENOMEM;                    // malloc sets errno
   }
 
   struct timespec               abs_ts;
