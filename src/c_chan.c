@@ -174,6 +174,8 @@ static inline void* chan_buf_at( struct chan *chan, unsigned abs_idx ) {
  * @param chan The \ref chan to check.
  * @param dir The direction of \a chan to check.
  * @return Returns `true` only if \a chan is "hard closed."
+ *
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
  */
 NODISCARD
 static inline bool chan_is_hard_closed( struct chan const *chan,
@@ -188,6 +190,8 @@ static inline bool chan_is_hard_closed( struct chan const *chan,
  * @param chan The channel to check.
  * @param dir The direction of \a chan.
  * @return Returns `true` only if \a chan is ready.
+ *
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
  */
 NODISCARD
 static inline bool chan_is_ready( struct chan const *chan, chan_dir dir ) {
