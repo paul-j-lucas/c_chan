@@ -1,5 +1,6 @@
 2026-01-17  Paul J. Lucas <paul@lucasmail.org>
 
+   * c_chan.c: Added NODISCARD.
    * configure.ac: Upped version to 1.1.
    * c_chan.c: s/!= 0/> 0/
    * c_chan.c, c_chan.h, c_chan_test.c: chan_select() now also returns error
