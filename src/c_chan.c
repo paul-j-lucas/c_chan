@@ -819,6 +819,8 @@ static struct timespec const* ts_rel_to_abs( struct timespec const *rel_time,
 
 ////////// extern functions ///////////////////////////////////////////////////
 
+/// @cond DOXYGEN_IGNORE
+
 void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
   if ( chan == NULL )
     return;
@@ -1124,6 +1126,8 @@ int chan_send( struct chan *chan, void const *send_buf,
     errno = rv;
   return rv;
 }
+
+/// @endcond
 
 ///////////////////////////////////////////////////////////////////////////////
 /* vim:set et sw=2 ts=2: */
