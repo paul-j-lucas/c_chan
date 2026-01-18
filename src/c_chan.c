@@ -928,16 +928,12 @@ int chan_recv( struct chan *chan, void *recv_buf,
   int rv;
 
   if ( chan->buf_cap > 0 ) {
-    if ( unlikely( recv_buf == NULL ) )
-      rv = EINVAL;
-    else
-      rv = chan_buf_recv( chan, recv_buf, abs_time );
+    rv = unlikely( recv_buf == NULL ) ? EINVAL :
+      chan_buf_recv( chan, recv_buf, abs_time );
   }
   else {
-    if ( unlikely( chan->msg_size > 0 && recv_buf == NULL ) )
-      rv = EINVAL;
-    else
-      rv = chan_unbuf_recv( chan, recv_buf, abs_time );
+    rv = unlikely( chan->msg_size > 0 && recv_buf == NULL ) ? EINVAL :
+      chan_unbuf_recv( chan, recv_buf, abs_time );
   }
 
   if ( rv > 0 )
@@ -1116,16 +1112,12 @@ int chan_send( struct chan *chan, void const *send_buf,
   int rv;
 
   if ( chan->buf_cap > 0 ) {
-    if ( unlikely( send_buf == NULL ) )
-      rv = EINVAL;
-    else
-      rv = chan_buf_send( chan, send_buf, abs_time );
+    rv = unlikely( send_buf == NULL ) ? EINVAL :
+      chan_buf_send( chan, send_buf, abs_time );
   }
   else {
-    if ( unlikely( chan->msg_size > 0 && send_buf == NULL ) )
-      rv = EINVAL;
-    else
-      rv = chan_unbuf_send( chan, send_buf, abs_time );
+    rv = unlikely( chan->msg_size > 0 && send_buf == NULL ) ? EINVAL :
+      chan_unbuf_send( chan, send_buf, abs_time );
   }
 
   if ( rv > 0 )
