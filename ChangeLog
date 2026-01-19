@@ -1,3 +1,8 @@
+2026-01-19  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: s/NULL/CHAN_NO_WAIT/
+   * c_chan.c, c_chan.h: Added CHAN_NO_WAIT.
+
 2026-01-18  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.c, c_chan.h: Added chan_cap() and chan_len().
