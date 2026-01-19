@@ -757,7 +757,7 @@ static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
   assert( cond != NULL );
   assert( mtx != NULL );
 
-  if ( abs_time == NULL )
+  if ( abs_time == CHAN_NO_WAIT )
     return EAGAIN;
 
   int const pcw_rv = abs_time == CHAN_NO_TIMEOUT ?
