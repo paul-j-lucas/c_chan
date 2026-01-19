@@ -241,11 +241,11 @@ static bool chan_add_obs( struct chan *chan, chan_dir dir,
  *
  * @param chan The \ref chan to receive from.
  * @param recv_buf The buffer to receive into.
- * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message is available and \a abs_time is `NULL`; or:
+ *  + `EAGAIN` if no message is available and \a abs_time is #CHAN_NO_WAIT; or:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
@@ -282,11 +282,11 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
  *
  * @param chan The \ref chan to send to.
  * @param send_buf The buffer to send from.
- * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message can be sent and \a abs_time is `NULL`; or:
+ *  + `EAGAIN` if no message can be sent and \a abs_time is #CHAN_NO_WAIT; or:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
@@ -462,11 +462,11 @@ remove_already_added:
  * into.  May be `NULL`.
  * @param send_buf An array of zero or more pointers to buffers to send from.
  * May be `NULL`.
- * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message is available and \a abs_time is `NULL`; or:
+ *  + `EAGAIN` if no message is available and \a abs_time is #CHAN_NO_WAIT; or:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  */
@@ -531,8 +531,8 @@ static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
  *
  * @param chan The unbuffered \ref chan to acquire.
  * @param dir The direction of \a chan.
- * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
  *
  * @warning \ref chan::mtx _must_ be locked before calling this function.
  *
@@ -557,11 +557,11 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
  *
  * @param chan The \ref chan to receive from.
  * @param recv_buf The buffer to receive into.
- * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message is available and \a abs_time is `NULL`; or:
+ *  + `EAGAIN` if no message is available and \a abs_time is #CHAN_NO_WAIT; or:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
@@ -622,11 +622,11 @@ static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
  *
  * @param chan The \ref chan to send to.
  * @param send_buf The buffer to send from.
- * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message can be sent and \a abs_time is `NULL`; or:
+ *  + `EAGAIN` if no message can be sent and \a abs_time is #CHAN_NO_WAIT; or:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
@@ -704,16 +704,16 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
 
 /**
  * Like **pthread_cond_wait**(3)** and **pthread_cond_timedwait**(3) except:
- *  + If \a abs_time is `NULL`, does not wait.
+ *  + If \a abs_time is #CHAN_NO_WAIT, does not wait.
  *  + If \a abs_time is \ref CHAN_NO_TIMEOUT, waits indefinitely.
  *
  * @param chan The \ref chan to wait for.
  * @param dir Whether to wait to receive or send.
- * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if \a abs_time is `NULL`; or:
+ *  + `EAGAIN` if \a abs_time is #CHAN_NO_WAIT; or:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `ETIMEDOUT` if it's now \a abs_time or later.
  *
@@ -738,15 +738,15 @@ static int chan_wait( struct chan *chan, chan_dir dir,
 
 /**
  * Like **pthread_cond_wait**(3)** and **pthread_cond_timedwait**(3) except:
- *  + If \a abs_time is `NULL`, returns immediatly.
+ *  + If \a abs_time is #CHAN_NO_WAIT, returns immediatly.
  *  + If \a abs_time is \ref CHAN_NO_TIMEOUT, waits indefinitely.
  *  + Checks the return value of **pthread_cond_timedwait**(3) for errors other
  *    than `ETIMEDOUT`.
  *
  * @param cond The condition to wait for.
  * @param mtx The mutex to unlock temporarily.
- * @param abs_time When to wait until. If `NULL`, it's considered now (does not
- * wait); if \ref CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
+ * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns either 0 only if \a cond was signaled or `ETIMEDOUT` only if
  * it's now \a abs_time or later.
  */
@@ -777,14 +777,14 @@ static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
 /**
  * Gets a seed for **rand_r**(3) or **srand**(3).
  *
- * @param abs_time A pointer to an absolute time.  If not `NULL` nor \ref
- * CHAN_NO_TIMEOUT, uses it as the basis for a seed; otherwise, uses the
+ * @param abs_time A pointer to an absolute time.  If not #CHAN_NO_WAIT nor
+ * \ref CHAN_NO_TIMEOUT, uses it as the basis for a seed; otherwise, uses the
  * current time.
  * @return Returns a pseudo-random unsigned integer to be used as a seed.
  */
 NODISCARD
 static unsigned rand_seed( struct timespec const *abs_time ) {
-  if ( abs_time != NULL && abs_time != CHAN_NO_TIMEOUT )
+  if ( abs_time != CHAN_NO_WAIT && abs_time != CHAN_NO_TIMEOUT )
     return (unsigned)abs_time->tv_nsec;
   struct timespec now;
   CLOCK_GETTIME( CLOCK_REALTIME, &now );
@@ -795,19 +795,19 @@ static unsigned rand_seed( struct timespec const *abs_time ) {
  * Converts a relative time (duration) to an absolute time in the future
  * relative to now.
  *
- * @param rel_time The relative time to convert.  May be `NULL` to mean do not
- * wait or \ref CHAN_NO_TIMEOUT to mean wait indefinitely.
+ * @param rel_time The relative time to convert.  May be #CHAN_NO_WAIT to mean
+ * do not wait or \ref CHAN_NO_TIMEOUT to mean wait indefinitely.
  * @param abs_time A pointer to receive the absolute time, but only if \a
- * rel_time is neither `NULL` nor \ref CHAN_NO_TIMEOUT.
- * @return Returns \a rel_time if either `NULL` or \ref CHAN_NO_TIMEOUT, or \a
- * abs_time otherwise.
+ * rel_time is neither #CHAN_NO_WAIT nor \ref CHAN_NO_TIMEOUT.
+ * @return Returns \a rel_time if either #CHAN_NO_WAIT or \ref CHAN_NO_TIMEOUT,
+ * or \a abs_time otherwise.
  */
 NODISCARD
 static struct timespec const* ts_rel_to_abs( struct timespec const *rel_time,
                                              struct timespec *abs_time ) {
   assert( abs_time != NULL );
 
-  if ( rel_time == NULL || rel_time == CHAN_NO_TIMEOUT )
+  if ( rel_time == CHAN_NO_WAIT || rel_time == CHAN_NO_TIMEOUT )
     return rel_time;
 
   struct timespec now;
@@ -975,7 +975,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   struct timespec               abs_ts;
   struct timespec const *const  abs_time = ts_rel_to_abs( duration, &abs_ts );
   chan_select_init_args         csi;
-  bool const                    is_blocking = duration != NULL;
+  bool const                    is_blocking = duration != CHAN_NO_WAIT;
   unsigned                      seed = 0;     // random number seed
   chan_impl_obs                 select_obs;   // observer for this select
   pthread_mutex_t               select_mtx;   // mutex for select_obs
@@ -1012,7 +1012,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     }
 
     struct chan *selected_chan = NULL;
-    struct timespec const *select_abs_time = NULL;
+    struct timespec const *select_abs_time = CHAN_NO_WAIT;
 
     if ( csi.chans_open == 1 ) {        // Degenerate case.
       if ( csi.ref_len > 0 )

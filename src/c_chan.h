@@ -94,6 +94,16 @@ struct chan_impl_obs {
 #define CHAN_NONE                 0
 
 /**
+ * As a value for a duration parameter, means do not wait.
+ *
+ * @sa #CHAN_NO_TIMEOUT
+ * @sa chan_recv()
+ * @sa chan_select()
+ * @sa chan_send()
+ */
+#define CHAN_NO_WAIT              NULL
+
+/**
  * For use with cases of a `switch` statement on chan_select() to specify the
  * index of a receive channel.
  *
@@ -156,7 +166,12 @@ struct chan {
 ////////// extern variables ///////////////////////////////////////////////////
 
 /**
- * A `timespec` value to wait indefinitely.
+ * As a value for a duration parameter, means wait indefinitely.
+ *
+ * @sa #CHAN_NO_WAIT
+ * @sa chan_recv()
+ * @sa chan_select()
+ * @sa chan_send()
  */
 extern struct timespec const *const CHAN_NO_TIMEOUT;
 
@@ -275,11 +290,11 @@ unsigned chan_len( struct chan const *chan );
  * @param chan The \ref chan to receive from.
  * @param recv_buf The buffer to receive into.  It must be at least \ref
  * chan::msg_size "msg_size" bytes.
- * @param duration The duration of time to wait. If `NULL`, it's considered
- * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param duration The duration of time to wait. If #CHAN_NO_WAIT, does not
+ * wait; if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message is available and \a duration is `NULL`; or:
+ *  + `EAGAIN` if no message is available and \a duration is #CHAN_NO_WAIT; or:
  *  + `EINVAL` only for an invalid argument; or:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `ETIMEDOUT` if \a duration expired.
@@ -297,11 +312,11 @@ int chan_recv( struct chan *chan, void *recv_buf,
  * @param chan The \ref chan to send to.
  * @param send_buf The buffer to send from.  It must be at least \ref
  * chan::msg_size "msg_size" bytes.
- * @param duration The duration of time to wait. If `NULL`, it's considered
- * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
+ * @param duration The duration of time to wait. If #CHAN_NO_WAIT, does not
+ * wait; if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message can be sent and \a duration is `NULL`; or:
+ *  + `EAGAIN` if no message can be sent and \a duration is #CHAN_NO_WAIT; or:
  *  + `EINVAL` only for an invalid argument; or:
  *  + `EPIPE` if \a chan is closed; or:
  *  + `ETIMEDOUT` if \a duration expired.
@@ -376,15 +391,15 @@ int chan_send( struct chan *chan, void const *send_buf,
  * @param send_buf An array of zero or more pointers to buffers to send from
  * corresponding to \a send_chan.  If \a send_len is 0, may be `NULL`.  The
  * same pointer may appear more than once in the array.
- * @param duration The duration of time to wait. If `NULL`, it's considered
- * zero (does not wait); if #CHAN_NO_TIMEOUT, waits indefinitely.
-
+ * @param duration The duration of time to wait. If #CHAN_NO_WAIT, does not
+ * wait; if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return Returns an integer:
  *  + < 0 that specifies the selected channel (to be used with #CHAN_RECV or
  *    #CHAN_SEND); or:
  *  + 0, aka, #CHAN_NONE, that specifies no channel was selected; or:
  *  + > 0 that specifies an error code, one of:
- *      + `EAGAIN` only if \a duration is `NULL` and no channels are ready; or:
+ *      + `EAGAIN` only if \a duration is #CHAN_NO_WAIT and no channels are
+ *        ready; or:
  *      + `EINVAL` only if an invalid argument was given; or:
  *      + `ENOMEM` only if memory allocation failed; or:
  *      + `EPIPE` only if all channels are closed; or:
