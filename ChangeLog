@@ -1,3 +1,7 @@
+2026-01-20  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Now setting select_abs_time only if ref_len > 0.
+
 2026-01-19  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.c: s/NULL/CHAN_NO_WAIT/
