@@ -60,6 +60,8 @@ typedef struct chan_impl_obs  chan_impl_obs;
 
 /**
  * A linked list of observers.
+ *
+ * @note This is an implementation detail not part of the public API.
  */
 struct chan_impl_link {
   chan_impl_obs  *obs;                  ///< The observer.
