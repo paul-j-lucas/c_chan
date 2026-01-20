@@ -410,6 +410,10 @@ int chan_send( struct chan *chan, void const *send_buf,
  * For a positive return value, the global variable `errno` is also set to it.
  *
  * @warning No \ref chan may appear in both \a recv_chan and \a send_chan.
+ *
+ * @sa #CHAN_NONE
+ * @sa #CHAN_RECV()
+ * @sa #CHAN_SEND()
  */
 int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
                  void *recv_buf[recv_len],
