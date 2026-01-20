@@ -1015,9 +1015,10 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     struct timespec const *select_abs_time = CHAN_NO_WAIT;
 
     if ( csi.chans_open == 1 ) {        // Degenerate case.
-      if ( csi.ref_len > 0 )
+      if ( csi.ref_len > 0 ) {
         selected_ref = ref;
-      select_abs_time = abs_time;
+        select_abs_time = abs_time;
+      }
     }
     else if ( csi.chans_maybe_ready == 0 && is_blocking ) {
       // None of the channels may be ready and we should wait -- so wait.
