@@ -556,6 +556,61 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
 }
 
 /**
+ * Performs a "handshake" between the sending and receiving ends of an
+ * unbuffered channel.
+ *
+ * @remarks The sender has to block to allow the receiver to do something with
+ * the message, before attempting to send another message. To understand the
+ * problem, consider the following sequence of events between two threads where
+ * each thread is in a loop, one sending and the other receiving:
+ * @par
+ * 1. On thread 1, chan_unbuf_recv() is called on a channel, but no sender is
+ *    present, so it waits.
+ *
+ * 2. On thread 2, chan_unbuf_send() is called, sees a receiver is waiting,
+ *    copies the message immediately, and returns.
+ *
+ * 3. The kernel's task scheduler arbitrarily decides to schedule thread 2
+ *    again immediately. As stated, it's in a loop, so chan_unbuf_send() is
+ *    called again, sees a receiver is still "waiting" (even though the message
+ *    was already copied), and immediately copies a new message overwriting the
+ *    previous message!
+ * @par
+ * Step 3 can happen any number of times overwriting messages before the
+ * scheduler could decide to run thread 1. Note that the same thing can happen
+ * with the sender and receiver roles reversed, i.e., the receiver could
+ * receive the same message multiple times thinking it's a new message since
+ * the sender isn't given a chance to run.
+ * @par
+ * What's needed is a way to force thread 2 to block after sending a message
+ * and wait on a condition variable. Since it's blocked, the scheduler won't
+ * schedule it again and it therefore will schedule thread 1 to allow its
+ * chan_unbuf_recv() to return and allow its loop to do whatever with the
+ * message.
+ * @par
+ * This is what the \ref chan::copy_done "copy_done" condition variable is for.
+ * Yes, both calls to `pthread_cond_signal` are necessary.
+ *
+ * @param chan Then \ref chan to handshake.
+ * @param dir The direction of \a chan initiating the handshake.
+ */
+static void chan_unbuf_handshake( struct chan *chan, chan_dir dir ) {
+  assert( chan != NULL );
+
+
+  chan->unbuf.is_copy_done[ !dir ] = true;
+  PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ !dir ] );
+
+  chan->unbuf.is_copy_done[ dir ] = false;
+  do {                                  // guard against spurious wake-ups
+    PTHREAD_COND_WAIT( &chan->unbuf.copy_done[ dir ], &chan->mtx );
+  } while ( !chan->unbuf.is_copy_done[ dir ] );
+
+  chan->unbuf.is_copy_done[ !dir ] = true;
+  PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ !dir ] );
+}
+
+/**
  * Receives a message from an unbuffered \ref chan.
  *
  * @param chan The \ref chan to receive from.
@@ -583,15 +638,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
 
     do {
       if ( chan->unbuf.is_busy[ CHAN_SEND ] ) {
-        // See the big comment in chan_unbuf_send.
-        chan->unbuf.is_copy_done[ CHAN_SEND ] = true;
-        PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ CHAN_SEND ] );
-        chan->unbuf.is_copy_done[ CHAN_RECV ] = false;
-        do {                            // guard against spurious wake-ups
-          PTHREAD_COND_WAIT( &chan->unbuf.copy_done[ CHAN_RECV ], &chan->mtx );
-        } while ( !chan->unbuf.is_copy_done[ CHAN_RECV ] );
-        chan->unbuf.is_copy_done[ CHAN_SEND ] = true;
-        PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ CHAN_SEND ] );
+        chan_unbuf_handshake( chan, CHAN_RECV );
         break;
       }
       rv = chan_wait( chan, CHAN_RECV, abs_time );
@@ -649,50 +696,7 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
       if ( chan->unbuf.is_busy[ CHAN_RECV ] ) {
         if ( chan->msg_size > 0 )
           memcpy( chan->unbuf.recv_buf, send_buf, chan->msg_size );
-        //
-        // The sender has to block to allow the receiver to do something with
-        // the message, before attempting to send another message. To
-        // understand the problem, consider the following sequence of events
-        // between two threads where each thread is in a loop, one sending and
-        // the other receiving:
-        //
-        // 1. On thread 1, chan_unbuf_recv is called on a channel, but no
-        //    sender is present, so it waits.
-        //
-        // 2. On thread 2, chan_unbuf_send is called, sees a receiver is
-        //    waiting, copies the message immediately, and returns.
-        //
-        // 3. The kernel's task scheduler arbitrarily decides to schedule
-        //    thread 2 again immediately. As stated, it's in a loop, so
-        //    chan_unbuf_send is called again, sees a receiver is still
-        //    "waiting" (even though the message was already copied), and
-        //    immediately copies a new message overwriting the previous
-        //    message!
-        //
-        // Step 3 can happen any number of times overwriting messages before
-        // the scheduler could decide to run thread 1. Note that the same thing
-        // can happen with the sender and receiver roles reversed, i.e., the
-        // receiver could receive the same message multiple times thinking it's
-        // a new message since the sender isn't given a chance to run.
-        //
-        // What's needed is a way to force thread 2 to block after sending a
-        // message and wait on a condition variable. Since it's blocked, the
-        // scheduler won't schedule it again and it therefore will schedule
-        // thread 1 to allow its chan_unbuf_recv to return and allow its loop
-        // to do whatever with the message.
-        //
-        // This is what the copy_done condition variable is for. Additionally,
-        // both calls to pthread_cond_signal are necessary to implement a
-        // handshake between the two threads.
-        //
-        chan->unbuf.is_copy_done[ CHAN_RECV ] = true;
-        PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ CHAN_RECV ] );
-        chan->unbuf.is_copy_done[ CHAN_SEND ] = false;
-        do {                            // guard against spurious wake-ups
-          PTHREAD_COND_WAIT( &chan->unbuf.copy_done[ CHAN_SEND ], &chan->mtx );
-        } while ( !chan->unbuf.is_copy_done[ CHAN_SEND ] );
-        chan->unbuf.is_copy_done[ CHAN_RECV ] = true;
-        PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ CHAN_RECV ] );
+        chan_unbuf_handshake( chan, CHAN_SEND );
         break;
       }
       rv = chan_wait( chan, CHAN_SEND, abs_time );
