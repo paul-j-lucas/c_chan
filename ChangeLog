@@ -1,3 +1,8 @@
+2026-01-21  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Factoried out chan_unbuf_handshake().
+   * c_chan.c: Added #ifndef NODISCARD.
+
 2026-01-20  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.c: Now setting select_abs_time only if ref_len > 0.
