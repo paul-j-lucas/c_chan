@@ -83,7 +83,7 @@ typedef struct  chan_select_ref       chan_select_ref;
  * @param j_data A pointer to data.
  * @return Returns an integer less than, equal to, or greater than 0, according
  * to whether the data pointed to by \a i_data is less than, equal to, or
- * greater than the data pointed to by \a j_data.
+ * greater than the data pointed to by \a j_data, respectively.
  */
 typedef int (*qsort_cmp_fn)( void const *i_data, void const *j_data );
 

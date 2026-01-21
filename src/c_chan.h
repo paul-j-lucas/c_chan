@@ -51,12 +51,21 @@ extern "C" {
 
 /**
  * @defgroup c-chan-implementation-group Implementation API
- * Declares types, macros, and functions for the implementation.
+ * Declares types, macros, and functions exclusively for the implementation.
+ *
+ * @note Identifiers in `c_chan.h` out of necessity include `_impl_` in their
+ * names to distinguish them; those only in `c_chan.c` have no need for
+ * `_impl_`.
+ *
+ * @warning Anything in the implementation API is subject to change at any
+ * time.
  * @{
  */
 
+/// @cond DOXYGEN_IGNORE
 typedef struct chan_impl_link chan_impl_link;
 typedef struct chan_impl_obs  chan_impl_obs;
+/// @endcond
 
 /**
  * A linked list of observers.
