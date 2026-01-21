@@ -38,6 +38,10 @@
 #include <sys/time.h>                   /* for clock_gettime(3) */
 #include <unistd.h>
 
+#ifndef NODISCARD
+# define NODISCARD                /* nothing */
+#endif /* NODISCARD */
+
 /// @endcond
 
 /**
