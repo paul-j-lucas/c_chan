@@ -33,9 +33,10 @@
 #include <assert.h>
 #include <attribute.h>
 #include <errno.h>
-#include <stdlib.h>
+#include <stdlib.h>                     /* for malloc(3), qsort(3) */
 #include <string.h>                     /* for memcpy(3) */
 #include <sys/time.h>                   /* for clock_gettime(3) */
+#include <time.h>                       /* for timespec */
 #include <unistd.h>
 
 #ifndef NODISCARD
@@ -133,14 +134,11 @@ NODISCARD
 static int  chan_unbuf_recv( struct chan*, void*, struct timespec const* ),
             chan_unbuf_send( struct chan*, void const*,
                              struct timespec const* ),
-            chan_wait( struct chan*, chan_dir, struct timespec const* );
+            chan_wait( struct chan*, chan_dir, struct timespec const* ),
+            pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
+                                       struct timespec const* );
 
 static void chan_unbuf_release( struct chan*, chan_dir );
-
-
-NODISCARD
-static int  pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
-                                       struct timespec const* );
 
 // local variables
 
@@ -414,27 +412,28 @@ static bool chan_select_init( chan_select_ref ref[],
   assert( chan != NULL );
 
   unsigned i = 0;
+  bool const is_blocking = add_obs != NULL;
 
   for ( ; i < chan_len; ++i ) {
-    bool add_failed = false;
+    bool add_obs_failed = false;
     bool is_ready = false;
     PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
 
     bool const is_hard_closed = chan_is_hard_closed( chan[i], dir );
     if ( !is_hard_closed ) {
       is_ready = chan_is_ready( chan[i], dir );
-      if ( add_obs != NULL )
-        add_failed = !chan_add_obs( chan[i], dir, add_obs );
+      if ( is_blocking )
+        add_obs_failed = !chan_add_obs( chan[i], dir, add_obs );
     }
 
     PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
 
-    if ( unlikely( add_failed ) )
+    if ( unlikely( add_obs_failed ) )
       goto remove_already_added;
     if ( is_hard_closed )
       continue;
     ++csi->chans_open;
-    if ( is_ready || add_obs != NULL ) {
+    if ( is_ready || is_blocking ) {
       ref[ csi->ref_len++ ] = (chan_select_ref){
         .chan = chan[i],
         .dir = dir,
