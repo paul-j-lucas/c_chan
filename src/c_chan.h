@@ -200,7 +200,7 @@ extern struct timespec const *const CHAN_NO_TIMEOUT;
  *
  * @sa chan_len()
  */
-static inline unsigned chan_cap( struct chan const *chan ) {
+inline unsigned chan_cap( struct chan const *chan ) {
   return chan->buf_cap;
 }
 
