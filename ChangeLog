@@ -1,3 +1,10 @@
+2026-01-22  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.h: Removed static.
+   * ax_require_defined.m4: Added ax_require_defined.m4.
+   * ax_prepend_flag.m4: Added ax_prepend_flag.m4.
+   * ax_compiler_vendor.m4: Added missing ax_compiler_vendor.m4.
+
 2026-01-21  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.c: Added more assert()s.
