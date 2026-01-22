@@ -257,6 +257,9 @@ static bool chan_add_obs( struct chan *chan, chan_dir dir,
 NODISCARD
 static int chan_buf_recv( struct chan *chan, void *recv_buf,
                           struct timespec const *abs_time ) {
+  assert( chan != NULL );
+  assert( chan->buf_cap > 0 );
+
   int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
@@ -298,6 +301,9 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
 NODISCARD
 static int chan_buf_send( struct chan *chan, void const *send_buf,
                           struct timespec const *abs_time ) {
+  assert( chan != NULL );
+  assert( chan->buf_cap > 0 );
+
   int rv = 0;
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
@@ -477,6 +483,8 @@ NODISCARD
 static int chan_select_io( chan_select_ref const *ref,
                            void *recv_buf[], void const *send_buf[],
                            struct timespec const *abs_time ) {
+  assert( ref != NULL );
+
   return ref->dir == CHAN_RECV ?
     ref->chan->buf_cap > 0 ?
       chan_buf_recv( ref->chan, recv_buf[ ref->param_idx ], abs_time ) :
@@ -513,6 +521,9 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
  */
 static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
                                  int (*pthread_cond_fn)( pthread_cond_t* ) ) {
+  assert( chan != NULL );
+  assert( pthread_cond_fn != NULL );
+
   if ( chan->wait_cnt[ dir ] == 0 )     // Nobody is waiting.
     return;
 
@@ -544,6 +555,9 @@ static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
 NODISCARD
 static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
                                struct timespec const *abs_time ) {
+  assert( chan != NULL );
+  assert( chan->buf_cap == 0 );
+
   int rv = 0;
   while ( rv == 0 && chan->unbuf.is_busy[ dir ] ) {
     rv = chan->is_closed ? EPIPE :
@@ -596,6 +610,7 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
  */
 static void chan_unbuf_handshake( struct chan *chan, chan_dir dir ) {
   assert( chan != NULL );
+  assert( chan->buf_cap == 0 );
 
   chan->unbuf.is_copy_done[ !dir ] = true;
   PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ !dir ] );
@@ -628,6 +643,9 @@ static void chan_unbuf_handshake( struct chan *chan, chan_dir dir ) {
 NODISCARD
 static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
                             struct timespec const *abs_time ) {
+  assert( chan != NULL );
+  assert( chan->buf_cap == 0 );
+
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   int rv = chan_unbuf_acquire( chan, CHAN_RECV, abs_time );
@@ -662,6 +680,9 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
  * @sa chan_unbuf_acquire()
  */
 static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
+  assert( chan != NULL );
+  assert( chan->buf_cap == 0 );
+
   chan->unbuf.is_busy[ dir ] = false;
   PTHREAD_COND_SIGNAL( &chan->unbuf.not_busy[ dir ] );
 }
@@ -685,6 +706,9 @@ static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
 NODISCARD
 static int chan_unbuf_send( struct chan *chan, void const *send_buf,
                             struct timespec const *abs_time ) {
+  assert( chan != NULL );
+  assert( chan->buf_cap == 0 );
+
   PTHREAD_MUTEX_LOCK( &chan->mtx );
 
   int rv = chan_unbuf_acquire( chan, CHAN_SEND, abs_time );
