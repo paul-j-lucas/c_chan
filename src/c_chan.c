@@ -597,7 +597,6 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
 static void chan_unbuf_handshake( struct chan *chan, chan_dir dir ) {
   assert( chan != NULL );
 
-
   chan->unbuf.is_copy_done[ !dir ] = true;
   PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ !dir ] );
 
