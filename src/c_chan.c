@@ -607,6 +607,8 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
  *
  * @param chan Then \ref chan to handshake.
  * @param dir The direction of \a chan initiating the handshake.
+ *
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
  */
 static void chan_unbuf_handshake( struct chan *chan, chan_dir dir ) {
   assert( chan != NULL );
