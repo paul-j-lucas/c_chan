@@ -1,5 +1,6 @@
 2026-01-21  Paul J. Lucas <paul@lucasmail.org>
 
+   * c_chan.c: Added more assert()s.
    * c_chan.c: Factoried out chan_unbuf_handshake().
    * c_chan.c: Added #ifndef NODISCARD.
 
