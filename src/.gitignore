@@ -3,5 +3,6 @@
 /*.gcno
 /*.vcg
 /*_test
+/.libs
 /config.h
 /stamp-h1

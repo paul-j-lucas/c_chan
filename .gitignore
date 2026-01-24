@@ -2,6 +2,8 @@
 *.core
 *.gz
 *.in
+*.la
+*.lo
 *.log
 *.o
 *.tmp
@@ -28,5 +30,7 @@ tags
 /docs/
 /INSTALL
 /install-sh
+/libtool
+/ltmain.sh
 /missing
 /test-driver

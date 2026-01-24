@@ -18,37 +18,35 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-noinst_LIBRARIES =	libc_chan.a
-check_PROGRAMS=	c_chan_test
+lib_LTLIBRARIES =	libc_chan.la
+include_HEADERS =	c_chan.h
 
-AM_CFLAGS =	$(C_CHAN_CFLAGS) $(PTHREAD_CFLAGS)
-
-c_chan_test_LDADD = libc_chan.a $(PTHREAD_LIBS)
-
+AM_CFLAGS =		$(C_CHAN_CFLAGS) $(PTHREAD_CFLAGS)
 if ENABLE_ASAN
-AM_CFLAGS +=	-fsanitize=address -fno-omit-frame-pointer
+AM_CFLAGS +=		-fsanitize=address -fno-omit-frame-pointer
 endif
-
 if ENABLE_MSAN
-AM_CFLAGS +=	-fsanitize=memory -fno-omit-frame-pointer
+AM_CFLAGS +=		-fsanitize=memory -fno-omit-frame-pointer
 endif
-
 if ENABLE_UBSAN
-AM_CFLAGS +=	-fsanitize=undefined
+AM_CFLAGS +=		-fsanitize=undefined
 endif
 
-AM_CPPFLAGS =	-I$(top_srcdir)/lib -I$(top_builddir)/lib
-LDADD =		$(top_builddir)/lib/libgnu.a
+AM_CPPFLAGS =		-I$(top_srcdir)/lib -I$(top_builddir)/lib
+LDADD =			$(top_builddir)/lib/libgnu.a
 
-libc_chan_a_SOURCES = \
-		c_chan.c c_chan.h \
-		util.c util.h
+libc_chan_la_LDFLAGS =	-version-info 1:0:0
 
-c_chan_test_SOURCES = \
-		$(libc_chan_a_SOURCES) \
-		c_chan_test.c \
-		unit_test.c unit_test.h
+libc_chan_la_SOURCES =	c_chan.c $(include_HEADERS) \
+			util.c util.h
 
-TESTS =		$(check_PROGRAMS)
+check_PROGRAMS =	c_chan_test
+c_chan_test_SOURCES =	$(libc_chan_a_SOURCES) \
+			c_chan_test.c \
+			unit_test.c unit_test.h
+
+c_chan_test_LDADD =	libc_chan.la $(PTHREAD_LIBS)
+
+TESTS =			$(check_PROGRAMS)
 
 # vim:set noet sw=8 ts=8:
