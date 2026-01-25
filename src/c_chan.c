@@ -33,6 +33,7 @@
 #include <assert.h>
 #include <attribute.h>
 #include <errno.h>
+#include <stdint.h>                     /* for uintptr_t */
 #include <stdlib.h>                     /* for malloc(3), qsort(3) */
 #include <string.h>                     /* for memcpy(3) */
 #include <sys/time.h>                   /* for clock_gettime(3) */
@@ -186,24 +187,6 @@ static inline bool chan_is_hard_closed( struct chan const *chan,
           (dir == CHAN_SEND || chan->buf_cap == 0 || chan->buf.ring_len == 0);
 }
 
-/**
- * Gets whether a channel is ready.
- *
- * @param chan The channel to check.
- * @param dir The direction of \a chan.
- * @return Returns `true` only if \a chan is ready.
- *
- * @warning \ref chan::mtx _must_ be locked before calling this function.
- */
-NODISCARD
-static inline bool chan_is_ready( struct chan const *chan, chan_dir dir ) {
-  if ( chan->buf_cap == 0 )
-    return chan->wait_cnt[ !dir ] > 0;
-  return dir == CHAN_RECV ?
-    chan->buf.ring_len > 0 :
-    chan->buf.ring_len < chan->buf_cap;
-}
-
 ////////// local functions ////////////////////////////////////////////////////
 
 /**
@@ -327,6 +310,85 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   return rv;
+}
+
+/**
+ * Gets whether a channel is ready.
+ *
+ * @param chan The channel to check.
+ * @param dir The direction of \a chan.
+ * @return Returns `true` only if \a chan is ready.
+ *
+ * @warning \ref chan::mtx _must_ be locked before calling this function.
+ */
+NODISCARD
+static bool chan_is_ready( struct chan const *chan, chan_dir dir ) {
+
+  // This is a complicated implementation, but it's branch-free.  For the CPUs
+  // tested using clang -O2, it yields the following:
+  //
+  //      CPU          Speed-up
+  //      ==========   ========
+  //      Intel Xeon   1.7
+  //      Intel N100   2.7
+  //      Apple M4     3.7
+
+  unsigned const  buf_cap = chan->buf_cap;
+  bool const      is_unbuf = buf_cap == 0;
+
+  // 1. Generate a mask based on is_unbuf:
+  //
+  //    + For buffered, 0.
+  //    + For unbuffered, ~0.
+  //
+  uintptr_t const is_unbuf_mask = -(uintptr_t)is_unbuf;
+
+  // 2. Get address of buffer's length.  For unbuffered, just use &buf_cap
+  //    whose value we know is 0.
+  //
+  //    We have to go via a pointer so we read from chan->buf.ring_len only if
+  //    the channel is buffered.
+  //
+  unsigned const *const pbuf_len = &chan->buf.ring_len;
+  unsigned const *const punbuf_0 = &chan->buf_cap;
+  unsigned const *const plen = (unsigned const*)(
+    (~is_unbuf_mask & (uintptr_t)pbuf_len) |
+    ( is_unbuf_mask & (uintptr_t)punbuf_0)
+  );
+
+  // 3. Load the value branch-free.
+  //
+  unsigned const len = *plen;
+
+  // 4. Generate a mask based on dir:
+  //
+  //    + For receive, 0.
+  //    + For send, ~0.
+  //
+  unsigned const dir_mask = -(unsigned)dir;
+
+  // 5. Determine the value to compare len against:
+  //
+  //    + For receive, 0.
+  //    + For send, buf_cap.
+  //
+  unsigned const zero_or_cap = dir_mask & buf_cap;
+
+  // 6. Determine buffered readiness:
+  //
+  //   + For receive, len != 0.
+  //   + For send, len != buf_cap.
+  //
+  bool const is_buf_ready = len != zero_or_cap;
+
+  // 7. Determine unbuffered readiness.  Using & here instead of && eliminates
+  //    another branch and is faster overall than always evaluating the right-
+  //    hand side on the Intel CPUs tested.
+  //
+  bool const is_unbuf_ready = is_unbuf & (chan->wait_cnt[!dir] > 0);
+
+  // 8. Combine results.
+  return is_buf_ready | is_unbuf_ready;
 }
 
 /**
