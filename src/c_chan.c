@@ -230,9 +230,10 @@ static bool chan_add_obs( struct chan *chan, chan_dir dir,
  * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message is available and \a abs_time is #CHAN_NO_WAIT; or:
- *  + `EPIPE` if \a chan is closed; or:
- *  + `ETIMEDOUT` if it's now \a abs_time or later.
+ *  + `EAGAIN` only if no message can be received and \a abs_time is
+ *    #CHAN_NO_WAIT; or:
+ *  + `EPIPE` only if \a chan is closed; or:
+ *  + `ETIMEDOUT` only if it's now \a abs_time or later.
  *
  * @sa chan_buf_send()
  * @sa chan_unbuf_recv()
@@ -274,9 +275,10 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
  * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message can be sent and \a abs_time is #CHAN_NO_WAIT; or:
- *  + `EPIPE` if \a chan is closed; or:
- *  + `ETIMEDOUT` if it's now \a abs_time or later.
+ *  + `EAGAIN` only if no message can be sent and \a abs_time is #CHAN_NO_WAIT;
+ *    or:
+ *  + `EPIPE` only if \a chan is closed; or:
+ *  + `ETIMEDOUT` only if it's now \a abs_time or later.
  *
  * @sa chan_buf_recv()
  * @sa chan_unbuf_send()
@@ -537,9 +539,10 @@ remove_already_added:
  * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message is available and \a abs_time is #CHAN_NO_WAIT; or:
- *  + `EPIPE` if \a chan is closed; or:
- *  + `ETIMEDOUT` if it's now \a abs_time or later.
+ *  + `EAGAIN` only if no message can be sent or received and \a abs_time is
+ *    #CHAN_NO_WAIT; or:
+ *  + `EPIPE` only if \a chan is closed; or:
+ *  + `ETIMEDOUT` only if it's now \a abs_time or later.
  */
 NODISCARD
 static int chan_select_io( chan_select_ref const *ref,
@@ -697,9 +700,10 @@ static void chan_unbuf_handshake( struct chan *chan, chan_dir dir ) {
  * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message is available and \a abs_time is #CHAN_NO_WAIT; or:
- *  + `EPIPE` if \a chan is closed; or:
- *  + `ETIMEDOUT` if it's now \a abs_time or later.
+ *  + `EAGAIN` only if no message can be received and \a abs_time is
+ *    #CHAN_NO_WAIT; or:
+ *  + `EPIPE` only if \a chan is closed; or:
+ *  + `ETIMEDOUT` only if it's now \a abs_time or later.
  *
  * @sa chan_buf_recv()
  * @sa chan_unbuf_send()
@@ -760,9 +764,10 @@ static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
  * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message can be sent and \a abs_time is #CHAN_NO_WAIT; or:
- *  + `EPIPE` if \a chan is closed; or:
- *  + `ETIMEDOUT` if it's now \a abs_time or later.
+ *  + `EAGAIN` only if no message can be sent and \a abs_time is #CHAN_NO_WAIT;
+ *    or:
+ *  + `EPIPE` only if \a chan is closed; or:
+ *  + `ETIMEDOUT` only if it's now \a abs_time or later.
  *
  * @sa chan_buf_send()
  * @sa chan_unbuf_recv()
@@ -807,9 +812,9 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
  * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if \a abs_time is #CHAN_NO_WAIT; or:
- *  + `EPIPE` if \a chan is closed; or:
- *  + `ETIMEDOUT` if it's now \a abs_time or later.
+ *  + `EAGAIN` only if \a abs_time is #CHAN_NO_WAIT; or:
+ *  + `EPIPE` only if \a chan is closed; or:
+ *  + `ETIMEDOUT` only if it's now \a abs_time or later.
  *
  * @warning \ref chan::mtx _must_ be locked before calling this function.
  */

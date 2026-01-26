@@ -266,7 +266,7 @@ void chan_close( struct chan *chan );
  * is &gt; 0.
  * @return
  *  + 0 upon success; or:
- *  + `EINVAL` if any argument is invalid; or:
+ *  + `EINVAL` only if any argument is invalid; or:
  *  + `ENOMEM` only if memory allocation for a buffered channel fails.
  * @par
  * For a non-zero return value, the global variable `errno` is also set to it.
@@ -305,10 +305,11 @@ unsigned chan_len( struct chan const *chan );
  * wait; if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message is available and \a duration is #CHAN_NO_WAIT; or:
- *  + `EINVAL` if any argument is invalid; or:
- *  + `EPIPE` if \a chan is closed; or:
- *  + `ETIMEDOUT` if \a duration expired.
+ *  + `EAGAIN` only if no message is available and \a duration is
+ *    #CHAN_NO_WAIT; or:
+ *  + `EINVAL` only if any argument is invalid; or:
+ *  + `EPIPE` only if \a chan is closed; or:
+ *  + `ETIMEDOUT` only if \a duration expired.
  * @par
  * For a non-zero return value, the global variable `errno` is also set to it.
  *
@@ -327,10 +328,11 @@ int chan_recv( struct chan *chan, void *recv_buf,
  * wait; if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
  *  + 0 upon success; or:
- *  + `EAGAIN` if no message can be sent and \a duration is #CHAN_NO_WAIT; or:
- *  + `EINVAL` if any argument is invalid; or:
- *  + `EPIPE` if \a chan is closed; or:
- *  + `ETIMEDOUT` if \a duration expired.
+ *  + `EAGAIN` only if no message can be sent and \a duration is #CHAN_NO_WAIT;
+ *    or:
+ *  + `EINVAL` only if any argument is invalid; or:
+ *  + `EPIPE` only if \a chan is closed; or:
+ *  + `ETIMEDOUT` only if \a duration expired.
  * @par
  * For a non-zero return value, the global variable `errno` is also set to it.
  *
