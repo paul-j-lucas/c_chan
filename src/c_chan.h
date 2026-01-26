@@ -211,6 +211,8 @@ inline unsigned chan_cap( struct chan const *chan ) {
  * @param msg_cleanup_fn For buffered channels only, the function to clean-up
  * each unreceived message, if any.
  *
+ * @note A channel _must_ be cleaned-up eventually.
+ *
  * @warning No threads may be using the channel when it is cleaned-up.  To help
  * ensure that, the channel may be closed first.
  * @par
@@ -233,8 +235,6 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) );
  * received from.
  *
  * @param chan The \ref chan to close.  If already closed, does nothing.
- *
- * @note A channel _must_ be cleaned-up eventually.
  *
  * @sa chan_cleanup()
  * @sa chan_init()
