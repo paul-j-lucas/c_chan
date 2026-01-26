@@ -559,7 +559,7 @@ static bool test_select_unbuf_2( void ) {
 
   static unsigned const FIB[] = { 0, 1, 1, 2, 3, 5, 8, 13, 21, 34 };
 
-  for ( unsigned i = 0; i < ARRAY_SIZE( FIB ); ++i ) {
+  for ( size_t i = 0; i < ARRAY_SIZE( FIB ); ++i ) {
     unsigned fib;
     if ( !FN_TEST( chan_recv( &fib_chan, &fib, CHAN_NO_TIMEOUT ) == 0 ) )
       goto fib_error;
