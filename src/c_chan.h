@@ -142,7 +142,7 @@ struct chan_impl_obs {
  * @warning All members are "private" and therefore should _never_ be accessed
  * directly. _Only_ provided functions should be used on channels.  The
  * `struct` is defined in the header so that `chan` objects can be created
- * without `malloc`, i.e., not the PIMPL idiom.
+ * without **malloc**(3), i.e., not the PIMPL idiom.
  *
  * @sa Hoare, C. A. R., "Communicating Sequential Processes," Communications of
  * the ACM, 21(8), 1978, pp. 666–677,

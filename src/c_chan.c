@@ -195,7 +195,7 @@ static inline bool chan_is_hard_closed( struct chan const *chan,
  * @param chan Then \ref chan to add \a add_obs to.
  * @param dir The direction of \a chan.
  * @param add_obs The observer to add.
- * @return Returns `true` upon success or `false` only if `malloc`(3) failed.
+ * @return Returns `true` upon success or `false` only if **malloc**(3) failed.
  *
  * @warning \ref chan::mtx _must_ be locked before calling this function.
  *
