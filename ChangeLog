@@ -1,3 +1,20 @@
+2026-01-29  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Now checking is_hard_closed first.
+
+2026-01-26  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan_test.c: s/unsigned/size_t/
+
+2026-01-25  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Branch-free is_chan_ready().
+
+2026-01-23  Paul J. Lucas <paul@lucasmail.org>
+
+   * configure.ac, src/Makefile.am: Now using libtool.
+   * configure.ac: Added AC_PROG_RANLIB.
+
 2026-01-22  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.h: Removed static.
