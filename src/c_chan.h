@@ -207,18 +207,30 @@ inline unsigned chan_cap( struct chan const *chan ) {
 /**
  * Cleans-up a \ref chan.
  *
+ * @warning No threads may be using the channel when it is cleaned-up.  To help
+ * ensure that, the channel should be closed first.
+ *
+ * @remarks While any thread _can_ call chan_cleanup(), it's best if:
+ * @par
+ *  1. A main thread calls chan_init() to initialize a channel and spawns
+ *     worker threads to use it.
+ *  2. Either the main or some sender thread calls chan_close() to close the
+ *     channel.
+ *  3. The main thread joins all the worker threads and calls chan_cleanup() on
+ *     the channel.
+ * @par
+ * That is, whichever thread called chan_init() should be the one that calls
+ * chan_cleanup().
+ * @par
+ * This function can not call chan_close() automatically "just in case" because
+ * that would result in a race condition since other threads may not finish
+ * interacting with it before it's cleaned-up.
+ *
  * @param chan The \ref chan to clean-up.  If `NULL`, does nothing.
  * @param msg_cleanup_fn For buffered channels only, the function to clean-up
  * each unreceived message, if any.
  *
  * @note A channel _must_ be cleaned-up eventually.
- *
- * @warning No threads may be using the channel when it is cleaned-up.  To help
- * ensure that, the channel may be closed first.
- * @par
- * This function can not call chan_close() automatically because that would
- * result in a race condition since other threads may not finish interacting
- * with it before it's cleaned-up.
  *
  * @sa chan_close()
  * @sa chan_init()
@@ -229,10 +241,10 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) );
  * Closes a channel to indicate to receivers that no more messages will be
  * coming.
  *
- * @remarks Closing a channel is optional, but encouraged.  Once a channel is
- * closed, it can no longer be sent to.  For a buffered channel only, queued
- * messages may still be received; an unbuffered channel can no longer be
- * received from.
+ * @remarks Closing a channel is technically optional, but strongly encouraged
+ * because it causes waiting senders or receivers to unblock. Once a channel is
+ * closed, it can no longer be sent to, but, for a buffered channel only,
+ * queued messages may still be received.
  *
  * @param chan The \ref chan to close.  If already closed, does nothing.
  *
@@ -246,7 +258,7 @@ void chan_close( struct chan *chan );
  *
  * @remarks
  * There are two types of channels:
- *
+ * @par
  *  1. **Buffered**: the channel has a buffer of a fixed capacity.
  *
  *     + For senders, new messages may be sent as long as the buffer is not
@@ -392,14 +404,14 @@ int chan_send( struct chan *chan, void const *send_buf,
  *
  * @param recv_len The length of \a recv_chan and \a recv_buf.
  * @param recv_chan An array of zero or more channels to read from.  If \a
- * recv_len is 0, may be `NULL`.  The same channel may not appear more than
+ * recv_len is 0, may be `NULL`.  The same channel may _not_ appear more than
  * once in the array.
  * @param recv_buf An array of zero or more pointers to buffers to receive into
  * corresponding to \a recv_chan.  If \a recv_len is 0, may be `NULL`.  The
  * same pointer may appear more than once in the array.
  * @param send_len The length of \a send_chan and \a send_buf.
  * @param send_chan An array of zero or more channels to send from.  If \a
- * send_len is 0, may be `NULL`.  The same channel may not appear more than
+ * send_len is 0, may be `NULL`.  The same channel may _not_ appear more than
  * once in the array.
  * @param send_buf An array of zero or more pointers to buffers to send from
  * corresponding to \a send_chan.  If \a send_len is 0, may be `NULL`.  The
