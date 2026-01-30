@@ -498,10 +498,10 @@ static bool chan_select_init( chan_select_ref ref[],
 
     PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
 
-    if ( unlikely( add_obs_failed ) )
-      goto remove_already_added;
     if ( is_hard_closed )
       continue;
+    if ( unlikely( add_obs_failed ) )
+      goto remove_already_added;
     ++csi->chans_open;
     if ( is_ready || is_blocking ) {
       ref[ csi->ref_len++ ] = (chan_select_ref){
