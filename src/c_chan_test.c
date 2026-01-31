@@ -81,9 +81,13 @@ struct test_thrd_arg {
   };
 
   struct timespec const  *duration;     ///< Duration to wait, if any.
+
+  /// If not NULL, put return value here and ignore \ref expected_rv.
+  int                    *pactual_rv;
+
   int                     expected_rv;  ///< Expected function return value.
 };
-typedef struct test_thrd_arg test_thrd_arg;
+typedef struct test_thrd_arg  test_thrd_arg;
 
 /**
  * Argument passed to the thrd_fib_start function.
@@ -199,7 +203,9 @@ static void* thrd_chan_select( void *p ) {
     arg->send_len, arg->send_chan, arg->send_buf,
     arg->duration
   );
-  if ( !THRD_FN_TEST( actual_rv == arg->expected_rv ) )
+  if ( arg->pactual_rv != NULL )
+    *arg->pactual_rv = actual_rv;
+  else if ( !THRD_FN_TEST( actual_rv == arg->expected_rv ) )
     print_rvs( arg->expected_rv, actual_rv );
   THRD_FN_END();
 }
@@ -590,6 +596,8 @@ static bool test_select_2_recv( unsigned buf_cap ) {
   if ( FN_TEST( chan_init( &chan, buf_cap, sizeof(int) ) == 0 ) ) {
     pthread_t recv_thrd[2], send_thrd;
 
+    int recv_rv[] = { 0, 0 };
+
     int recv_val[] = { 0, 0 };
     test_thrd_arg select_arg[] = {
       TEST_THRD_ARG(
@@ -597,14 +605,14 @@ static bool test_select_2_recv( unsigned buf_cap ) {
         .recv_chan = (struct chan*[]){ &chan },
         .recv_buf = (void*[]){ &recv_val[0] },
         .duration = CHAN_NO_TIMEOUT,
-        .expected_rv = CHAN_RECV(0)
+        .pactual_rv = &recv_rv[0]
       ),
       TEST_THRD_ARG(
         .recv_len = 1,
         .recv_chan = (struct chan*[]){ &chan },
         .recv_buf = (void*[]){ &recv_val[1] },
         .duration = CHAN_NO_TIMEOUT,
-        .expected_rv = CHAN_RECV(0)
+        .pactual_rv = &recv_rv[1]
       )
     };
 
@@ -626,6 +634,8 @@ static bool test_select_2_recv( unsigned buf_cap ) {
 
     TEST_PTHREAD_JOIN( recv_thrd[0] );
     TEST_PTHREAD_JOIN( recv_thrd[1] );
+    FN_TEST( (recv_rv[0] == CHAN_RECV(0) && recv_rv[1] == EPIPE       ) ||
+             (recv_rv[0] == EPIPE        && recv_rv[1] == CHAN_RECV(0)) );
     FN_TEST( (recv_val[0] == 42 && recv_val[1] ==  0) ||
              (recv_val[0] ==  0 && recv_val[1] == 42) );
 

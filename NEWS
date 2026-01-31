@@ -5,6 +5,11 @@ See the end of the file for license conditions.
 
 -------------------------------------------------------------------------------
 
+* Changes in c_chan 1.1.1
+
++ Now always correctly returning an error value from `chan_select()`.
+
+
 * Changes in c_chan 1.1
 
 + Added `CHAN_NO_WAIT` as a synonym for `NULL`.
