@@ -87,7 +87,7 @@ struct test_thrd_arg {
 
   int                     expected_rv;  ///< Expected function return value.
 };
-typedef struct test_thrd_arg  test_thrd_arg;
+typedef struct test_thrd_arg test_thrd_arg;
 
 /**
  * Argument passed to the thrd_fib_start function.
