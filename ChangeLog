@@ -1,5 +1,11 @@
+2026-01-30  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Simplified "if".
+   * c_chan.c: Revert "Simplified chan_select_io."
+
 2026-01-29  Paul J. Lucas <paul@lucasmail.org>
 
+   * c_chan.c: Simplified chan_select_io.
    * c_chan.c: Now checking is_hard_closed first.
 
 2026-01-26  Paul J. Lucas <paul@lucasmail.org>
