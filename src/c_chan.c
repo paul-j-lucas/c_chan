@@ -1191,14 +1191,13 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     //    still be open, try again.
   } while ( rv == EAGAIN || (rv == EPIPE && csi.chans_open > 1) );
 
-  if ( selected_ref == NULL ) {
-    if ( rv > 0 )
-      errno = rv;
-  }
-  else {
+  if ( selected_ref != NULL ) {
     rv = selected_ref->dir == CHAN_RECV ?
       CHAN_RECV( selected_ref->param_idx ) :
       CHAN_SEND( selected_ref->param_idx );
+  }
+  else if ( rv > 0 ) {
+    errno = rv;
   }
 
   if ( is_blocking ) {
