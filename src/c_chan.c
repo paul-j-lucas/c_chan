@@ -638,11 +638,13 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
  * Performs a "handshake" between the sending and receiving ends of an
  * unbuffered channel.
  *
- * @remarks The sender has to block to allow the receiver to do something with
- * the message, before attempting to send another message. To understand the
+ * @remarks
+ * @parblock
+ * The sender has to block to allow the receiver to do something with the
+ * message, before attempting to send another message. To understand the
  * problem, consider the following sequence of events between two threads where
  * each thread is in a loop, one sending and the other receiving:
- * @par
+ *
  * 1. On thread 1, chan_unbuf_recv() is called on a channel, but no sender is
  *    present, so it waits.
  *
@@ -654,21 +656,22 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
  *    called again, sees a receiver is still "waiting" (even though the message
  *    was already copied), and immediately copies a new message overwriting the
  *    previous message!
- * @par
+ *
  * Step 3 can happen any number of times overwriting messages before the
  * scheduler could decide to run thread 1. Note that the same thing can happen
  * with the sender and receiver roles reversed, i.e., the receiver could
  * receive the same message multiple times thinking it's a new message since
  * the sender isn't given a chance to run.
- * @par
+ *
  * What's needed is a way to force thread 2 to block after sending a message
  * and wait on a condition variable. Since it's blocked, the scheduler won't
  * schedule it again and it therefore will schedule thread 1 to allow its
  * chan_unbuf_recv() to return and allow its loop to do whatever with the
  * message.
- * @par
+ *
  * This is what the \ref chan::copy_done "copy_done" condition variable is for.
  * Yes, both calls to `pthread_cond_signal` are necessary.
+ * @endparblock
  *
  * @param chan Then \ref chan to handshake.
  * @param dir The direction of \a chan initiating the handshake.

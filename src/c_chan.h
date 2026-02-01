@@ -210,21 +210,24 @@ inline unsigned chan_cap( struct chan const *chan ) {
  * @warning No threads may be using the channel when it is cleaned-up.  To help
  * ensure that, the channel should be closed first.
  *
- * @remarks While any thread _can_ call chan_cleanup(), it's best if:
- * @par
- *  1. A main thread calls chan_init() to initialize a channel and spawns
+ * @remarks
+ * @parblock
+ * While any thread _can_ call chan_cleanup(), it's best if:
+ *
+ *  1. A creator thread calls chan_init() to initialize a channel and spawns
  *     worker threads to use it.
- *  2. Either the main or some sender thread calls chan_close() to close the
+ *  2. Either the creator or some sender thread calls chan_close() to close the
  *     channel.
- *  3. The main thread joins all the worker threads and calls chan_cleanup() on
- *     the channel.
- * @par
+ *  3. The creator thread joins all the worker threads and calls chan_cleanup()
+ *     on the channel.
+ *
  * That is, whichever thread called chan_init() should be the one that calls
  * chan_cleanup().
- * @par
+ *
  * This function can not call chan_close() automatically "just in case" because
  * that would result in a race condition since other threads may not finish
  * interacting with it before it's cleaned-up.
+ * @endparblock
  *
  * @param chan The \ref chan to clean-up.  If `NULL`, does nothing.
  * @param msg_cleanup_fn For buffered channels only, the function to clean-up
@@ -238,8 +241,7 @@ inline unsigned chan_cap( struct chan const *chan ) {
 void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) );
 
 /**
- * Closes a channel to indicate to receivers that no more messages will be
- * coming.
+ * Closes \ref chan indicate to receivers that no more messages will be coming.
  *
  * @remarks Closing a channel is technically optional, but strongly encouraged
  * because it causes waiting senders or receivers to unblock. Once a channel is
@@ -254,11 +256,12 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) );
 void chan_close( struct chan *chan );
 
 /**
- * Initializes a channel.
+ * Initializes \ref chan.
  *
  * @remarks
+ * @parblock
  * There are two types of channels:
- * @par
+ *
  *  1. **Buffered**: the channel has a buffer of a fixed capacity.
  *
  *     + For senders, new messages may be sent as long as the buffer is not
@@ -271,17 +274,20 @@ void chan_close( struct chan *chan );
  *
  *  2. **Unbuffered**: A sender and receiver will wait (unless instructed not
  *     to) until both are simultaneously ready.
+ * @endparblock
  *
  * @param chan The \ref chan to initialize.
  * @param buf_cap The buffer capacity.  If zero, the channel is unbuffered.
  * @param msg_size The size of a message.  It must be &gt; 0 only if \a buf_cap
  * is &gt; 0.
  * @return
+ * @parblock
  *  + 0 upon success; or:
  *  + `EINVAL` only if any argument is invalid; or:
  *  + `ENOMEM` only if memory allocation for a buffered channel fails.
- * @par
+ *
  * For a non-zero return value, the global variable `errno` is also set to it.
+ * @endparblock
  *
  * @sa chan_cleanup()
  * @sa chan_close()
@@ -316,14 +322,16 @@ unsigned chan_len( struct chan const *chan );
  * @param duration The duration of time to wait. If #CHAN_NO_WAIT, does not
  * wait; if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
+ * @parblock
  *  + 0 upon success; or:
  *  + `EAGAIN` only if no message is available and \a duration is
  *    #CHAN_NO_WAIT; or:
  *  + `EINVAL` only if any argument is invalid; or:
  *  + `EPIPE` only if \a chan is closed; or:
  *  + `ETIMEDOUT` only if \a duration expired.
- * @par
+ *
  * For a non-zero return value, the global variable `errno` is also set to it.
+ * @endparblock
  *
  * @sa chan_send()
  */
@@ -339,14 +347,16 @@ int chan_recv( struct chan *chan, void *recv_buf,
  * @param duration The duration of time to wait. If #CHAN_NO_WAIT, does not
  * wait; if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
+ * @parblock
  *  + 0 upon success; or:
  *  + `EAGAIN` only if no message can be sent and \a duration is #CHAN_NO_WAIT;
  *    or:
  *  + `EINVAL` only if any argument is invalid; or:
  *  + `EPIPE` only if \a chan is closed; or:
  *  + `ETIMEDOUT` only if \a duration expired.
- * @par
+ *
  * For a non-zero return value, the global variable `errno` is also set to it.
+ * @endparblock
  *
  * @sa chan_recv()
  */
@@ -357,7 +367,10 @@ int chan_send( struct chan *chan, void const *send_buf,
  * Selects at most one \ref chan from either \a recv_chan or \a send_chan that
  * has either received or sent a message, respectively.
  *
- * @remarks For example:
+ * @remarks
+ * @parblock
+ * For example:
+ *
  *  ```c
  *  struct chan r_chan0, r_chan1, s_chan0, s_chan1;
  *  // ...
@@ -397,10 +410,12 @@ int chan_send( struct chan *chan, void const *send_buf,
  *    // ... other error codes ...
  *  }
  *  ```
+ *
  * where #CHAN_RECV(i) refers to the ith \ref chan in `r_chan` and
  * #CHAN_SEND(i) refers to the ith \ref chan in `s_chan`.
- * @par
+ *
  * When more than one \ref chan is ready, one is selected randomly.
+ * @endparblock
  *
  * @param recv_len The length of \a recv_chan and \a recv_buf.
  * @param recv_chan An array of zero or more channels to read from.  If \a
@@ -418,7 +433,9 @@ int chan_send( struct chan *chan, void const *send_buf,
  * same pointer may appear more than once in the array.
  * @param duration The duration of time to wait. If #CHAN_NO_WAIT, does not
  * wait; if #CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns an integer:
+ * @return
+ * @parblock
+ * Returns an integer:
  *  + < 0 that specifies the selected channel (to be used with #CHAN_RECV or
  *    #CHAN_SEND); or:
  *  + 0, aka, #CHAN_NONE, that specifies no channel was selected; or:
@@ -429,8 +446,9 @@ int chan_send( struct chan *chan, void const *send_buf,
  *      + `ENOMEM` only if memory allocation failed; or:
  *      + `EPIPE` only if all channels are closed; or:
  *      + `ETIMEDOUT` only if \a duration expired.
- * @par
+ *
  * For a positive return value, the global variable `errno` is also set to it.
+ * @endparblock
  *
  * @warning No \ref chan may appear in both \a recv_chan and \a send_chan.
  *
