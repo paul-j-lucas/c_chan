@@ -190,7 +190,7 @@ static inline bool chan_is_hard_closed( struct chan const *chan,
 ////////// local functions ////////////////////////////////////////////////////
 
 /**
- * Adds \a add_obs as an observer of \a chan.
+ * Adds \a add_obs (for a blocking select) as an observer of \a chan.
  *
  * @param chan Then \ref chan to add \a add_obs to.
  * @param dir The direction of \a chan.
@@ -217,7 +217,12 @@ static bool chan_add_obs( struct chan *chan, chan_dir dir,
   };
   chan->head_link[ dir ].next = new_link;
 
+  // Incremement this now even though the blocking select isn't waiting yet to
+  // indicate that it will be waiting shortly.  This means that when a blocking
+  // select actually waits, this will be incremented again in chan_wait(), but
+  // that's fine since all that matters is whether it's 0 or > 0.
   ++chan->waiters[ dir ];
+
   return true;
 }
 
@@ -452,7 +457,8 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
     curr_link = next_link;
   } while ( curr_link != NULL );
 
-  --chan->waiters[ dir ];
+  --chan->waiters[ dir ];               // see comment in chan_add_obs()
+
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   assert( curr_link != NULL );
 }

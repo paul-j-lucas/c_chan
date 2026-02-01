@@ -68,7 +68,7 @@ typedef struct chan_impl_obs  chan_impl_obs;
 /// @endcond
 
 /**
- * A linked list of observers.
+ * A linked list of \ref chan_impl_obs.
  *
  * @note This is an implementation detail not part of the public API.
  */
@@ -78,7 +78,11 @@ struct chan_impl_link {
 };
 
 /**
- * An "observer" for a channel that is used to wait until it's ready.
+ * An "observer" of a channel is an object that wants to receive/send from/to a
+ * channel and may to wait until it's ready to do so.
+ *
+ * @remarks In addition to a channel having its own observer, every blocking
+ * select is also an observer.
  *
  * @note This is an implementation detail not part of the public API.
  */
@@ -166,7 +170,12 @@ struct chan {
 
   chan_impl_link      head_link[2];     ///< Linked lists of observers.
   chan_impl_obs       self_obs[2];      ///< Receiver/sender.
-  unsigned short      waiters[2];       ///< Number waiting to receive/send.
+
+  /**
+   * A number &ge; the number of threads waiting to receive/send --- what
+   * matters is whether it's 0 or &gt; 0.
+   */
+  unsigned short      waiters[2];
 
   pthread_mutex_t     mtx;              ///< Channel mutex.
   size_t              msg_size;         ///< Message size.
