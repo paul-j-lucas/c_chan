@@ -494,6 +494,7 @@ static bool chan_select_init( chan_select_ref ref[],
   for ( ; i < chan_len; ++i ) {
     bool add_obs_failed = false;
     bool is_ready = false;
+
     PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
 
     bool const is_hard_closed = chan_is_hard_closed( chan[i], dir );
