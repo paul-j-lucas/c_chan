@@ -457,6 +457,7 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
     curr_link = next_link;
   } while ( curr_link != NULL );
 
+  assert( chan->waiters[ dir ] > 0 );
   --chan->waiters[ dir ];               // see comment in chan_add_obs()
 
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
@@ -838,6 +839,7 @@ static int chan_wait( struct chan *chan, chan_dir dir,
   ++chan->waiters[ dir ];
   int const rv = pthread_cond_wait_wrapper( &chan->self_obs[ dir ].chan_ready,
                                             &chan->mtx, abs_time );
+  assert( chan->waiters[ dir ] > 0 );
   --chan->waiters[ dir ];
 
   // The channel could have been closed while waiting, so check again.
