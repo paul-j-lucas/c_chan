@@ -257,7 +257,7 @@ static bool test_buf_chan( void ) {
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
-    spin_wait_us_ge( &chan.mtx, &chan.wait_cnt[0], 1 );
+    spin_wait_us_ge( &chan.mtx, &chan.waiters[0], 1 );
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     TEST_PTHREAD_JOIN( recv_thrd );
     TEST_PTHREAD_JOIN( send_thrd );
@@ -473,7 +473,7 @@ static bool test_select_send_1( unsigned buf_cap ) {
       .recv_val = 42
     );
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &recv_arg );
-    spin_wait_us_ge( &chan.mtx, &chan.wait_cnt[0], 1 );
+    spin_wait_us_ge( &chan.mtx, &chan.waiters[0], 1 );
 
     test_thrd_arg select_arg = TEST_THRD_ARG(
       .send_len = 1,
@@ -515,7 +515,7 @@ static bool test_unbuf_chan( size_t msg_size ) {
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
-    spin_wait_us_ge( &chan.mtx, &chan.wait_cnt[0], 1 );
+    spin_wait_us_ge( &chan.mtx, &chan.waiters[0], 1 );
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
     TEST_PTHREAD_JOIN( recv_thrd );
     TEST_PTHREAD_JOIN( send_thrd );
@@ -523,7 +523,7 @@ static bool test_unbuf_chan( size_t msg_size ) {
     // Create the sending thread first and ensure it's ready before creating
     // the receiving thread.
     PTHREAD_CREATE( &send_thrd, /*attr=*/NULL, &thrd_chan_send, &arg );
-    spin_wait_us_ge( &chan.mtx, &chan.wait_cnt[1], 1 );
+    spin_wait_us_ge( &chan.mtx, &chan.waiters[1], 1 );
     PTHREAD_CREATE( &recv_thrd, /*attr=*/NULL, &thrd_chan_recv, &arg );
     TEST_PTHREAD_JOIN( recv_thrd );
     TEST_PTHREAD_JOIN( send_thrd );
@@ -624,7 +624,7 @@ static bool test_select_2_recv( unsigned buf_cap ) {
 
     PTHREAD_CREATE( &recv_thrd[0], NULL, &thrd_chan_select, &select_arg[0] );
     PTHREAD_CREATE( &recv_thrd[1], NULL, &thrd_chan_select, &select_arg[1] );
-    spin_wait_us_ge( &chan.mtx, &chan.wait_cnt[0], 2 );
+    spin_wait_us_ge( &chan.mtx, &chan.waiters[0], 2 );
     PTHREAD_CREATE( &send_thrd, NULL, &thrd_chan_send, &send_arg );
     TEST_PTHREAD_JOIN( send_thrd );
 

@@ -217,7 +217,7 @@ static bool chan_add_obs( struct chan *chan, chan_dir dir,
   };
   chan->head_link[ dir ].next = new_link;
 
-  ++chan->wait_cnt[ dir ];
+  ++chan->waiters[ dir ];
   return true;
 }
 
@@ -387,7 +387,7 @@ static bool chan_is_ready( struct chan const *chan, chan_dir dir ) {
   //    another branch and is faster overall than always evaluating the right-
   //    hand side on the Intel CPUs tested.
   //
-  bool const is_unbuf_ready = is_unbuf & (chan->wait_cnt[!dir] > 0);
+  bool const is_unbuf_ready = is_unbuf & (chan->waiters[!dir] > 0);
 
   // 8. Combine results.
   return is_buf_ready | is_unbuf_ready;
@@ -452,7 +452,7 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
     curr_link = next_link;
   } while ( curr_link != NULL );
 
-  --chan->wait_cnt[ dir ];
+  --chan->waiters[ dir ];
   PTHREAD_MUTEX_UNLOCK( &chan->mtx );
   assert( curr_link != NULL );
 }
@@ -589,7 +589,7 @@ static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
   assert( chan != NULL );
   assert( pthread_cond_fn != NULL );
 
-  if ( chan->wait_cnt[ dir ] == 0 )     // Nobody is waiting.
+  if ( chan->waiters[ dir ] == 0 )      // Nobody is waiting.
     return;
 
   for ( chan_impl_link *curr_link = &chan->head_link[ dir ]; curr_link != NULL;
@@ -826,10 +826,10 @@ static int chan_wait( struct chan *chan, chan_dir dir,
   if ( chan->is_closed )
     return EPIPE;
 
-  ++chan->wait_cnt[ dir ];
+  ++chan->waiters[ dir ];
   int const rv = pthread_cond_wait_wrapper( &chan->self_obs[ dir ].chan_ready,
                                             &chan->mtx, abs_time );
-  --chan->wait_cnt[ dir ];
+  --chan->waiters[ dir ];
 
   // The channel could have been closed while waiting, so check again.
   return chan_is_hard_closed( chan, dir ) ? EPIPE : rv;
@@ -1013,7 +1013,7 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/NULL );
   chan_obs_init( &chan->self_obs[ CHAN_RECV ], /*ptmx=*/NULL );
   chan_obs_init( &chan->self_obs[ CHAN_SEND ], /*ptmx=*/NULL );
-  chan->wait_cnt[ CHAN_RECV ] = chan->wait_cnt[ CHAN_SEND ] = 0;
+  chan->waiters[ CHAN_RECV ] = chan->waiters[ CHAN_SEND ] = 0;
 
   return 0;
 }

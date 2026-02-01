@@ -166,7 +166,7 @@ struct chan {
 
   chan_impl_link      head_link[2];     ///< Linked lists of observers.
   chan_impl_obs       self_obs[2];      ///< Receiver/sender.
-  unsigned short      wait_cnt[2];      ///< Number waiting to receive/send.
+  unsigned short      waiters[2];       ///< Number waiting to receive/send.
 
   pthread_mutex_t     mtx;              ///< Channel mutex.
   size_t              msg_size;         ///< Message size.
