@@ -641,7 +641,7 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
  * @remarks
  * @parblock
  * The sender has to block to allow the receiver to do something with the
- * message, before attempting to send another message. To understand the
+ * message before attempting to send another message. To understand the
  * problem, consider the following sequence of events between two threads where
  * each thread is in a loop, one sending and the other receiving:
  *
@@ -657,7 +657,7 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
  *    was already copied), and immediately copies a new message overwriting the
  *    previous message!
  *
- * Step 3 can happen any number of times overwriting messages before the
+ * Step 3 can happen any number of times overwriting message before the
  * scheduler could decide to run thread 1. Note that the same thing can happen
  * with the sender and receiver roles reversed, i.e., the receiver could
  * receive the same message multiple times thinking it's a new message since
@@ -670,7 +670,7 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
  * message.
  *
  * This is what the \ref chan::copy_done "copy_done" condition variable is for.
- * Yes, both calls to `pthread_cond_signal` are necessary.
+ * Yes, both calls to **pthread_cond_signal**(3) are necessary.
  * @endparblock
  *
  * @param chan Then \ref chan to handshake.
