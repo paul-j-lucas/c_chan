@@ -405,7 +405,7 @@ static bool test_select_recv_nowait( unsigned buf_cap ) {
       .recv_len = 1,
       .recv_chan = (struct chan*[]){ &chan },
       .recv_buf = (void*[]){ &data },
-      .expected_rv = CHAN_NONE
+      .expected_rv = EAGAIN
     );
     PTHREAD_CREATE( &thrd, /*attr=*/NULL, &thrd_chan_select, &select_arg );
     TEST_PTHREAD_JOIN( thrd );

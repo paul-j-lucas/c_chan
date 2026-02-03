@@ -103,12 +103,6 @@ struct chan_impl_obs {
  */
 
 /**
- * For use as a case of a `switch` statement on chan_select() when no channel
- * has been selected.
- */
-#define CHAN_NONE                 0
-
-/**
  * As a value for a duration parameter, means do not wait.
  *
  * @sa #CHAN_NO_TIMEOUT
@@ -124,7 +118,6 @@ struct chan_impl_obs {
  *
  * @param IDX The index into the \a recv_chan array parameter of chan_select().
  *
- * @sa #CHAN_NONE
  * @sa #CHAN_SEND()
  */
 #define CHAN_RECV(IDX)            (-1 - (int)(IDX))
@@ -135,7 +128,6 @@ struct chan_impl_obs {
  *
  * @param IDX The index into the \a send_chan array parameter of chan_select().
  *
- * @sa #CHAN_NONE
  * @sa #CHAN_RECV()
  */
 #define CHAN_SEND(IDX)            (-1024 - (int)(IDX))
@@ -407,7 +399,7 @@ int chan_send( struct chan *chan, void const *send_buf,
  *    case CHAN_SEND(1):          // s_chan1 selected
  *      // ...
  *      break;
- *    case CHAN_NONE:             // no channel selected
+ *    case EAGAIN:                // no channels ready
  *      // ...
  *      break;
  *    case EPIPE:                 // all channels closed
@@ -447,7 +439,6 @@ int chan_send( struct chan *chan, void const *send_buf,
  * Returns an integer:
  *  + < 0 that specifies the selected channel (to be used with #CHAN_RECV or
  *    #CHAN_SEND); or:
- *  + 0, aka, #CHAN_NONE, that specifies no channel was selected; or:
  *  + > 0 that specifies an error code, one of:
  *      + `EAGAIN` only if \a duration is #CHAN_NO_WAIT and no channels are
  *        ready; or:
@@ -461,7 +452,6 @@ int chan_send( struct chan *chan, void const *send_buf,
  *
  * @warning No \ref chan may appear in both \a recv_chan and \a send_chan.
  *
- * @sa #CHAN_NONE
  * @sa #CHAN_RECV()
  * @sa #CHAN_SEND()
  */

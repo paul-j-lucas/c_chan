@@ -5,6 +5,13 @@ See the end of the file for license conditions.
 
 -------------------------------------------------------------------------------
 
+* Changes in c_chan 1.2
+
++ Eliminated `CHAN_NONE`: `chan_select()` now returns `EAGAIN` when no channel
+  was selected due to none being ready and duration being `CHAN_NO_WAIT`. This
+  is consistent with `chan_recv()` and `chan_send()`.
+
+
 * Changes in c_chan 1.1.1
 
 + Now always correctly returning an error value from `chan_select()`.
