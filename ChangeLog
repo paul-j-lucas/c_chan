@@ -1,5 +1,7 @@
 2026-02-04  Paul J. Lucas <paul@lucasmail.org>
 
+   * c_chan.c, c_chan.h: Fixed-up includes.
+   * util.h: Removed DEBUG_BLOCK -- no longer used.
    * c_chan.c: Made selected_chan more local.
 
 2026-02-03  Paul J. Lucas <paul@lucasmail.org>
