@@ -1090,11 +1090,11 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   struct timespec const *const  abs_time = ts_rel_to_abs( duration, &abs_ts );
   chan_select_init_out_args     csi_out;
   bool const                    is_blocking = duration != CHAN_NO_WAIT;
+  int                           rv;
   unsigned                      seed = 0;     // random number seed
   chan_impl_obs                 select_obs;   // observer for this select
   pthread_mutex_t               select_mtx;   // mutex for select_obs
   chan_select_ref const        *selected_ref; // reference to selected channel
-  int                           rv;
 
   if ( is_blocking ) {
     PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/NULL );
