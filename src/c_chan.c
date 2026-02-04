@@ -1125,7 +1125,6 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       break;
     }
 
-    struct chan *selected_chan = NULL;
     struct timespec const *select_abs_time = CHAN_NO_WAIT;
 
     if ( csi_out.chans_open == 1 ) {    // Degenerate case.
@@ -1145,7 +1144,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
         }
       } while ( rv == 0 && select_obs.chan == NULL );
       // Must copy select_obs.chan to a local variable while mutex is locked.
-      selected_chan = select_obs.chan;
+      struct chan *const selected_chan = select_obs.chan;
       PTHREAD_MUTEX_UNLOCK( &select_mtx );
 
       if ( rv == 0 ) {                  // A channel became ready: find it.
