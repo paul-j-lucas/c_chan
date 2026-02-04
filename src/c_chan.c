@@ -1092,8 +1092,8 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   bool const                    is_blocking = duration != CHAN_NO_WAIT;
   int                           rv;
   unsigned                      seed = 0;     // random number seed
-  chan_impl_obs                 select_obs;   // observer for this select
   pthread_mutex_t               select_mtx;   // mutex for select_obs
+  chan_impl_obs                 select_obs;   // observer for this select
   chan_select_ref const        *selected_ref; // reference to selected channel
 
   if ( is_blocking ) {
