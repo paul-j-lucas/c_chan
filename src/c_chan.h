@@ -150,14 +150,14 @@ struct chan {
       void           *ring_buf;         ///< Message ring buffer.
       unsigned        ring_len;         ///< Number of messages in buffer.
       unsigned        ring_idx[2];      ///< Ring buffer receive/send indices.
-    } buf;
+    } buf;                              ///< Buffered channel members.
     struct {
       void           *recv_buf;         ///< Where to copy the message to.
       pthread_cond_t  copy_done[2];     ///< Receive/send copy done.
       pthread_cond_t  not_busy[2];      ///< Receive/send no longer busy.
       bool            is_busy[2];       ///< Is receive/send busy?
       bool            is_copy_done[2];  ///< Is receive/send actually copied?
-    } unbuf;
+    } unbuf;                            ///< Unbuffered channel members.
   };
 
   chan_impl_link      head_link[2];     ///< Linked lists of observers.
