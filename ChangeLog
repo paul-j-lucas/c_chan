@@ -1,3 +1,9 @@
+2026-02-03  Paul J. Lucas <paul@lucasmail.org>
+
+   * Doxyfile: Added WARN_IF_UNDOC_ENUM_VAL.
+   * configure.ac, c_chan.c, c_chan.h, c_chan_test.c: chan_select() now returns
+     EAGAIN instead of 0 when no channels are ready.
+
 2026-02-01  Paul J. Lucas <paul@lucasmail.org>
 
    * c_chan.c: Added asserts.
