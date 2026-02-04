@@ -558,14 +558,17 @@ static int chan_select_io( chan_select_ref const *ref,
                            struct timespec const *abs_time ) {
   assert( ref != NULL );
 
+  struct chan *const chan = ref->chan;
+  unsigned short const param_idx = ref->param_idx;
+
   return ref->dir == CHAN_RECV ?
-    ref->chan->buf_cap > 0 ?
-      chan_buf_recv( ref->chan, recv_buf[ ref->param_idx ], abs_time ) :
-      chan_unbuf_recv( ref->chan, recv_buf[ ref->param_idx ], abs_time )
+    chan->buf_cap > 0 ?
+      chan_buf_recv( chan, recv_buf[ param_idx ], abs_time ) :
+      chan_unbuf_recv( chan, recv_buf[ param_idx ], abs_time )
   :
-    ref->chan->buf_cap > 0 ?
-      chan_buf_send( ref->chan, send_buf[ ref->param_idx ], abs_time ) :
-      chan_unbuf_send( ref->chan, send_buf[ ref->param_idx ], abs_time );
+    chan->buf_cap > 0 ?
+      chan_buf_send( chan, send_buf[ param_idx ], abs_time ) :
+      chan_unbuf_send( chan, send_buf[ param_idx ], abs_time );
 }
 
 /**
