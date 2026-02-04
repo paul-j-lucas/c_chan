@@ -437,8 +437,8 @@ int chan_send( struct chan *chan, void const *send_buf,
  *  + < 0 that specifies the selected channel (to be used with #CHAN_RECV or
  *    #CHAN_SEND); or:
  *  + > 0 that specifies an error code, one of:
- *      + `EAGAIN` only if \a duration is #CHAN_NO_WAIT and no channels are
- *        ready; or:
+ *      + `EAGAIN` only if no channels are ready and \a duration is
+ *        #CHAN_NO_WAIT; or:
  *      + `EINVAL` only if an invalid argument was given; or:
  *      + `ENOMEM` only if memory allocation failed; or:
  *      + `EPIPE` only if all channels are closed; or:
