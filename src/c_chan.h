@@ -374,13 +374,15 @@ int chan_send( struct chan *chan, void const *send_buf,
  *
  *  ```c
  *  struct chan r_chan_a, r_chan_b, s_chan_a, s_chan_b;
- *  int s0 = 1, s1 = 2;
- *  int r0, r1;
+ *  // ...
+ *
+ *  int s1 = 1, s2 = 2;
+ *  int r1, r2;
  *
  *  switch ( chan_select( 2, (struct chan*[]){ &r_chan_a, &r_chan_b },
- *                           (void*[]){ &r0, &r1 },
+ *                           (void*[]){ &r1, &r2 },
  *                        2, (struct chan*[]){ &s_chan_a, &s_chan_b },
- *                           (void const*[]){ &s0, &s1 },
+ *                           (void const*[]){ &s1, &s2 },
  *                        &(struct timespec){ .tv_sec = 5 } ) ) {
  *    case CHAN_RECV(0):          // r_chan_a selected
  *      // ...
