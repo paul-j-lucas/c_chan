@@ -999,7 +999,7 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
     }
     chan->buf.ring_buf = malloc( buf_cap * msg_size );
     if ( unlikely( chan->buf.ring_buf == NULL ) )
-      return ENOMEM;                    // malloc sets errno to ENOMEM
+      return ENOMEM;                    // malloc sets errno
     chan->buf.ring_idx[ CHAN_RECV ] = 0;
     chan->buf.ring_idx[ CHAN_SEND ] = 0;
     chan->buf.ring_len = 0;
