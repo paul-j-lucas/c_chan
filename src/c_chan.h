@@ -373,30 +373,25 @@ int chan_send( struct chan *chan, void const *send_buf,
  * For example:
  *
  *  ```c
- *  struct chan r_chan0, r_chan1, s_chan0, s_chan1;
- *  // ...
- *
- *  struct chan *const r_chan[] = { &r_chan0, &r_chan1 };
- *  int r0, r1;
- *  void *const r_buf[] = { &r0, &r1 };
- *
- *  struct chan *const s_chan[] = { &s_chan0, &s_chan1 };
+ *  struct chan r_chan_a, r_chan_b, s_chan_a, s_chan_b;
  *  int s0 = 1, s1 = 2;
- *  void const *const s_buf[] = { &s0, &s1 };
+ *  int r0, r1;
  *
- *  struct timespec const duration = { .tv_sec = 5 };
- *
- *  switch ( chan_select( 2, r_chan, r_buf, 2, s_chan, s_buf, &duration ) ) {
- *    case CHAN_RECV(0):          // r_chan0 selected
+ *  switch ( chan_select( 2, (struct chan*[]){ &r_chan_a, &r_chan_b },
+ *                           (void*[]){ &r0, &r1 },
+ *                        2, (struct chan*[]){ &s_chan_a, &s_chan_b },
+ *                           (void const*[]){ &s0, &s1 },
+ *                        &(struct timespec){ .tv_sec = 5 } ) ) {
+ *    case CHAN_RECV(0):          // r_chan_a selected
  *      // ...
  *      break;
- *    case CHAN_RECV(1):          // r_chan1 selected
+ *    case CHAN_RECV(1):          // r_chan_b selected
  *      // ...
  *      break;
- *    case CHAN_SEND(0):          // s_chan0 selected
+ *    case CHAN_SEND(0):          // s_chan_a selected
  *      // ...
  *      break;
- *    case CHAN_SEND(1):          // s_chan1 selected
+ *    case CHAN_SEND(1):          // s_chan_b selected
  *      // ...
  *      break;
  *    case EAGAIN:                // no channels ready
@@ -412,8 +407,8 @@ int chan_send( struct chan *chan, void const *send_buf,
  *  }
  *  ```
  *
- * where #CHAN_RECV(i) refers to the ith \ref chan in `r_chan` and
- * #CHAN_SEND(i) refers to the ith \ref chan in `s_chan`.
+ * where #CHAN_RECV(i) refers to the ith receive \ref chan and #CHAN_SEND(i)
+ * refers to the ith send \ref chan.
  *
  * When more than one \ref chan is ready, one is selected randomly.
  * @endparblock
