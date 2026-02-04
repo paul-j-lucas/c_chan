@@ -38,7 +38,6 @@
 // standard
 #include <pthread.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <time.h>                       /* for timespec */
 
 /// @endcond

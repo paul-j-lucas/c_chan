@@ -36,9 +36,7 @@
 #include <stdint.h>                     /* for uintptr_t */
 #include <stdlib.h>                     /* for malloc(3), qsort(3) */
 #include <string.h>                     /* for memcpy(3) */
-#include <sys/time.h>                   /* for clock_gettime(3) */
 #include <time.h>                       /* for timespec */
-#include <unistd.h>
 
 #ifndef NODISCARD
 # define NODISCARD                /* nothing */
