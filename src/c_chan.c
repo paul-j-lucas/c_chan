@@ -707,7 +707,9 @@ static void chan_unbuf_handshake( struct chan *chan, chan_dir dir ) {
  * Receives a message from an unbuffered \ref chan.
  *
  * @param chan The \ref chan to receive from.
- * @param recv_buf The buffer to receive into.
+ * @param recv_buf The buffer to receive into that must be at least \ref
+ * chan::msg_size "msg_size" bytes.  May be `NULL` only if \ref chan::msg_size
+ * "msg_size" is zero.
  * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
  * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
@@ -771,7 +773,9 @@ static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
  * Sends a message to an unbuffered \ref chan.
  *
  * @param chan The \ref chan to send to.
- * @param send_buf The buffer to send from.
+ * @param send_buf The buffer to send from that must be at least \ref
+ * chan::msg_size "msg_size" bytes.  May be `NULL` only if \ref chan::msg_size
+ * "msg_size" is zero.
  * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
  * CHAN_NO_TIMEOUT, waits indefinitely.
  * @return

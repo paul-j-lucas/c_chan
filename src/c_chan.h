@@ -317,8 +317,9 @@ unsigned chan_len( struct chan const *chan );
  * Receives a message from a \ref chan.
  *
  * @param chan The \ref chan to receive from.
- * @param recv_buf The buffer to receive into.  It must be at least \ref
- * chan::msg_size "msg_size" bytes.
+ * @param recv_buf The buffer to receive into that must be at least \ref
+ * chan::msg_size "msg_size" bytes.  May be `NULL` only if \ref chan::msg_size
+ * "msg_size" is zero.
  * @param duration The duration of time to wait. If #CHAN_NO_WAIT, does not
  * wait; if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
@@ -342,8 +343,9 @@ int chan_recv( struct chan *chan, void *recv_buf,
  * Sends a message to a channel.
  *
  * @param chan The \ref chan to send to.
- * @param send_buf The buffer to send from.  It must be at least \ref
- * chan::msg_size "msg_size" bytes.
+ * @param send_buf The buffer to send from that must be at least \ref
+ * chan::msg_size "msg_size" bytes.  May be `NULL` only if \ref chan::msg_size
+ * "msg_size" is zero.
  * @param duration The duration of time to wait. If #CHAN_NO_WAIT, does not
  * wait; if #CHAN_NO_TIMEOUT, waits indefinitely.
  * @return
