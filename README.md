@@ -54,6 +54,7 @@ Things like `configure` are _derived_ sources and
 If you have
 [`autoconf`](https://www.gnu.org/software/autoconf/),
 [`automake`](https://www.gnu.org/software/automake/),
+[`libtool`](https://www.gnu.org/software/libtool/),
 and
 [`m4`](https://www.gnu.org/software/m4/)
 installed,
