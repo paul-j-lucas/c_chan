@@ -30,9 +30,6 @@
  * [doi:10.1145/359576.359585](https://doi.org/10.1145%2F359576.359585).
  */
 
-// local
-#include "config.h"                     /* must go first */
-
 /// @cond DOXYGEN_IGNORE
 
 // standard
