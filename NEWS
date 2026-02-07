@@ -5,6 +5,12 @@ See the end of the file for license conditions.
 
 -------------------------------------------------------------------------------
 
+* Changes in c_chan 1.2.1
+
++ Removed `config.h` from `c_chan.h` so it's not dependent upon it after
+  installation.
+
+
 * Changes in c_chan 1.2
 
 + Eliminated `CHAN_NONE`: `chan_select()` now returns `EAGAIN` when no channel
