@@ -207,7 +207,7 @@ static bool chan_add_obs( struct chan *chan, chan_dir dir,
   assert( chan != NULL );
   assert( add_obs != NULL );
 
-  chan_impl_link *const new_link = malloc( sizeof( chan_impl_link ) );
+  chan_impl_link *const new_link = malloc( sizeof( *new_link ) );
   if ( unlikely( new_link == NULL ) )
     return false;
   *new_link = (chan_impl_link){
@@ -1084,7 +1084,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     ref = stack_ref;
   }
   else {
-    ref = malloc( total_channels * sizeof( chan_select_ref ) );
+    ref = malloc( total_channels * sizeof( *ref ) );
     if ( unlikely( ref == NULL ) )
       return ENOMEM;                    // malloc sets errno
   }
