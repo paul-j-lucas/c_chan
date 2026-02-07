@@ -1,5 +1,12 @@
+2026-02-06  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.h: Removed config.h from c_chan.h so it's not dependent upon it
+     after installation.
+   * c_chan.c: Added #include.
+
 2026-02-04  Paul J. Lucas <paul@lucasmail.org>
 
+   * c_chan_test.c: Fixed up includes.
    * c_chan.c, c_chan.h: Fixed-up includes.
    * util.h: Removed DEBUG_BLOCK -- no longer used.
    * c_chan.c: Made selected_chan more local.
