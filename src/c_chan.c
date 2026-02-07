@@ -24,6 +24,7 @@
  */
 
 // local
+#include "config.h"                     /* must go first */
 #include "c_chan.h"
 #include "util.h"
 
