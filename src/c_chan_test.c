@@ -21,6 +21,7 @@
 // local
 #include "config.h"                     /* IWYU pragma: keep */
 #include "c_chan.h"
+#include "thread.h"
 #include "util.h"
 #include "unit_test.h"
 
