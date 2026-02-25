@@ -19,7 +19,7 @@
 */
 
 // local
-#include "config.h"                     /* must go first */
+#include "config.h"                     /* IWYU pragma: keep */
 #include "util.h"
 
 /// @cond DOXYGEN_IGNORE

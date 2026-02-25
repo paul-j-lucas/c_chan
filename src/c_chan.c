@@ -24,7 +24,7 @@
  */
 
 // local
-#include "config.h"                     /* must go first */
+#include "config.h"                     /* IWYU pragma: keep */
 #include "c_chan.h"
 #include "util.h"
 

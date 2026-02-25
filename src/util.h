@@ -22,17 +22,16 @@
 #define C_CHAN_UTIL_H
 
 // local
-#include "config.h"                     /* must go first */
+#include "config.h"                     /* IWYU pragma: keep */
 
 /// @cond DOXYGEN_IGNORE
 
 // standard
 #include <assert.h>
-#include <attribute.h>
-#include <pthread.h>
+#include <pthread.h>                    /* IWYU pragma: export */
+#include <stdbool.h>
 #include <stdio.h>
-#include <sysexits.h>
-#include <unistd.h>
+#include <sysexits.h>                   /* IWYU pragma: export */
 
 /// @endcond
 

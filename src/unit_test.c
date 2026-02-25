@@ -19,7 +19,7 @@
 */
 
 // local
-#include "config.h"                     /* must go first */
+#include "config.h"                     /* IWYU pragma: keep */
 #include "unit_test.h"
 #include "util.h"
 
