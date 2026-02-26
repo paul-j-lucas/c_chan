@@ -34,8 +34,8 @@
 ////////// extern functions ///////////////////////////////////////////////////
 
 #ifndef NDEBUG
-void assert_eq( char const *file, int line, int expr, char const *expr_str,
-                int expected ) {
+void assert_eq_impl( char const *file, int line, int expr, char const *expr_str,
+                     int expected ) {
   if ( likely( expr == expected ) )
     return;
   fprintf( stderr,

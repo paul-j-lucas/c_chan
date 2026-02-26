@@ -65,8 +65,8 @@
  * @note This function isn't normally called directly; use the #ASSERT_EQ macro
  * instead.
  */
-void assert_eq( char const *file, int line, int expr, char const *expr_str,
-                int expected );
+void assert_eq_impl( char const *file, int line, int expr, char const *expr_str,
+                     int expected );
 
 /**
  * Asserts that \a EXPR is equal to \a EXPECTED.
@@ -75,7 +75,7 @@ void assert_eq( char const *file, int line, int expr, char const *expr_str,
  * @param EXPECTED The expected value for \a EXPR.
  */
 #define ASSERT_EQ(EXPR,EXPECTED) \
-  assert_eq( __FILE__, __LINE__, (EXPR), #EXPR, (EXPECTED) )
+  assert_eq_impl( __FILE__, __LINE__, (EXPR), #EXPR, (EXPECTED) )
 #else
 #define ASSERT_EQ(EXPR, EXPECTED) (EXPR)
 #endif /* NDEBUG */
