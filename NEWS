@@ -5,6 +5,11 @@ See the end of the file for license conditions.
 
 -------------------------------------------------------------------------------
 
+* Changes in c_chan 1.3
+
++ Will now use standard C11 threads if available or pthreads if not.
+
+
 * Changes in c_chan 1.2.1
 
 + Removed `config.h` from `c_chan.h` so it's not dependent upon it after
