@@ -52,6 +52,7 @@ gl_INIT
 AC_C_INLINE
 AC_TYPE_SIZE_T
 PJL_COMPILE([__builtin_expect],[], [(void)__builtin_expect(1,1);])
+PJL_COMPILE([__STDC_NO_THREADS__],[],[int x = __STDC_NO_THREADS__;])
 
 # Checks for library functions.
 AC_FUNC_REALLOC
@@ -95,6 +96,8 @@ AS_IF([test "x$enable_ubsan" = xyes], [
 AM_CONDITIONAL([ENABLE_ASAN],   [test "x$enable_asan"   = xyes])
 AM_CONDITIONAL([ENABLE_MSAN],   [test "x$enable_msan"   = xyes])
 AM_CONDITIONAL([ENABLE_UBSAN],  [test "x$enable_ubsan"  = xyes])
+AM_CONDITIONAL([HAVE___STDC_NO_THREADS__],
+               [test x$pjl_cv___STDC_NO_THREADS__ = xyes])
 
 # Miscellaneous.
 AX_C___ATTRIBUTE__

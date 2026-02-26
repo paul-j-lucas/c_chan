@@ -26,7 +26,7 @@
 // local
 #include "config.h"                     /* IWYU pragma: keep */
 #include "c_chan.h"
-#include "thread.h"
+#include "stdc_thrd_macros.h"
 #include "util.h"
 
 /// @cond DOXYGEN_IGNORE
@@ -35,6 +35,7 @@
 #include <assert.h>
 #include <attribute.h>
 #include <errno.h>
+#include <stddef.h>                     /* for unreachable(3) */
 #include <stdint.h>                     /* for uintptr_t */
 #include <stdlib.h>                     /* for malloc(3), qsort(3) */
 #include <string.h>                     /* for memcpy(3) */
@@ -128,16 +129,14 @@ struct chan_select_ref {
 
 ////////// local functions ////////////////////////////////////////////////////
 
-static void chan_signal_all_obs( struct chan*, chan_dir,
-                                 int (*)( pthread_cond_t* ) );
+static void chan_signal_all_obs( struct chan*, chan_dir, int (*)( cnd_t* ) );
 
 NODISCARD
 static int  chan_unbuf_recv( struct chan*, void*, struct timespec const* ),
             chan_unbuf_send( struct chan*, void const*,
                              struct timespec const* ),
             chan_wait( struct chan*, chan_dir, struct timespec const* ),
-            pthread_cond_wait_wrapper( pthread_cond_t*, pthread_mutex_t*,
-                                       struct timespec const* );
+            cnd_wait_wrapper( cnd_t*, mtx_t*, struct timespec const* );
 
 static void chan_unbuf_release( struct chan*, chan_dir );
 
@@ -250,7 +249,7 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
   assert( chan->buf_cap > 0 );
 
   int rv = 0;
-  PTHREAD_MUTEX_LOCK( &chan->mtx );
+  MTX_LOCK( &chan->mtx );
 
   do {
     // Since we can still read from a closed, non-empty, buffered channel,
@@ -261,13 +260,13 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
       chan->buf.ring_idx[ CHAN_RECV ] =
         (chan->buf.ring_idx[ CHAN_RECV ] + 1) % chan->buf_cap;
       if ( chan->buf.ring_len-- == chan->buf_cap )
-        chan_signal_all_obs( chan, CHAN_BUF_NOT_FULL, &pthread_cond_signal );
+        chan_signal_all_obs( chan, CHAN_BUF_NOT_FULL, &cnd_signal );
       break;
     }
     rv = chan_wait( chan, CHAN_BUF_NOT_EMPTY, abs_time );
   } while ( rv == 0 );
 
-  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
+  MTX_UNLOCK( &chan->mtx );
   return rv;
 }
 
@@ -295,7 +294,7 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
   assert( chan->buf_cap > 0 );
 
   int rv = 0;
-  PTHREAD_MUTEX_LOCK( &chan->mtx );
+  MTX_LOCK( &chan->mtx );
 
   do {
     if ( chan->is_closed ) {
@@ -307,7 +306,7 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
       chan->buf.ring_idx[ CHAN_SEND ] =
         (chan->buf.ring_idx[ CHAN_SEND ] + 1) % chan->buf_cap;
       if ( ++chan->buf.ring_len == 1 )
-        chan_signal_all_obs( chan, CHAN_BUF_NOT_EMPTY, &pthread_cond_signal );
+        chan_signal_all_obs( chan, CHAN_BUF_NOT_EMPTY, &cnd_signal );
       break;
     }
     else {
@@ -315,7 +314,7 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
     }
   } while ( rv == 0 );
 
-  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
+  MTX_UNLOCK( &chan->mtx );
   return rv;
 }
 
@@ -407,7 +406,7 @@ static bool chan_is_ready( struct chan const *chan, chan_dir dir ) {
  */
 static void chan_obs_cleanup( chan_impl_obs *obs ) {
   assert( obs != NULL );
-  PTHREAD_COND_DESTROY( &obs->chan_ready );
+  CND_DESTROY( &obs->chan_ready );
 }
 
 /**
@@ -418,10 +417,10 @@ static void chan_obs_cleanup( chan_impl_obs *obs ) {
  *
  * @sa chan_obs_cleanup()
  */
-static void chan_obs_init( chan_impl_obs *obs, pthread_mutex_t *pmtx ) {
+static void chan_obs_init( chan_impl_obs *obs, mtx_t *pmtx ) {
   assert( obs != NULL );
   obs->chan = NULL;
-  PTHREAD_COND_INIT( &obs->chan_ready, /*attr=*/NULL );
+  CND_INIT( &obs->chan_ready );
   obs->pmtx = pmtx;
 }
 
@@ -443,7 +442,7 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
   // Whether the channel is closed now doesn't matter since it may have been
   // open when the observer was added.
 
-  PTHREAD_MUTEX_LOCK( &chan->mtx );
+  MTX_LOCK( &chan->mtx );
 
   chan_impl_link *curr_link = &chan->head_link[ dir ];
   do {
@@ -460,7 +459,7 @@ static void chan_remove_obs( struct chan *chan, chan_dir dir,
   assert( chan->waiters[ dir ] > 0 );
   --chan->waiters[ dir ];               // see comment in chan_add_obs()
 
-  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
+  MTX_UNLOCK( &chan->mtx );
   assert( curr_link != NULL );
 }
 
@@ -495,7 +494,7 @@ static bool chan_select_init( chan_select_ref ref[],
     bool add_obs_failed = false;
     bool is_ready = false;
 
-    PTHREAD_MUTEX_LOCK( &chan[i]->mtx );
+    MTX_LOCK( &chan[i]->mtx );
 
     bool const is_hard_closed = chan_is_hard_closed( chan[i], dir );
     if ( !is_hard_closed ) {
@@ -504,7 +503,7 @@ static bool chan_select_init( chan_select_ref ref[],
         add_obs_failed = !chan_add_obs( chan[i], dir, add_obs );
     }
 
-    PTHREAD_MUTEX_UNLOCK( &chan[i]->mtx );
+    MTX_UNLOCK( &chan[i]->mtx );
 
     if ( is_hard_closed )
       continue;
@@ -590,15 +589,15 @@ static int chan_select_ref_cmp( chan_select_ref const *i_csr,
  *
  * @param chan The \ref chan to notify about.
  * @param dir Whether to notify about a receive or send condition.
- * @param pthread_cond_fn The `pthread_cond_t` function to call, either
- * **pthread_cond_signal**(3) or **pthread_cond_broadcast**(3).
+ * @param cnd_fn The `cnd_t` function to call, either **cnd_signal**(3) or
+ * **cnd_broadcast**(3).
  *
  * @warning \ref chan::mtx _must_ be locked before calling this function.
  */
 static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
-                                 int (*pthread_cond_fn)( pthread_cond_t* ) ) {
+                                 int (*cnd_fn)( cnd_t* ) ) {
   assert( chan != NULL );
-  assert( pthread_cond_fn != NULL );
+  assert( cnd_fn != NULL );
 
   if ( chan->waiters[ dir ] == 0 )      // Nobody is waiting.
     return;
@@ -607,12 +606,12 @@ static void chan_signal_all_obs( struct chan *chan, chan_dir dir,
         curr_link = curr_link->next ) {
     chan_impl_obs *const obs = curr_link->obs;
     if ( obs->pmtx != NULL ) {
-      PTHREAD_MUTEX_LOCK( obs->pmtx );
+      MTX_LOCK( obs->pmtx );
       obs->chan = chan;
     }
-    PERROR_EXIT_IF( (*pthread_cond_fn)( &obs->chan_ready ) != 0, EX_IOERR );
+    ASSERT_EQ( (*cnd_fn)( &obs->chan_ready ), thrd_success );
     if ( obs->pmtx != NULL )
-      PTHREAD_MUTEX_UNLOCK( obs->pmtx );
+      MTX_UNLOCK( obs->pmtx );
   } // for
 }
 
@@ -637,8 +636,7 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
   int rv = 0;
   while ( rv == 0 && chan->unbuf.is_busy[ dir ] ) {
     rv = chan->is_closed ? EPIPE :
-      pthread_cond_wait_wrapper( &chan->unbuf.not_busy[ dir ], &chan->mtx,
-                                 abs_time );
+      cnd_wait_wrapper( &chan->unbuf.not_busy[ dir ], &chan->mtx, abs_time );
   } // while
   if ( rv == 0 )
     chan->unbuf.is_busy[ dir ] = true;
@@ -681,7 +679,7 @@ static int chan_unbuf_acquire( struct chan *chan, chan_dir dir,
  * message.
  *
  * This is what the \ref chan::copy_done "copy_done" condition variable is for.
- * Yes, both calls to **pthread_cond_signal**(3) are necessary.
+ * Yes, both calls to **cnd_signal**(3) are necessary.
  * @endparblock
  *
  * @param chan Then \ref chan to handshake.
@@ -694,15 +692,15 @@ static void chan_unbuf_handshake( struct chan *chan, chan_dir dir ) {
   assert( chan->buf_cap == 0 );
 
   chan->unbuf.is_copy_done[ !dir ] = true;
-  PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ !dir ] );
+  CND_SIGNAL( &chan->unbuf.copy_done[ !dir ] );
 
   chan->unbuf.is_copy_done[ dir ] = false;
   do {                                  // guard against spurious wake-ups
-    PTHREAD_COND_WAIT( &chan->unbuf.copy_done[ dir ], &chan->mtx );
+    CND_WAIT( &chan->unbuf.copy_done[ dir ], &chan->mtx );
   } while ( !chan->unbuf.is_copy_done[ dir ] );
 
   chan->unbuf.is_copy_done[ !dir ] = true;
-  PTHREAD_COND_SIGNAL( &chan->unbuf.copy_done[ !dir ] );
+  CND_SIGNAL( &chan->unbuf.copy_done[ !dir ] );
 }
 
 /**
@@ -730,12 +728,12 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
   assert( chan != NULL );
   assert( chan->buf_cap == 0 );
 
-  PTHREAD_MUTEX_LOCK( &chan->mtx );
+  MTX_LOCK( &chan->mtx );
 
   int rv = chan_unbuf_acquire( chan, CHAN_RECV, abs_time );
   if ( rv == 0 ) {
     chan->unbuf.recv_buf = recv_buf;
-    chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_signal );
+    chan_signal_all_obs( chan, CHAN_SEND, &cnd_signal );
 
     do {
       if ( chan->unbuf.is_busy[ CHAN_SEND ] ) {
@@ -749,7 +747,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
     chan_unbuf_release( chan, CHAN_RECV );
   }
 
-  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
+  MTX_UNLOCK( &chan->mtx );
   return rv;
 }
 
@@ -768,7 +766,7 @@ static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
   assert( chan->buf_cap == 0 );
 
   chan->unbuf.is_busy[ dir ] = false;
-  PTHREAD_COND_SIGNAL( &chan->unbuf.not_busy[ dir ] );
+  CND_SIGNAL( &chan->unbuf.not_busy[ dir ] );
 }
 
 /**
@@ -796,11 +794,11 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
   assert( chan != NULL );
   assert( chan->buf_cap == 0 );
 
-  PTHREAD_MUTEX_LOCK( &chan->mtx );
+  MTX_LOCK( &chan->mtx );
 
   int rv = chan_unbuf_acquire( chan, CHAN_SEND, abs_time );
   if ( rv == 0 ) {
-    chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_signal );
+    chan_signal_all_obs( chan, CHAN_RECV, &cnd_signal );
 
     do {
       if ( chan->unbuf.is_busy[ CHAN_RECV ] ) {
@@ -815,12 +813,12 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
     chan_unbuf_release( chan, CHAN_SEND );
   }
 
-  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
+  MTX_UNLOCK( &chan->mtx );
   return rv;
 }
 
 /**
- * Like **pthread_cond_wait**(3)** and **pthread_cond_timedwait**(3) except:
+ * Like **cnd_wait**(3)** and **cnd_timedwait**(3) except:
  *  + If \a abs_time is #CHAN_NO_WAIT, does not wait.
  *  + If \a abs_time is \ref CHAN_NO_TIMEOUT, waits indefinitely.
  *
@@ -845,8 +843,8 @@ static int chan_wait( struct chan *chan, chan_dir dir,
     return EPIPE;
 
   ++chan->waiters[ dir ];
-  int const rv = pthread_cond_wait_wrapper( &chan->self_obs[ dir ].chan_ready,
-                                            &chan->mtx, abs_time );
+  int const rv = cnd_wait_wrapper( &chan->self_obs[ dir ].chan_ready,
+                                   &chan->mtx, abs_time );
   assert( chan->waiters[ dir ] > 0 );
   --chan->waiters[ dir ];
 
@@ -855,11 +853,11 @@ static int chan_wait( struct chan *chan, chan_dir dir,
 }
 
 /**
- * Like **pthread_cond_wait**(3)** and **pthread_cond_timedwait**(3) except:
+ * Like **cnd_wait**(3)** and **cnd_timedwait**(3) except:
  *  + If \a abs_time is #CHAN_NO_WAIT, returns immediatly.
  *  + If \a abs_time is \ref CHAN_NO_TIMEOUT, waits indefinitely.
- *  + Checks the return value of **pthread_cond_timedwait**(3) for errors other
- *    than `ETIMEDOUT`.
+ *  + Checks the return value of **cnd_timedwait**(3) for errors other than
+ *    `ETIMEDOUT`.
  *
  * @param cond The condition to wait for.
  * @param mtx The mutex to unlock temporarily.
@@ -869,9 +867,8 @@ static int chan_wait( struct chan *chan, chan_dir dir,
  * it's now \a abs_time or later.
  */
 NODISCARD
-static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
-                                      pthread_mutex_t *mtx,
-                                      struct timespec const *abs_time ) {
+static int cnd_wait_wrapper( cnd_t *cond, mtx_t *mtx,
+                             struct timespec const *abs_time ) {
   assert( cond != NULL );
   assert( mtx != NULL );
 
@@ -879,16 +876,16 @@ static int pthread_cond_wait_wrapper( pthread_cond_t *cond,
     return EAGAIN;
 
   int const pcw_rv = abs_time == CHAN_NO_TIMEOUT ?
-    pthread_cond_wait( cond, mtx ) :
-    pthread_cond_timedwait( cond, mtx, abs_time );
+    cnd_wait( cond, mtx ) :
+    cnd_timedwait( cond, mtx, abs_time );
 
   switch ( pcw_rv ) {
     case 0:
     case ETIMEDOUT:
       return pcw_rv;
     default:
-      errno = pcw_rv;
-      perror_exit( EX_IOERR );
+      ASSERT_EQ( pcw_rv, 0 );
+      unreachable();
   } // switch
 }
 
@@ -960,10 +957,10 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
     free( chan->buf.ring_buf );
   }
   else {
-    PTHREAD_COND_DESTROY( &chan->unbuf.copy_done[ CHAN_RECV ] );
-    PTHREAD_COND_DESTROY( &chan->unbuf.copy_done[ CHAN_SEND ] );
-    PTHREAD_COND_DESTROY( &chan->unbuf.not_busy[ CHAN_RECV ] );
-    PTHREAD_COND_DESTROY( &chan->unbuf.not_busy[ CHAN_SEND ] );
+    CND_DESTROY( &chan->unbuf.copy_done[ CHAN_RECV ] );
+    CND_DESTROY( &chan->unbuf.copy_done[ CHAN_SEND ] );
+    CND_DESTROY( &chan->unbuf.not_busy[ CHAN_RECV ] );
+    CND_DESTROY( &chan->unbuf.not_busy[ CHAN_SEND ] );
   }
 
   assert( chan->head_link[ CHAN_RECV ].obs == &chan->self_obs[ CHAN_RECV ] );
@@ -971,26 +968,26 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
 
   chan_obs_cleanup( &chan->self_obs[ CHAN_RECV ] );
   chan_obs_cleanup( &chan->self_obs[ CHAN_SEND ] );
-  PTHREAD_MUTEX_DESTROY( &chan->mtx );
+  MTX_DESTROY( &chan->mtx );
 }
 
 void chan_close( struct chan *chan ) {
   assert( chan != NULL );
-  PTHREAD_MUTEX_LOCK( &chan->mtx );
+  MTX_LOCK( &chan->mtx );
   if ( !chan->is_closed ) {
     chan->is_closed = true;
-    chan_signal_all_obs( chan, CHAN_RECV, &pthread_cond_broadcast );
-    chan_signal_all_obs( chan, CHAN_SEND, &pthread_cond_broadcast );
+    chan_signal_all_obs( chan, CHAN_RECV, &cnd_broadcast );
+    chan_signal_all_obs( chan, CHAN_SEND, &cnd_broadcast );
     if ( chan->buf_cap == 0 ) {
       chan->unbuf.is_copy_done[ CHAN_RECV ] = true;
-      PTHREAD_COND_BROADCAST( &chan->unbuf.copy_done[ CHAN_RECV ] );
+      CND_BROADCAST( &chan->unbuf.copy_done[ CHAN_RECV ] );
       chan->unbuf.is_copy_done[ CHAN_SEND ] = true;
-      PTHREAD_COND_BROADCAST( &chan->unbuf.copy_done[ CHAN_SEND ] );
-      PTHREAD_COND_BROADCAST( &chan->unbuf.not_busy[ CHAN_RECV ] );
-      PTHREAD_COND_BROADCAST( &chan->unbuf.not_busy[ CHAN_SEND ] );
+      CND_BROADCAST( &chan->unbuf.copy_done[ CHAN_SEND ] );
+      CND_BROADCAST( &chan->unbuf.not_busy[ CHAN_RECV ] );
+      CND_BROADCAST( &chan->unbuf.not_busy[ CHAN_SEND ] );
     }
   }
-  PTHREAD_MUTEX_UNLOCK( &chan->mtx );
+  MTX_UNLOCK( &chan->mtx );
 }
 
 int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
@@ -1010,10 +1007,10 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   }
   else {
     chan->unbuf.recv_buf = NULL;
-    PTHREAD_COND_INIT( &chan->unbuf.copy_done[ CHAN_RECV ], /*attr=*/NULL );
-    PTHREAD_COND_INIT( &chan->unbuf.copy_done[ CHAN_SEND ], /*attr=*/NULL );
-    PTHREAD_COND_INIT( &chan->unbuf.not_busy[ CHAN_RECV ], /*attr=*/NULL );
-    PTHREAD_COND_INIT( &chan->unbuf.not_busy[ CHAN_SEND ], /*attr=*/NULL );
+    CND_INIT( &chan->unbuf.copy_done[ CHAN_RECV ] );
+    CND_INIT( &chan->unbuf.copy_done[ CHAN_SEND ] );
+    CND_INIT( &chan->unbuf.not_busy[ CHAN_RECV ] );
+    CND_INIT( &chan->unbuf.not_busy[ CHAN_SEND ] );
     chan->unbuf.is_busy[ CHAN_RECV ] = false;
     chan->unbuf.is_busy[ CHAN_SEND ] = false;
     chan->unbuf.is_copy_done[ CHAN_RECV ] = false;
@@ -1029,7 +1026,7 @@ int chan_init( struct chan *chan, unsigned buf_cap, size_t msg_size ) {
   };
   chan->is_closed = false;
   chan->msg_size = msg_size;
-  PTHREAD_MUTEX_INIT( &chan->mtx, /*attr=*/NULL );
+  MTX_INIT( &chan->mtx, mtx_plain );
   chan_obs_init( &chan->self_obs[ CHAN_RECV ], /*ptmx=*/NULL );
   chan_obs_init( &chan->self_obs[ CHAN_SEND ], /*ptmx=*/NULL );
   chan->waiters[ CHAN_RECV ] = chan->waiters[ CHAN_SEND ] = 0;
@@ -1042,9 +1039,9 @@ unsigned chan_len( struct chan const *chan ) {
   if ( chan->buf_cap == 0 )
     return 0;
   struct chan *const nonconst_chan = (struct chan*)chan;
-  PTHREAD_MUTEX_LOCK( &nonconst_chan->mtx );
+  MTX_LOCK( &nonconst_chan->mtx );
   unsigned const len = chan->buf.ring_len;
-  PTHREAD_MUTEX_UNLOCK( &nonconst_chan->mtx );
+  MTX_UNLOCK( &nonconst_chan->mtx );
   return len;
 }
 
@@ -1096,12 +1093,12 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
   bool const                    is_blocking = duration != CHAN_NO_WAIT;
   int                           rv;
   unsigned                      seed = 0;     // random number seed
-  pthread_mutex_t               select_mtx;   // mutex for select_obs
+  mtx_t                         select_mtx;   // mutex for select_obs
   chan_impl_obs                 select_obs;   // observer for this select
   chan_select_ref const        *selected_ref; // reference to selected channel
 
   if ( is_blocking ) {
-    PTHREAD_MUTEX_INIT( &select_mtx, /*attr=*/NULL );
+    MTX_INIT( &select_mtx, mtx_plain );
     chan_obs_init( &select_obs, &select_mtx );
   }
 
@@ -1139,17 +1136,17 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     }
     else if ( csi_out.chans_maybe_ready == 0 && is_blocking ) {
       // None of the channels may be ready and we should wait -- so wait.
-      PTHREAD_MUTEX_LOCK( &select_mtx );
+      MTX_LOCK( &select_mtx );
       select_obs.chan = NULL;
       do {
-        if ( pthread_cond_wait_wrapper( &select_obs.chan_ready, &select_mtx,
+        if ( cnd_wait_wrapper( &select_obs.chan_ready, &select_mtx,
                                         abs_time ) == ETIMEDOUT ) {
           rv = ETIMEDOUT;
         }
       } while ( rv == 0 && select_obs.chan == NULL );
       // Must copy select_obs.chan to a local variable while mutex is locked.
       struct chan *const selected_chan = select_obs.chan;
-      PTHREAD_MUTEX_UNLOCK( &select_mtx );
+      MTX_UNLOCK( &select_mtx );
 
       if ( rv == 0 ) {                  // A channel became ready: find it.
         for ( unsigned i = 0; i < csi_out.chans_open; ++i ) {
@@ -1219,7 +1216,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
 
   if ( is_blocking ) {
     chan_obs_cleanup( &select_obs );
-    PTHREAD_MUTEX_DESTROY( &select_mtx );
+    MTX_DESTROY( &select_mtx );
   }
   if ( ref != stack_ref )
     free( ref );

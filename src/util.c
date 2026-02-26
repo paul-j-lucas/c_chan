@@ -27,15 +27,24 @@
 // standard
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /// @endcond
 
 ////////// extern functions ///////////////////////////////////////////////////
 
-void perror_exit( int status ) {
-  perror( PACKAGE );
-  exit( status );
+#ifndef NDEBUG
+void assert_eq( char const *file, int line, int expr, char const *expr_str,
+                int expected ) {
+  if ( likely( expr == expected ) )
+    return;
+  fprintf( stderr,
+    "%s:%d: '%s' expected %d; got %d: %s\n",
+    file, line, expr_str, expr, expected, strerror( expr )
+  );
+  abort();
 }
+#endif /* NDEBUG */
 
 ///////////////////////////////////////////////////////////////////////////////
 /* vim:set et sw=2 ts=2: */

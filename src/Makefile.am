@@ -38,8 +38,13 @@ LDADD =			$(top_builddir)/lib/libgnu.a
 libc_chan_la_LDFLAGS =	-version-info 1:0:0
 
 libc_chan_la_SOURCES =	c_chan.c $(include_HEADERS) \
-			thread.h \
+			stdc_thrd_macros.h \
+			stdc_threads.h \
 			util.c util.h
+
+if HAVE___STDC_NO_THREADS__
+libc_chan_la_SOURCES+=	stdc_threads.c
+endif
 
 check_PROGRAMS =	c_chan_test
 c_chan_test_SOURCES =	$(libc_chan_a_SOURCES) \

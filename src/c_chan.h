@@ -33,9 +33,19 @@
 /// @cond DOXYGEN_IGNORE
 
 // standard
-#include <pthread.h>
 #include <stdbool.h>
 #include <time.h>                       /* for timespec */
+
+// We check __STDC_NO_THREADS__ manually and typedef the standard C thread
+// types we need for this header explictly rather than include stdc_threads.h
+// so it doesn't have to be installed.
+#ifdef __STDC_NO_THREADS__
+#include <pthread.h>
+typedef pthread_cond_t  cnd_t;
+typedef pthread_mutex_t mtx_t;
+#else
+#include <threads.h>
+#endif /* __STDC_NO_THREADS__ */
 
 /// @endcond
 
@@ -83,9 +93,9 @@ struct chan_impl_link {
  * @note This is an implementation detail not part of the public API.
  */
 struct chan_impl_obs {
-  struct chan      *chan;               ///< The channel being observed.
-  pthread_mutex_t  *pmtx;               ///< The mutex to lock, if any.
-  pthread_cond_t    chan_ready;         ///< Is \ref chan ready?
+  struct chan  *chan;                   ///< The channel being observed.
+  mtx_t        *pmtx;                   ///< The mutex to lock, if any.
+  cnd_t         chan_ready;             ///< Is \ref chan ready?
 };
 
 /** @} */
@@ -143,32 +153,32 @@ struct chan_impl_obs {
 struct chan {
   union {
     struct {
-      void           *ring_buf;         ///< Message ring buffer.
-      unsigned        ring_len;         ///< Number of messages in buffer.
-      unsigned        ring_idx[2];      ///< Ring buffer receive/send indices.
+      void       *ring_buf;             ///< Message ring buffer.
+      unsigned    ring_len;             ///< Number of messages in buffer.
+      unsigned    ring_idx[2];          ///< Ring buffer receive/send indices.
     } buf;                              ///< Buffered channel members.
     struct {
-      void           *recv_buf;         ///< Where to copy the message to.
-      pthread_cond_t  copy_done[2];     ///< Receive/send copy done.
-      pthread_cond_t  not_busy[2];      ///< Receive/send no longer busy.
-      bool            is_busy[2];       ///< Is receive/send busy?
-      bool            is_copy_done[2];  ///< Is receive/send actually copied?
+      void       *recv_buf;             ///< Where to copy the message to.
+      cnd_t       copy_done[2];         ///< Receive/send copy done.
+      cnd_t       not_busy[2];          ///< Receive/send no longer busy.
+      bool        is_busy[2];           ///< Is receive/send busy?
+      bool        is_copy_done[2];      ///< Is receive/send actually copied?
     } unbuf;                            ///< Unbuffered channel members.
   };
 
-  chan_impl_link      head_link[2];     ///< Linked lists of observers.
-  chan_impl_obs       self_obs[2];      ///< Receiver/sender.
+  chan_impl_link  head_link[2];         ///< Linked lists of observers.
+  chan_impl_obs   self_obs[2];          ///< Receiver/sender.
 
   /**
    * A number &ge; the number of threads waiting to receive/send --- what
    * matters is whether it's 0 or &gt; 0.
    */
-  unsigned short      waiters[2];
+  unsigned short  waiters[2];
 
-  pthread_mutex_t     mtx;              ///< Channel mutex.
-  size_t              msg_size;         ///< Message size.
-  unsigned            buf_cap;          ///< Channel capacity; 0 = unbuffered.
-  bool                is_closed;        ///< Is channel closed?
+  mtx_t           mtx;                  ///< Channel mutex.
+  size_t          msg_size;             ///< Message size.
+  unsigned        buf_cap;              ///< Channel capacity; 0 = unbuffered.
+  bool            is_closed;            ///< Is channel closed?
 };
 
 ////////// extern variables ///////////////////////////////////////////////////

@@ -30,7 +30,6 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <sysexits.h>                   /* IWYU pragma: export */
 
 /// @endcond
 
@@ -50,7 +49,36 @@
  *
  * @note \a ARRAY _must_ be a statically allocated array.
  */
-#define ARRAY_SIZE(ARRAY)       (sizeof( (ARRAY) ) / sizeof( 0[ (ARRAY) ] ))
+#define ARRAY_SIZE(ARRAY)         (sizeof( (ARRAY) ) / sizeof( 0[ (ARRAY) ] ))
+
+#ifndef NDEBUG
+/**
+ * Asserts that \a expr is equal to \a expected.
+ *
+ * @param file The file name where this function was called from.
+ * @param line The line number within \a file where this function was called
+ * from.
+ * @param expr The expression to compare against \a expected.
+ * @param expr_str \a expr as a string.
+ * @param expected The expected value for \a expr.
+ *
+ * @note This function isn't normally called directly; use the #ASSERT_EQ macro
+ * instead.
+ */
+void assert_eq( char const *file, int line, int expr, char const *expr_str,
+                int expected );
+
+/**
+ * Asserts that \a EXPR is equal to \a EXPECTED.
+ *
+ * @param EXPR The expression to compare against \a EXPECTED.
+ * @param EXPECTED The expected value for \a EXPR.
+ */
+#define ASSERT_EQ(EXPR,EXPECTED) \
+  assert_eq( __FILE__, __LINE__, (EXPR), #EXPR, (EXPECTED) )
+#else
+#define ASSERT_EQ(EXPR, EXPECTED) (EXPR)
+#endif /* NDEBUG */
 
 /**
  * Asserts that this line of code is run at most once --- useful in
@@ -75,8 +103,7 @@
  *
  * @param FN The pointer to the function to call **atexit**(3) with.
  */
-#define ATEXIT(FN) \
-  PERROR_EXIT_IF( atexit( (FN) ) != 0, EX_OSERR )
+#define ATEXIT(FN)                ASSERT_EQ( atexit( (FN) ), 0 )
 
 /**
  * Embeds the given statements into a compound statement block.
@@ -92,7 +119,7 @@
  * @param PTS A pointer to the `timespec` `struct` to store the time into.
  */
 #define CLOCK_GETTIME(CLOCK_ID,PTS) \
-  PERROR_EXIT_IF( clock_gettime( (CLOCK_ID), (PTS) ) != 0, EX_OSERR )
+  ASSERT_EQ( clock_gettime( (CLOCK_ID), (PTS) ), 0 )
 
 /**
  * Shorthand for printing to standard error.
@@ -171,18 +198,6 @@
 /// @endcond
 
 /**
- * If \a EXPR is `true`, prints an error message for `errno` to standard error
- * and exits with status \a STATUS.
- *
- * @param EXPR The expression.
- * @param STATUS The exit status code.
- *
- * @sa perror_exit()
- */
-#define PERROR_EXIT_IF(EXPR,STATUS) \
-  BLOCK( if ( unlikely( (EXPR) ) ) perror_exit( (STATUS) ); )
-
-/**
  * Synthesises a name prefixed by \a PREFIX unique to the line on which it's
  * used.
  *
@@ -194,17 +209,6 @@
  * used unique name.
  */
 #define UNIQUE_NAME(PREFIX)       NAME2(NAME2(PREFIX,_),__LINE__)
-
-///////////////////////////////////////////////////////////////////////////////
-
-/**
- * Prints an error message for `errno` to standard error and exits.
- *
- * @param status The exit status code.
- *
- * @sa #PERROR_EXIT_IF()
- */
-_Noreturn void perror_exit( int status );
 
 ///////////////////////////////////////////////////////////////////////////////
 
