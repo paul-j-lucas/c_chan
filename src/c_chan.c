@@ -1165,11 +1165,16 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       MTX_LOCK( &select_mtx );
       select_obs.chan = NULL;
       do {
-        if ( cnd_wait_wrapper( &select_obs.chan_ready, &select_mtx, abs_time )
-             == ETIMEDOUT ) {
-          rv = ETIMEDOUT;
+        int const cww_rv =
+          cnd_wait_wrapper( &select_obs.chan_ready, &select_mtx, abs_time );
+        if ( select_obs.chan != NULL ) {
+          // It's possible that select_obs.chan could be set to non-NULL and
+          // timeout immediatly after (hence, cww_rv == ETIMEDOUT).  But if
+          // chan is set, that's what's important, so ignore the timeout.
+          break;
         }
-      } while ( rv == 0 && select_obs.chan == NULL );
+        rv = cww_rv;
+      } while ( rv == 0 );
       // Must copy select_obs.chan to a local variable while mutex is locked.
       struct chan *const selected_chan = select_obs.chan;
       MTX_UNLOCK( &select_mtx );
