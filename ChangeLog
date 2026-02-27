@@ -1,3 +1,10 @@
+2026-02-27  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Fixed possible timeout immediately after setting
+     select_obs.chan.
+   * c_chan.c: Clamp tv_nsec to 999999999.
+   * c_chan.c: Added chan_links_free().
+
 2026-02-25  Paul J. Lucas <paul@lucasmail.org>
 
    * configure.ac: Upped version to 1.3.
