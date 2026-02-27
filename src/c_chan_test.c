@@ -136,8 +136,8 @@ static void print_rvs( int expected_rv, int actual_rv ) {
  * @param pus A pointer to an `unsigned short`.
  * @param min_val The minimum value wanted.
  */
-static void spin_wait_us_ge( mtx_t *mtx, unsigned short const *pus,
-                             unsigned short min_val ) {
+static void spin_wait_ui_ge( mtx_t *mtx, unsigned const *pus,
+                             unsigned min_val ) {
   MTX_LOCK( mtx );
   while ( *pus < min_val ) {
     MTX_UNLOCK( mtx );
@@ -255,7 +255,7 @@ static bool test_buf_chan( void ) {
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
     THRD_CREATE( &recv_thrd, &thrd_chan_recv, &arg );
-    spin_wait_us_ge( &chan.mtx, &chan.waiters[0], 1 );
+    spin_wait_ui_ge( &chan.mtx, &chan.waiters[0], 1 );
     THRD_CREATE( &send_thrd, &thrd_chan_send, &arg );
     TEST_THRD_JOIN( recv_thrd );
     TEST_THRD_JOIN( send_thrd );
@@ -471,7 +471,7 @@ static bool test_select_send_1( unsigned buf_cap ) {
       .recv_val = 42
     );
     THRD_CREATE( &recv_thrd, &thrd_chan_recv, &recv_arg );
-    spin_wait_us_ge( &chan.mtx, &chan.waiters[0], 1 );
+    spin_wait_ui_ge( &chan.mtx, &chan.waiters[0], 1 );
 
     test_thrd_arg select_arg = TEST_THRD_ARG(
       .send_len = 1,
@@ -513,7 +513,7 @@ static bool test_unbuf_chan( size_t msg_size ) {
     // Create the receiving thread first and ensure it's ready before creating
     // the sending thread.
     THRD_CREATE( &recv_thrd, &thrd_chan_recv, &arg );
-    spin_wait_us_ge( &chan.mtx, &chan.waiters[0], 1 );
+    spin_wait_ui_ge( &chan.mtx, &chan.waiters[0], 1 );
     THRD_CREATE( &send_thrd, &thrd_chan_send, &arg );
     TEST_THRD_JOIN( recv_thrd );
     TEST_THRD_JOIN( send_thrd );
@@ -521,7 +521,7 @@ static bool test_unbuf_chan( size_t msg_size ) {
     // Create the sending thread first and ensure it's ready before creating
     // the receiving thread.
     THRD_CREATE( &send_thrd, &thrd_chan_send, &arg );
-    spin_wait_us_ge( &chan.mtx, &chan.waiters[1], 1 );
+    spin_wait_ui_ge( &chan.mtx, &chan.waiters[1], 1 );
     THRD_CREATE( &recv_thrd, &thrd_chan_recv, &arg );
     TEST_THRD_JOIN( recv_thrd );
     TEST_THRD_JOIN( send_thrd );
@@ -622,7 +622,7 @@ static bool test_select_2_recv( unsigned buf_cap ) {
 
     THRD_CREATE( &recv_thrd[0], &thrd_chan_select, &select_arg[0] );
     THRD_CREATE( &recv_thrd[1], &thrd_chan_select, &select_arg[1] );
-    spin_wait_us_ge( &chan.mtx, &chan.waiters[0], 2 );
+    spin_wait_ui_ge( &chan.mtx, &chan.waiters[0], 2 );
     THRD_CREATE( &send_thrd, &thrd_chan_send, &send_arg );
     TEST_THRD_JOIN( send_thrd );
 

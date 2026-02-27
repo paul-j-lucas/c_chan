@@ -173,7 +173,7 @@ struct chan {
    * A number &ge; the number of threads waiting to receive/send --- what
    * matters is whether it's 0 or &gt; 0.
    */
-  unsigned short  waiters[2];
+  unsigned        waiters[2];
 
   mtx_t           mtx;                  ///< Channel mutex.
   size_t          msg_size;             ///< Message size.
