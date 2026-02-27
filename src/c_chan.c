@@ -861,8 +861,8 @@ static int chan_wait( struct chan *chan, chan_dir dir,
     return EPIPE;
 
   ++chan->waiters[ dir ];
-  int const rv = cnd_wait_wrapper( &chan->self_obs[ dir ].chan_ready,
-                                   &chan->mtx, abs_time );
+  int const rv =
+    cnd_wait_wrapper( &chan->self_obs[ dir ].chan_ready, &chan->mtx, abs_time );
   assert( chan->waiters[ dir ] > 0 );
   --chan->waiters[ dir ];
 
@@ -893,16 +893,16 @@ static int cnd_wait_wrapper( cnd_t *cond, mtx_t *mtx,
   if ( abs_time == CHAN_NO_WAIT )
     return EAGAIN;
 
-  int const pcw_rv = abs_time == CHAN_NO_TIMEOUT ?
+  int const rv = abs_time == CHAN_NO_TIMEOUT ?
     cnd_wait( cond, mtx ) :
     cnd_timedwait( cond, mtx, abs_time );
 
-  switch ( pcw_rv ) {
+  switch ( rv ) {
     case 0:
     case ETIMEDOUT:
-      return pcw_rv;
+      return rv;
     default:
-      ASSERT_EQ( pcw_rv, 0 );
+      ASSERT_EQ( rv, 0 );
       unreachable();
   } // switch
 }
