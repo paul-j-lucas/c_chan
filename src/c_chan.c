@@ -127,7 +127,7 @@ struct chan_select_ref {
   bool            maybe_ready;          ///< Is \ref chan maybe ready?
 };
 
-////////// local functions ////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 
 static void chan_signal_all_obs( struct chan*, chan_dir, int (*)( cnd_t* ) );
 
