@@ -398,6 +398,24 @@ static bool chan_is_ready( struct chan const *chan, chan_dir dir ) {
 }
 
 /**
+ * Frees observer links of \a chan.
+ *
+ * @param chan The channel whose links to free.
+ * @param dir The direction of links to free.
+ */
+static void chan_links_free( struct chan *chan, chan_dir dir ) {
+  assert( chan != NULL );
+
+  chan_impl_link *curr_link = chan->head_link[ dir ].next;
+  while ( curr_link != NULL ) {
+    chan_impl_link *const next_link = curr_link->next;
+    free( curr_link );
+    curr_link = next_link;
+  } // while
+  chan->head_link[ dir ].next = NULL;
+}
+
+/**
  * Cleans-up a \ref chan_impl_obs.
  *
  * @param obs The \ref chan_impl_obs to clean up.
@@ -962,6 +980,9 @@ void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) ) {
     CND_DESTROY( &chan->unbuf.not_busy[ CHAN_RECV ] );
     CND_DESTROY( &chan->unbuf.not_busy[ CHAN_SEND ] );
   }
+
+  chan_links_free( chan, CHAN_RECV );
+  chan_links_free( chan, CHAN_SEND );
 
   assert( chan->head_link[ CHAN_RECV ].obs == &chan->self_obs[ CHAN_RECV ] );
   assert( chan->head_link[ CHAN_SEND ].obs == &chan->self_obs[ CHAN_SEND ] );
