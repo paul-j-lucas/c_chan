@@ -447,7 +447,7 @@ int chan_send( struct chan *chan, void const *send_buf,
  *  + > 0 that specifies an error code, one of:
  *      + `EAGAIN` only if no channels are ready and \a duration is
  *        #CHAN_NO_WAIT; or:
- *      + `EINVAL` only if an invalid argument was given; or:
+ *      + `EINVAL` only if any argument is invalid; or:
  *      + `ENOMEM` only if memory allocation failed; or:
  *      + `EPIPE` only if all channels are closed; or:
  *      + `ETIMEDOUT` only if \a duration expired.
