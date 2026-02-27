@@ -1165,8 +1165,8 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
       MTX_LOCK( &select_mtx );
       select_obs.chan = NULL;
       do {
-        if ( cnd_wait_wrapper( &select_obs.chan_ready, &select_mtx,
-                                        abs_time ) == ETIMEDOUT ) {
+        if ( cnd_wait_wrapper( &select_obs.chan_ready, &select_mtx, abs_time )
+             == ETIMEDOUT ) {
           rv = ETIMEDOUT;
         }
       } while ( rv == 0 && select_obs.chan == NULL );
