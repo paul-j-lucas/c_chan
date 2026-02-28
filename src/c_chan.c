@@ -723,6 +723,7 @@ static void chan_unbuf_release( struct chan *chan, chan_dir dir ) {
   assert( chan->buf_cap == 0 );
 
   chan->unbuf.is_busy[ dir ] = false;
+  chan->unbuf.is_copy_done[ dir ] = false;
   CND_SIGNAL( &chan->unbuf.not_busy[ dir ] );
 }
 
