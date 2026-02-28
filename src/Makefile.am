@@ -35,7 +35,7 @@ endif
 AM_CPPFLAGS =		-I$(top_srcdir)/lib -I$(top_builddir)/lib
 LDADD =			$(top_builddir)/lib/libgnu.a
 
-libc_chan_la_LDFLAGS =	-version-info 1:0:0
+libc_chan_la_LDFLAGS =	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
 
 libc_chan_la_SOURCES =	c_chan.c $(include_HEADERS) \
 			stdc_thrd_macros.h \

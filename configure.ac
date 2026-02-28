@@ -25,6 +25,12 @@ AC_INIT([c_chan],[1.3],[https://github.com/paul-j-lucas/c_chan/issues],[],[https
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
 
+C_CHAN_CFLAGS="-D_ISOC11_SOURCE"
+
+LT_CURRENT=1
+LT_REVISION=1
+LT_AGE=0
+
 # Checks for programs.
 AC_LANG(C)
 AC_PROG_CC
@@ -34,7 +40,9 @@ AS_IF([test "x$ac_cv_prog_cc_c11" = xno],
 gl_EARLY
 
 AC_SUBST([C_CHAN_CFLAGS])
-C_CHAN_CFLAGS="-D_ISOC11_SOURCE"
+AC_SUBST([LT_CURRENT])
+AC_SUBST([LT_REVISION])
+AC_SUBST([LT_AGE])
 
 AM_PROG_AR
 AC_PROG_INSTALL
