@@ -65,6 +65,11 @@
  */
 #define CHAN_BUF_NOT_FULL     CHAN_SEND
 
+/**
+ * Nanoseconds per second.
+ */
+#define NSEC_PER_SEC          1000000000L
+
 ////////// enumerations ///////////////////////////////////////////////////////
 
 /**
@@ -891,10 +896,8 @@ static struct timespec const* ts_rel_to_abs( struct timespec const *rel_time,
     .tv_nsec = now.tv_nsec + rel_time->tv_nsec
   };
 
-  if ( abs_time->tv_nsec >= 1000000000L ) { // C23 requires <= 999,999,999
-    abs_time->tv_sec++;
-    abs_time->tv_nsec -= 1000000000L;
-  }
+  abs_time->tv_sec  += abs_time->tv_nsec / NSEC_PER_SEC;
+  abs_time->tv_nsec %= NSEC_PER_SEC;
 
   return abs_time;
 }
