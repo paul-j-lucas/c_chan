@@ -65,11 +65,6 @@
  */
 #define CHAN_BUF_NOT_FULL     CHAN_SEND
 
-/**
- * Nanoseconds per second.
- */
-#define NSEC_PER_SEC          1000000000L
-
 ////////// enumerations ///////////////////////////////////////////////////////
 
 /**

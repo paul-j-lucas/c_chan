@@ -198,6 +198,11 @@ void assert_eq_impl( char const *file, int line, int expr, char const *expr_str,
 /// @endcond
 
 /**
+ * Nanoseconds per second.
+ */
+#define NSEC_PER_SEC          1000000000L
+
+/**
  * Synthesises a name prefixed by \a PREFIX unique to the line on which it's
  * used.
  *
