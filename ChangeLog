@@ -1,5 +1,11 @@
+2026-02-28  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c, util.h: Moved NSEC_PER_SEC.
+
 2026-02-27  Paul J. Lucas <paul@lucasmail.org>
 
+   * c_chan.c: Change "if" to arithmetic for timespec normalization.
+   * configure.ac, src/Makefile.am: Now using LT_CURRENT, etc.
    * c_chan.c: Now resetting is_copy_done.
    * c_chan.h, c_chan_test.c: Changed waiters to unsigned.
    * c_chan.c: Went back to normal chan_is_ready().
