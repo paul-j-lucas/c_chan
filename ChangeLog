@@ -1,5 +1,6 @@
 2026-02-27  Paul J. Lucas <paul@lucasmail.org>
 
+   * c_chan.c: Now resetting is_copy_done.
    * c_chan.h, c_chan_test.c: Changed waiters to unsigned.
    * c_chan.c: Went back to normal chan_is_ready().
    * c_chan.c: Fixed possible timeout immediately after setting
