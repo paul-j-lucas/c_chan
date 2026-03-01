@@ -225,7 +225,7 @@ static bool chan_add_obs( struct chan *chan, chan_dir dir,
   assert( chan != NULL );
   assert( add_obs != NULL );
 
-  chan_impl_link *const new_link = malloc( sizeof( *new_link ) );
+  chan_impl_link *const new_link = malloc( sizeof *new_link );
   if ( unlikely( new_link == NULL ) )
     return false;
   *new_link = (chan_impl_link){
@@ -1046,7 +1046,7 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
     ref = stack_ref;
   }
   else {
-    ref = malloc( total_channels * sizeof( *ref ) );
+    ref = malloc( total_channels * sizeof *ref );
     if ( unlikely( ref == NULL ) )
       return ENOMEM;                    // malloc sets errno
   }
@@ -1133,10 +1133,8 @@ int chan_select( unsigned recv_len, struct chan *recv_chan[recv_len],
            csi_out.chans_maybe_ready < csi_out.ref_len ) {
         // Only some channels may be ready: sort those first and select only
         // from those.
-        qsort(
-          ref, csi_out.ref_len, sizeof( chan_select_ref ),
-          (qsort_cmp_fn)&chan_select_ref_cmp
-        );
+        qsort( ref, csi_out.ref_len, sizeof *ref,
+               (qsort_cmp_fn)&chan_select_ref_cmp );
         select_len = csi_out.chans_maybe_ready;
       }
       else {
