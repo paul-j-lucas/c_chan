@@ -91,8 +91,7 @@ int mtx_init( mtx_t *m, int type ) {
 }
 
 int thrd_create( thrd_t *t, thrd_start_t start_fn, void *user_data ) {
-  struct pthread_start_fn_data *const data =
-    malloc( sizeof( struct pthread_start_fn_data ) );
+  struct pthread_start_fn_data *const data = malloc( sizeof *data );
   *data = (struct pthread_start_fn_data){ start_fn, user_data };
 
   int const create_rv =
