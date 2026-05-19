@@ -22,7 +22,7 @@
 #define C_CHAN_UTIL_H
 
 // local
-#include "config.h"                     /* IWYU pragma: keep */
+#include "config.h"                     /* must go first */
 
 /// @cond DOXYGEN_IGNORE
 

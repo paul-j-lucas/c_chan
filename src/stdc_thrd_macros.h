@@ -28,7 +28,7 @@
  */
 
 // local
-#include "stdc_threads.h"               /* IWYU pragma: export */
+#include "stdc_threads.h"
 #include "util.h"
 
 ///////////////////////////////////////////////////////////////////////////////

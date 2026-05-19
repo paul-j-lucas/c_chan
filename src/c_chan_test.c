@@ -19,7 +19,7 @@
 */
 
 // local
-#include "config.h"                     /* IWYU pragma: keep */
+#include "config.h"                     /* must go first */
 #include "c_chan.h"
 #include "stdc_thrd_macros.h"
 #include "util.h"
@@ -27,6 +27,7 @@
 
 // standard
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>

@@ -24,7 +24,7 @@
  */
 
 // local
-#include "config.h"                     /* IWYU pragma: keep */
+#include "config.h"                     /* must go first */
 #include "c_chan.h"
 #include "stdc_thrd_macros.h"
 #include "util.h"
@@ -35,8 +35,8 @@
 #include <assert.h>
 #include <attribute.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stddef.h>                     /* for unreachable(3) */
-#include <stdint.h>                     /* for uintptr_t */
 #include <stdlib.h>                     /* for malloc(3), qsort(3) */
 #include <string.h>                     /* for memcpy(3) */
 #include <time.h>                       /* for timespec */

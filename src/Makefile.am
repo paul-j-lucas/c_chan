@@ -35,6 +35,9 @@ endif
 AM_CPPFLAGS =		-I$(top_srcdir)/lib -I$(top_builddir)/lib
 LDADD =			$(top_builddir)/lib/libgnu.a
 
+INVOKE_TIDY_FLAGS =	-Xtidy --verbose=f -Xtidy --error=never
+INVOKE_TIDY_CFLAGS =	$(CFLAGS) $(AM_CFLAGS) $(CPPFLAGS) $(AM_CPPFLAGS)
+
 libc_chan_la_LDFLAGS =	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
 
 libc_chan_la_SOURCES =	c_chan.c $(include_HEADERS) \
@@ -54,5 +57,10 @@ c_chan_test_SOURCES =	$(libc_chan_a_SOURCES) \
 c_chan_test_LDADD =	libc_chan.la $(PTHREAD_LIBS)
 
 TESTS =			$(check_PROGRAMS)
+
+tidy:
+	@for file in *.h *.c; \
+	do include-tidy $(INVOKE_TIDY_FLAGS) $(INVOKE_TIDY_CFLAGS) $$file; \
+	done
 
 # vim:set noet sw=8 ts=8:

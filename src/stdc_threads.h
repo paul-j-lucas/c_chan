@@ -32,7 +32,7 @@
  */
 
 // local
-#include "config.h"                     /* IWYU pragma: keep */
+#include "config.h"                     /* must go first */
 
 // standard
 #include <errno.h>

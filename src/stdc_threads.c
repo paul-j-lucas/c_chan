@@ -19,11 +19,12 @@
 */
 
 // local
-#include "config.h"                     /* IWYU pragma: keep */
+#include "config.h"                     /* must go first */
 #include "stdc_threads.h"
 #include "util.h"
 
 // standard
+#include <errno.h>
 #include <stdint.h>                     /* for intptr_t */
 #include <stdlib.h>
 
