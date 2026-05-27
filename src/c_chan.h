@@ -248,7 +248,8 @@ inline unsigned chan_cap( struct chan const *chan ) {
 void chan_cleanup( struct chan *chan, void (*msg_cleanup_fn)( void* ) );
 
 /**
- * Closes \ref chan indicate to receivers that no more messages will be coming.
+ * Closes \ref chan to indicate to receivers that no more messages will be
+ * coming.
  *
  * @remarks Closing a channel is technically optional, but strongly encouraged
  * because it causes waiting senders or receivers to unblock. Once a channel is
