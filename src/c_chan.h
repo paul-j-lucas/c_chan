@@ -85,7 +85,7 @@ struct chan_impl_link {
 
 /**
  * An "observer" of a channel is an object that wants to receive/send from/to a
- * channel and may to wait until it's ready to do so.
+ * channel and may wait until it's ready to do so.
  *
  * @remarks In addition to a channel having its own observer, every blocking
  * select is also an observer.
