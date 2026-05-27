@@ -821,8 +821,10 @@ static int chan_wait( struct chan *chan, chan_dir dir,
  * @param mtx The mutex to unlock temporarily.
  * @param abs_time When to wait until. If #CHAN_NO_WAIT, does not wait; if \ref
  * CHAN_NO_TIMEOUT, waits indefinitely.
- * @return Returns either 0 only if \a cond was signaled or `ETIMEDOUT` only if
- * it's now \a abs_time or later.
+ * @return
+ *  + 0 only if \a cond was signaled: or:
+ *  + `EAGAIN` only if \a abs_time is #CHAN_NO_WAIT; or:
+ *  + `ETIMEDOUT` only if it's now \a abs_time or later.
  */
 NODISCARD
 static int cnd_wait_wrapper( cnd_t *cond, mtx_t *mtx,
