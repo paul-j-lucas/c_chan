@@ -265,6 +265,7 @@ static int chan_buf_recv( struct chan *chan, void *recv_buf,
                           struct timespec const *abs_time ) {
   assert( chan != NULL );
   assert( chan->buf_cap > 0 );
+  assert( recv_buf != NULL );
 
   int rv = 0;
   MTX_LOCK( &chan->mtx );
@@ -310,6 +311,7 @@ static int chan_buf_send( struct chan *chan, void const *send_buf,
                           struct timespec const *abs_time ) {
   assert( chan != NULL );
   assert( chan->buf_cap > 0 );
+  assert( send_buf != NULL );
 
   int rv = 0;
   MTX_LOCK( &chan->mtx );
@@ -684,6 +686,7 @@ static int chan_unbuf_recv( struct chan *chan, void *recv_buf,
                             struct timespec const *abs_time ) {
   assert( chan != NULL );
   assert( chan->buf_cap == 0 );
+  assert( chan->msg_size == 0 || recv_buf != NULL );
 
   MTX_LOCK( &chan->mtx );
 
@@ -751,6 +754,7 @@ static int chan_unbuf_send( struct chan *chan, void const *send_buf,
                             struct timespec const *abs_time ) {
   assert( chan != NULL );
   assert( chan->buf_cap == 0 );
+  assert( chan->msg_size == 0 || send_buf != NULL );
 
   MTX_LOCK( &chan->mtx );
 
