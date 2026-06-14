@@ -1,3 +1,17 @@
+2026-06-14  Paul J. Lucas <paul@lucasmail.org>
+
+   * c_chan.c: Added assert()s.
+
+2026-05-26  Paul J. Lucas <paul@lucasmail.org>
+
+   * src/Makefile.am: Better way to invoke include-tidy from a Makefile.
+
+2026-05-18  Paul J. Lucas <paul@lucasmail.org>
+
+   * src/Makefile.am, c_chan.c, c_chan_test.c, include-tidy.toml,
+     stdc_thrd_macros.h, stdc_threads.c, stdc_threads.h, unit_test.c, util.c,
+     util.h: Now using include-tidy.
+
 2026-03-01  Paul J. Lucas <paul@lucasmail.org>
 
    * stdc_threads.c: Now using sizeof *ptr.
