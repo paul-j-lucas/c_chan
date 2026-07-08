@@ -60,7 +60,6 @@ gl_INIT
 AC_C_INLINE
 AC_TYPE_SIZE_T
 PJL_COMPILE([__builtin_expect],[], [(void)__builtin_expect(1,1);])
-PJL_COMPILE([__STDC_NO_THREADS__],[],[int x = __STDC_NO_THREADS__;])
 
 # Checks for library functions.
 AC_FUNC_REALLOC
