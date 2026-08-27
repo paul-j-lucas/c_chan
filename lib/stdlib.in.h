@@ -103,7 +103,8 @@ struct random_data
 # endif
 #endif
 
-#if (@GNULIB_MKSTEMP@ || @GNULIB_MKSTEMPS@ || @GNULIB_MKOSTEMP@ || @GNULIB_MKOSTEMPS@ || @GNULIB_GETSUBOPT@ || defined GNULIB_POSIXCHECK) && ! defined __GLIBC__ && !(defined _WIN32 && ! defined __CYGWIN__)
+#if (@GNULIB_MKDTEMP@ || @GNULIB_MKSTEMP@ || @GNULIB_MKSTEMPS@ || @GNULIB_MKOSTEMP@ || @GNULIB_MKOSTEMPS@ || @GNULIB_GETSUBOPT@ || defined GNULIB_POSIXCHECK) && ! defined __GLIBC__ && !(defined _WIN32 && ! defined __CYGWIN__)
+/* On macOS 26, only <unistd.h> declares mkdtemp.  */
 /* On Mac OS X 10.3, only <unistd.h> declares mkstemp.  */
 /* On Mac OS X 10.5, only <unistd.h> declares mkstemps.  */
 /* On Mac OS X 10.13, only <unistd.h> declares mkostemp and mkostemps.  */
@@ -757,7 +758,7 @@ _GL_WARN_ON_USE (malloc, "malloc is not POSIX compliant everywhere - "
 #if @REPLACE_MB_CUR_MAX@
 # if !GNULIB_defined_MB_CUR_MAX
 _GL_STDLIB_INLINE size_t
-gl_MB_CUR_MAX (void)
+_gl_MB_CUR_MAX (void)
 {
 #  if 0 < @REPLACE_MB_CUR_MAX@
   return @REPLACE_MB_CUR_MAX@;
@@ -768,7 +769,7 @@ gl_MB_CUR_MAX (void)
 #  endif
 }
 #  undef MB_CUR_MAX
-#  define MB_CUR_MAX gl_MB_CUR_MAX ()
+#  define MB_CUR_MAX _gl_MB_CUR_MAX ()
 #  define GNULIB_defined_MB_CUR_MAX 1
 # endif
 #endif
@@ -1458,7 +1459,7 @@ _GL_WARN_ON_USE (setstate_r, "setstate_r is unportable - "
 
 #if @GNULIB_REALLOC_POSIX@
 # if @REPLACE_REALLOC_FOR_REALLOC_POSIX@
-#  if @REPLACE_REALLOC_FOR_REALLOC_POSIX@ == 2
+#  if @REPLACE_REALLOC_FOR_REALLOC_POSIX@ == 2 && !_GL_INLINE_RPL_REALLOC
 #   define _GL_INLINE_RPL_REALLOC 1
 #   ifdef __cplusplus
 extern "C" {
