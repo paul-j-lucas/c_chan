@@ -58,10 +58,13 @@ c_chan_test_LDADD =	libc_chan.la $(PTHREAD_LIBS)
 
 TESTS =			$(check_PROGRAMS)
 
-tidy:
+itidy:
 	@for file in *.h *.c; do \
 	  [ ! -f "$$file" ] || \
 	    include-tidy $(TIDY_FLAGS) $(TIDY_CFLAGS) "$$file" || exit $$?; \
 	done
+
+stidy:
+	@symbol-tidy $(TIDY_FLAGS) $(TIDY_CFLAGS) *.c
 
 # vim:set noet sw=8 ts=8:
