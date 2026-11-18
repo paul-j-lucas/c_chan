@@ -1,33 +1,38 @@
-2026-07-08  Paul J. Lucas <paul@lucasmail.org>
+2026-08-22  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
+
+   * SECURITY.md: Fix URL.
+   * SECURITY.md: Placate pedantic repository-scanning-and-reporting tools.
+
+2026-07-08  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac: Don't need PJL_COMPILE([__STDC_NO_THREADS__] ...).
    * pjl_compile.m4: PJL_COMPILE now accepts 1st arg with whitespace (that's
      converted to _); no longer defines any macro in failure case.
 
-2026-06-14  Paul J. Lucas <paul@lucasmail.org>
+2026-06-14  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Added assert()s.
 
-2026-05-26  Paul J. Lucas <paul@lucasmail.org>
+2026-05-26  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * src/Makefile.am: Better way to invoke include-tidy from a Makefile.
 
-2026-05-18  Paul J. Lucas <paul@lucasmail.org>
+2026-05-18  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * src/Makefile.am, c_chan.c, c_chan_test.c, include-tidy.toml,
      stdc_thrd_macros.h, stdc_threads.c, stdc_threads.h, unit_test.c, util.c,
      util.h: Now using include-tidy.
 
-2026-03-01  Paul J. Lucas <paul@lucasmail.org>
+2026-03-01  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * stdc_threads.c: Now using sizeof *ptr.
    * c_chan.c: Now using sizeof *ptr.
 
-2026-02-28  Paul J. Lucas <paul@lucasmail.org>
+2026-02-28  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, util.h: Moved NSEC_PER_SEC.
 
-2026-02-27  Paul J. Lucas <paul@lucasmail.org>
+2026-02-27  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Change "if" to arithmetic for timespec normalization.
    * configure.ac, src/Makefile.am: Now using LT_CURRENT, etc.
@@ -39,7 +44,7 @@
    * c_chan.c: Clamp tv_nsec to 999999999.
    * c_chan.c: Added chan_links_free().
 
-2026-02-25  Paul J. Lucas <paul@lucasmail.org>
+2026-02-25  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac: Upped version to 1.3.
    * configure.ac, src/Makefile.am, c_chan.c, c_chan.h, c_chan_test.c,
@@ -48,90 +53,90 @@
    * src/Makefile.am, c_chan.c, c_chan_test.c, thread.h, util.h: Split thread
      stuff into thread.h.
 
-2026-02-24  Paul J. Lucas <paul@lucasmail.org>
+2026-02-24  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan_test.c, unit_test.c, util.c, util.h: #include clean-up.
 
-2026-02-06  Paul J. Lucas <paul@lucasmail.org>
+2026-02-06  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac: Upped version to 1.2.1.
    * c_chan.h: Removed config.h from c_chan.h so it's not dependent upon it
      after installation.
    * c_chan.c: Added #include.
 
-2026-02-04  Paul J. Lucas <paul@lucasmail.org>
+2026-02-04  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan_test.c: Fixed up includes.
    * c_chan.c, c_chan.h: Fixed-up includes.
    * util.h: Removed DEBUG_BLOCK -- no longer used.
    * c_chan.c: Made selected_chan more local.
 
-2026-02-03  Paul J. Lucas <paul@lucasmail.org>
+2026-02-03  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * Doxyfile: Added PAGE_OUTLINE_PANEL.
    * Doxyfile: Added WARN_IF_UNDOC_ENUM_VAL.
    * configure.ac, c_chan.c, c_chan.h, c_chan_test.c: chan_select() now returns
      EAGAIN instead of 0 when no channels are ready.
 
-2026-02-01  Paul J. Lucas <paul@lucasmail.org>
+2026-02-01  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Added asserts.
 
-2026-01-31  Paul J. Lucas <paul@lucasmail.org>
+2026-01-31  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac, c_chan.c, c_chan_test.c: Now always correctly returning an
      error value from chan_select().
 
-2026-01-30  Paul J. Lucas <paul@lucasmail.org>
+2026-01-30  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Simplified "if".
    * c_chan.c: Revert "Simplified chan_select_io."
 
-2026-01-29  Paul J. Lucas <paul@lucasmail.org>
+2026-01-29  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Simplified chan_select_io.
    * c_chan.c: Now checking is_hard_closed first.
 
-2026-01-26  Paul J. Lucas <paul@lucasmail.org>
+2026-01-26  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan_test.c: s/unsigned/size_t/
 
-2026-01-25  Paul J. Lucas <paul@lucasmail.org>
+2026-01-25  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Branch-free is_chan_ready().
 
-2026-01-23  Paul J. Lucas <paul@lucasmail.org>
+2026-01-23  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac, src/Makefile.am: Now using libtool.
    * configure.ac: Added AC_PROG_RANLIB.
 
-2026-01-22  Paul J. Lucas <paul@lucasmail.org>
+2026-01-22  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.h: Removed static.
    * ax_require_defined.m4: Added ax_require_defined.m4.
    * ax_prepend_flag.m4: Added ax_prepend_flag.m4.
    * ax_compiler_vendor.m4: Added missing ax_compiler_vendor.m4.
 
-2026-01-21  Paul J. Lucas <paul@lucasmail.org>
+2026-01-21  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Added more assert()s.
    * c_chan.c: Factoried out chan_unbuf_handshake().
    * c_chan.c: Added #ifndef NODISCARD.
 
-2026-01-20  Paul J. Lucas <paul@lucasmail.org>
+2026-01-20  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Now setting select_abs_time only if ref_len > 0.
 
-2026-01-19  Paul J. Lucas <paul@lucasmail.org>
+2026-01-19  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: s/NULL/CHAN_NO_WAIT/
    * c_chan.c, c_chan.h: Added CHAN_NO_WAIT.
 
-2026-01-18  Paul J. Lucas <paul@lucasmail.org>
+2026-01-18  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h: Added chan_cap() and chan_len().
 
-2026-01-17  Paul J. Lucas <paul@lucasmail.org>
+2026-01-17  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: s/-1/EINVAL/
    * c_chan.c: Added NODISCARD.
@@ -144,7 +149,7 @@
    * c_chan.c: Added chan_select_io().
    * c_chan.c: Movde add_failed before pthread_mutex_lock.
 
-2026-01-16  Paul J. Lucas <paul@lucasmail.org>
+2026-01-16  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.h: Added ENOMEM to possible errno values set by chan_select().
    * c_chan.c, c_chan.h: Functions that return an error value (non-zero) now
@@ -154,98 +159,98 @@
      send/receive. (#3)
    * c_chan.c: chan_add_obs() now propagates a malloc failure.
 
-2026-01-15  Paul J. Lucas <paul@lucasmail.org>
+2026-01-15  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h: Combined recv_idx, send_idx into ring_idx for
      consistency.
 
-2026-01-14  Paul J. Lucas <paul@lucasmail.org>
+2026-01-14  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac: Updated version.
    * c_chan.c, c_chan.h, c_chan_test.c: Rework how a linked list of observers
      is implemented (#2)
 
-2026-01-12  Paul J. Lucas <paul@lucasmail.org>
+2026-01-12  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Now holding chan->mtx throughout chan_close().
 
-2026-01-11  Paul J. Lucas <paul@lucasmail.org>
+2026-01-11  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Made chan_is_hard_closed() inline.
    * c_chan.c: Split out chan_is_ready().
    * c_chan_test.c: Added const.
 
-2025-11-15  Paul J. Lucas <paul@lucasmail.org>
+2025-11-15  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * Makefile.am, ax_cflags_warn_all.m4, ax_check_compile_flag.m4,
      update_m4.sh: Added update_m4.sh.
 
-2025-11-01  Paul J. Lucas <paul@lucasmail.org>
+2025-11-01  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * Makefile.am, makedoc.sh: makedoc.sh now takes parameters (copied from
      cdecl).
 
-2025-10-20  Paul J. Lucas <paul@lucasmail.org>
+2025-10-20  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac: Removed -Wundef.
 
-2025-10-19  Paul J. Lucas <paul@lucasmail.org>
+2025-10-19  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * pjl_compile.m4: Removed AC_REQUIRE.
 
-2025-10-18  Paul J. Lucas <paul@lucasmail.org>
+2025-10-18  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac: Removed -Wzero-as-null-pointer-constant -- not valid for C.
 
-2025-10-17  Paul J. Lucas <paul@lucasmail.org>
+2025-10-17  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac: Removed unnecessary AC_CHECK_HEADERS.
    * Makefile.am: Added --no-vc-files.
 
-2025-10-15  Paul J. Lucas <paul@lucasmail.org>
+2025-10-15  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac, pjl_check_compile_flag.m4: Added PJL_CHECK_COMPILE_FLAG.
 
-2025-10-06  Paul J. Lucas <paul@lucasmail.org>
+2025-10-06  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac: Now letting Autotools add INSTALL.
    * c_chan_test.c: Removed unnecessary #include.
    * unit_test.h: No longer dependent on util.h.
 
-2025-07-16  Paul J. Lucas <paul@lucasmail.org>
+2025-07-16  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac, c_chan.c, util.h: Now using rand_r.
 
-2025-07-09  Paul J. Lucas <paul@lucasmail.org>
+2025-07-09  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, util.h: Now using clock_gettime() rather than gettimeofday().
 
-2025-07-06  Paul J. Lucas <paul@lucasmail.org>
+2025-07-06  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Added NODISCARD.
    * configure.ac, c_chan.c, c_chan_test.c: Selecting from a closed, but
      non-empty, buffered channel now works.
 
-2025-07-04  Paul J. Lucas <paul@lucasmail.org>
+2025-07-04  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan_test.c: Added #include <stdint.h>.
    * configure.ac, ax_pthread.m4, src/Makefile.am: Added AX_PTHREAD.
 
-2025-06-30  Paul J. Lucas <paul@lucasmail.org>
+2025-06-30  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: chan_select() now correctly returns EPIPE if all channels are
      closed.
 
-2025-06-28  Paul J. Lucas <paul@lucasmail.org>
+2025-06-28  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Now handling chans_open == 1 case specially.
    * c_chan.c: Now checking malloc in chan_select for NULL.
 
-2025-06-27  Paul J. Lucas <paul@lucasmail.org>
+2025-06-27  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Added might_as_well_wait_time.
 
-2025-06-26  Paul J. Lucas <paul@lucasmail.org>
+2025-06-26  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Now using "continue".
    * c_chan.c: Now holding chan->mtx for less time.
@@ -256,12 +261,12 @@
    * c_chan.c: Holding select_mtx less.
    * c_chan.c: Added chan_obs_cleanup.
 
-2025-06-25  Paul J. Lucas <paul@lucasmail.org>
+2025-06-25  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: s/wait_cnt/unbuf.is_busy/
    * c_chan.c: s/wait/is_blocking/
 
-2025-06-24  Paul J. Lucas <paul@lucasmail.org>
+2025-06-24  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h: s/released/not_busy/
    * c_chan.h: struct member rearrangement.
@@ -275,12 +280,12 @@
    * c_chan.c: Now just using PTHREAD_COND_WAIT.
    * c_chan.c: Unbuffered works.
 
-2025-06-23  Paul J. Lucas <paul@lucasmail.org>
+2025-06-23  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * unit_test.c: Eliminated test_prog_usage().
    * c_chan_test.c: Fixed test.
 
-2025-06-22  Paul J. Lucas <paul@lucasmail.org>
+2025-06-22  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h, c_chan_test.c: Now using xfer_done.
    * c_chan_test.c: Added missing .duration = CHAN_NO_TIMEOUT.
@@ -291,36 +296,36 @@
    * unit_test.h: Added '!'.
    * unit_test.c: Added call to setvbuf.
 
-2025-06-21  Paul J. Lucas <paul@lucasmail.org>
+2025-06-21  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * configure.ac: Added -Wno-cast-function-type-strict.
    * c_chan.c, util.h: Added locked_cnt.
    * c_chan.c, c_chan.h: s/chan_obs_impl/chan_impl_obs/
 
-2025-06-19  Paul J. Lucas <paul@lucasmail.org>
+2025-06-19  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan_test.c, unit_test.h: Eliminated use of _Atomic.
    * c_chan_test.c, util.h: Moved PTHREAD_CREATE and PTHREAD_JOIN to util.h;
      renaming.
 
-2025-06-18  Paul J. Lucas <paul@lucasmail.org>
+2025-06-18  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h: Went back to recv_buf.
 
-2025-06-17  Paul J. Lucas <paul@lucasmail.org>
+2025-06-17  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h: Now using temp_buf.
    * c_chan.c, c_chan.h: s/is_free/available/
    * c_chan.c, c_chan.h: Eliminated send_done condition variable.
    * c_chan.c, c_chan.h: Betted unbuffered code.
 
-2025-06-16  Paul J. Lucas <paul@lucasmail.org>
+2025-06-16  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Undid check for recv_buf/send_buf != NULL.
    * c_chan.c: Fixed several things in chan_select.
    * c_chan.c: Replaced assert with "if".
 
-2025-06-15  Paul J. Lucas <paul@lucasmail.org>
+2025-06-15  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan_test.c: Now using variables for arg.
    * src/Makefile.am: Fixed dependencies.
@@ -329,14 +334,14 @@
    * c_chan.c, c_chan.h, c_chan_test.c: Added recv_cnt; proper handling of
      zero-sized messages.
 
-2025-06-14  Paul J. Lucas <paul@lucasmail.org>
+2025-06-14  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Fixed return value of chan_wait.
    * c_chan.c: Added assert that observer keys are never equal.
    * c_chan.c: Added assert() to ensure observer was removed.
    * c_chan.c, c_chan.h, c_chan_test.c: Now using EINVAL.
 
-2025-06-13  Paul J. Lucas <paul@lucasmail.org>
+2025-06-13  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Consistent treatment of msg_size and buffers in chan_send() and
      chan_receive().
@@ -347,7 +352,7 @@
    * c_chan.c: Eliminated chan_is_buffered().
    * c_chan.c, c_chan.h: Made closing a channel optional.
 
-2025-06-12  Paul J. Lucas <paul@lucasmail.org>
+2025-06-12  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h, c_chan_test.c: s/channel/chan/
    * c_chan.c: s/CHAN_NO_TIMEOUT/abs_time/
@@ -355,7 +360,7 @@
    * c_chan.c: abs_time == NULL now handled outside
      pthread_cond_wait_wrapper().
 
-2025-06-11  Paul J. Lucas <paul@lucasmail.org>
+2025-06-11  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.h: Fixed doi URL.
    * c_chan_test.c: Added TEST_FN_BEGIN(), TEST_FN_END().
@@ -369,7 +374,7 @@
    * c_chan.c, c_chan.h, c_chan_test.c: Eliminated chan_rv.
    * c_chan.c, c_chan.h: Back to using -1 for chan_select() return value.
 
-2025-06-10  Paul J. Lucas <paul@lucasmail.org>
+2025-06-10  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Added assert().
    * c_chan.c, c_chan.h: chan_select() now also returns either CHAN_CLOSED or
@@ -383,13 +388,13 @@
    * util.h: Added missing #include.
    * configure.ac, pjl_compile.m4: Added check for __builtin_expect.
 
-2025-06-09  Paul J. Lucas <paul@lucasmail.org>
+2025-06-09  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan_test.c: More tests.
    * c_chan_test.c: Another test.
    * c_chan_test.c: More tests.
 
-2025-06-08  Paul J. Lucas <paul@lucasmail.org>
+2025-06-08  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan_test.c: Test that we select and receive from a ready channel.
    * c_chan_test.c: Testing closed unbufferd channels.
@@ -397,20 +402,20 @@
    * c_chan.c: Fixed receiving from a closed but non-empty channel.
    * c_chan_test.c, unit_test.c, unit_test.h: Unit tests are now thread-safe.
 
-2025-06-02  Paul J. Lucas <paul@lucasmail.org>
+2025-06-02  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan_test.c: Now using common thrd_arg.
    * c_chan_test.c: Now using thrd_arg.
    * c_chan_test.c: Another test.
 
-2025-06-01  Paul J. Lucas <paul@lucasmail.org>
+2025-06-01  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c: Now using a loop in chan_select().
    * c_chan.c: Now initializing select_mtx only if waiting.
    * c_chan.c: Moved unlocking.
    * c_chan.c: Split out chan_obs_add().
 
-2025-05-31  Paul J. Lucas <paul@lucasmail.org>
+2025-05-31  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h: Added key to chan_obs_impl; now inserting in key
      order.
@@ -421,30 +426,30 @@
    * c_chan.c: s/check_pthread_cond_timedwait/pthread_cond_wait_wrapper/
    * c_chan_test.c: First chan_select() test.
 
-2025-05-30  Paul J. Lucas <paul@lucasmail.org>
+2025-05-30  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan_test.c: Added missing close/cleanup.
    * c_chan.c: Hand-over-hand locking.
    * c_chan.c, c_chan.h, c_chan_test.c: Now using absolute time internally.
 
-2025-05-29  Paul J. Lucas <paul@lucasmail.org>
+2025-05-29  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, util.h: Now using pthread_once().
    * c_chan.c: s/8/16/
    * c_chan.c: Made chan_select_init() return maybe_ready.
    * c_chan.c, c_chan.h, c_chan_test.c: Added recv_buf_is_null.
 
-2025-05-28  Paul J. Lucas <paul@lucasmail.org>
+2025-05-28  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h: Big update.
    * c_chan_test.c: Now using wait_cnt array.
    * util.c: Eliminated "me"; now using PACKAGE.
 
-2025-05-18  Paul J. Lucas <paul@lucasmail.org>
+2025-05-18  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h: Eliminated unbuf.mtx[1].
 
-2025-05-17  Paul J. Lucas <paul@lucasmail.org>
+2025-05-17  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h, c_chan_test.c: Added chan_rv.
    * unit_test.c, unit_test.h: Made test_failures be _Atomic.
@@ -454,7 +459,7 @@
    * src/Makefile.am, c_chan.c, c_chan_test.c, unit_test.c, unit_test.h,
      util.c, util.h: Added util.c, unit_test.c.
 
-2025-05-16  Paul J. Lucas <paul@lucasmail.org>
+2025-05-16  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * c_chan.c, c_chan.h: Compiles.
    * util.h: Added PTHREAD_COND_SIGNAL.
