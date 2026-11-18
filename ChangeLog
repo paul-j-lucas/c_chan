@@ -1,3 +1,8 @@
+2026-11-18  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
+
+   * symbol-tidy.toml: Updated.
+   * src/Makefile.am, symbol-tidy.toml: Added symbol-tidy.toml file.
+
 2026-08-22  Paul J. Lucas <7366785+paul-j-lucas@users.noreply.github.com>
 
    * SECURITY.md: Fix URL.
