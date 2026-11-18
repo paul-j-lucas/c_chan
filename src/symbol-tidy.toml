@@ -28,7 +28,19 @@ ignore-paths = "config.h"
 root-symbols-from = "c_chan.h"
 
 [stdc_thrd_macros.h]
-ignore-symbols = "CND_TIMEDWAIT"
+ignore-symbols = [
+  "CND_TIMEDWAIT"
+]
+
+[stdc_threads.h]
+ignore-symbols = [
+  "mtx_timed",
+  "thrd_busy"
+]
 
 [util.h]
-ignore-symbols = "EPUTS"
+ignore-symbols = [
+  "EPUTS"
+]
+
+# vim:se et sw=2 ts=2:
