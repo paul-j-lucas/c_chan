@@ -1,5 +1,5 @@
 # gnulib-common.m4
-# serial 122
+# serial 127
 dnl Copyright (C) 2007-2026 Free Software Foundation, Inc.
 dnl This file is free software; the Free Software Foundation
 dnl gives unlimited permission to copy and/or distribute it,
@@ -112,6 +112,7 @@ AC_DEFUN([gl_COMMON_BODY], [
 /* The following lines list the first GCC version that supports the attribute.
    Although the lines are not used in GCC 5 and later (as GCC 5 introduced
    __has_attribute support), list GCC versions 5+ anyway for completeness.  */
+#  define _GL_ATTR_access _GL_GNUC_PREREQ (10, 1)
 #  define _GL_ATTR_alloc_size _GL_GNUC_PREREQ (4, 3)
 #  define _GL_ATTR_always_inline _GL_GNUC_PREREQ (3, 2)
 #  define _GL_ATTR_artificial _GL_GNUC_PREREQ (4, 3)
@@ -355,6 +356,59 @@ AC_DEFUN([gl_COMMON_BODY], [
        - In C, before the 'extern' keyword.
        - In C++, between the 'extern "C"' and the variable's type.
  */
+
+/* _GL_ATTRIBUTE_ACCESS_READ_ONLY ((N, S)) declares that the Nth argument of
+   the function is used to read the referenced object but not to write to it.
+   _GL_ATTRIBUTE_ACCESS_WRITE_ONLY ((N, S)) declares that the Nth argument of
+   the function is used to write the referenced object but not to read from it.
+   _GL_ATTRIBUTE_ACCESS_READ_WRITE ((N, S)) declares that the Nth argument of
+   the function is used to both read from and write to the referenced object.
+   _GL_ATTRIBUTE_ACCESS_NONE ((N, S)) declares that the Nth argument of the
+   function is not used to access the referenced object at all.
+
+   Each of the _GL_ATTRIBUTE_ACCESS_* macros accepts an optional size index S,
+   which specifies the position of the argument indicating the maximum size of
+   the access, in elements.  The size of each element is determined by the type
+   of the Nth argument, or is 1 if that argument is a void pointer.  The memory
+   pointed to by the sized object is not required to be initialized.  These
+   macros specify how the object being pointed to can be accessed, not that the
+   access will happen.  They also do not imply whether or not the pointer is or
+   can be NULL.  This information can be specified by combining the
+   _GL_ATTRIBUTE_ACCESS_* macros with _GL_ATTRIBUTE_NONNULL or
+   _GL_ATTRIBUTE_NONNULL_IF_NONZERO.
+ */
+/* Applies to: functions.  */
+/* Clang does not support these attributes.  */
+#ifndef _GL_ATTRIBUTE_ACCESS_READ_ONLY
+# define _GL_ATTRIBUTE_ACCESS_READ_ONLY(args) \
+    _GL_ATTRIBUTE_ACCESS_READ_ONLY_AUX args
+# define _GL_ATTRIBUTE_ACCESS_WRITE_ONLY(args) \
+    _GL_ATTRIBUTE_ACCESS_WRITE_ONLY_AUX args
+# define _GL_ATTRIBUTE_ACCESS_READ_WRITE(args) \
+    _GL_ATTRIBUTE_ACCESS_READ_WRITE_AUX args
+# define _GL_ATTRIBUTE_ACCESS_NONE(args) \
+    _GL_ATTRIBUTE_ACCESS_NONE_AUX args
+# if _GL_HAS_ATTRIBUTE (access) && ! defined __clang__
+#  define _GL_ATTRIBUTE_ACCESS_READ_ONLY_AUX(...) \
+     __attribute__ ((__access__ (__read_only__, __VA_ARGS__)))
+#  define _GL_ATTRIBUTE_ACCESS_WRITE_ONLY_AUX(...) \
+     __attribute__ ((__access__ (__write_only__, __VA_ARGS__)))
+#  define _GL_ATTRIBUTE_ACCESS_READ_WRITE_AUX(...) \
+     __attribute__ ((__access__ (__read_write__, __VA_ARGS__)))
+#  if _GL_GNUC_PREREQ (11, 1)
+#   define _GL_ATTRIBUTE_ACCESS_NONE_AUX(...) \
+      __attribute__ ((__access__ (__none__, __VA_ARGS__)))
+#  else
+#   define _GL_ATTRIBUTE_ACCESS_NONE_AUX(...)
+#  endif
+# else
+#  define _GL_ATTRIBUTE_ACCESS_READ_ONLY_AUX(...)
+#  define _GL_ATTRIBUTE_ACCESS_WRITE_ONLY_AUX(...)
+#  define _GL_ATTRIBUTE_ACCESS_READ_WRITE_AUX(...)
+#  define _GL_ATTRIBUTE_ACCESS_NONE_AUX(...)
+# endif
+#endif
+
 ]dnl There is no _GL_ATTRIBUTE_ALIGNED; use stdalign's alignas instead.
 [
 /* _GL_ATTRIBUTE_ALLOC_SIZE ((N)) declares that the Nth argument of the function
@@ -442,9 +496,8 @@ AC_DEFUN([gl_COMMON_BODY], [
 #ifndef _GL_ATTRIBUTE_COUNTED_BY
 /* This attributes is supported
      - for fields of array type: by gcc >= 16, clang >= 18,
-     - for fields of pointer type: by gcc when <https://gcc.gnu.org/PR125072>
-       will be fixed, clang >= 19.  */
-# if defined __clang__ && __clang_major__ >= 19
+     - for fields of pointer type: by gcc >= 16.2, clang >= 19.  */
+# if _GL_GNUC_PREREQ (16, 2) || (defined __clang__ && __clang_major__ >= 19)
 #  define _GL_ATTRIBUTE_COUNTED_BY(c) __attribute__ ((__counted_by__ (c)))
 # else
 #  define _GL_ATTRIBUTE_COUNTED_BY(c)
@@ -912,7 +965,7 @@ AC_DEFUN([gl_COMMON_BODY], [
    -Wthread-safety is enabled.  For usage, see
    <https://clang.llvm.org/docs/ThreadSafetyAnalysis.html>.  */
 #ifndef _GL_ATTRIBUTE_CAPABILITY_TYPE
-# if __clang_major__ >= 15
+# if defined __clang__ && __clang_major__ >= 15
 #  define _GL_ATTRIBUTE_CAPABILITY_TYPE(concept) \
      __attribute__ ((__capability__ (concept)))
 # else
@@ -920,7 +973,7 @@ AC_DEFUN([gl_COMMON_BODY], [
 # endif
 #endif
 #ifndef _GL_ATTRIBUTE_ACQUIRE_CAPABILITY
-# if __clang_major__ >= 15
+# if defined __clang__ && __clang_major__ >= 15
 #  define _GL_ATTRIBUTE_ACQUIRE_CAPABILITY(resource) \
      __attribute__ ((__acquire_capability__ (resource)))
 # else
@@ -928,11 +981,36 @@ AC_DEFUN([gl_COMMON_BODY], [
 # endif
 #endif
 #ifndef _GL_ATTRIBUTE_RELEASE_CAPABILITY
-# if __clang_major__ >= 15
+# if defined __clang__ && __clang_major__ >= 15
 #  define _GL_ATTRIBUTE_RELEASE_CAPABILITY(resource) \
      __attribute__ ((__release_capability__ (resource)))
 # else
 #  define _GL_ATTRIBUTE_RELEASE_CAPABILITY(resource)
+# endif
+#endif
+])
+  AH_VERBATIM([sanitizer_features],
+[/* Sanitizer features.  */
+#ifdef __has_feature
+# if !defined __SANITIZE_ADDRESS__ && __has_feature (address_sanitizer)
+#  define __SANITIZE_ADDRESS__ 1
+# endif
+# if !defined __SANITIZE_HWADDRESS__ && __has_feature (hwaddress_sanitizer)
+#  define __SANITIZE_HWADDRESS__ 1
+# endif
+# if !defined __SANITIZE_LEAK__ && __has_feature (leak_sanitizer)
+#  define __SANITIZE_LEAK__ 1
+# endif
+# if !defined __SANITIZE_THREAD__ && __has_feature (thread_sanitizer)
+#  define __SANITIZE_THREAD__ 1
+# endif
+  /* Although the following sanitizers are in Clang not GCC,
+     define GCC-like macro names for consistency and convenience.  */
+# if !defined __SANITIZE_MEMORY__ && __has_feature (memory_sanitizer)
+#  define __SANITIZE_MEMORY__ 1
+# endif
+# if !defined __SANITIZE_SCUDO__ && __has_feature (scudo_sanitizer)
+#  define __SANITIZE_SCUDO__ 1
 # endif
 #endif
 ])
@@ -1473,7 +1551,7 @@ AC_DEFUN([gl_CC_GNULIB_WARNINGS],
       #if (__GNUC__ + (__GNUC_MINOR__ >= 8) > 4 && !defined __clang__) || (__clang_major__ + (__clang_minor__ >= 9) > 3)
       -Wno-pedantic
       #endif
-      #if 3 < __clang_major__ + (9 <= __clang_minor__)
+      #if defined __clang__ && 3 < __clang_major__ + (9 <= __clang_minor__)
       -Wno-string-plus-int
       -Wno-tautological-constant-out-of-range-compare
       #endif
